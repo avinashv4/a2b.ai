@@ -254,7 +254,6 @@ export default function DashboardPage() {
 
                         {/* FlowingMenu Section */}
             <div className="mt-16 mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Alternative View - FlowingMenu</h2>
               <div className="bg-gray-900 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
                 <FlowingMenu items={flowingMenuItems} />
               </div>
