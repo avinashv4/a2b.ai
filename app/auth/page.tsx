@@ -137,13 +137,6 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* Privacy Notice */}
-        <div className="text-center mt-6">
-          <p className="text-sm text-gray-500">
-            This information will be used for travel booking purposes if you decide to proceed further.
-          </p>
-        </div>
-
         {/* Back to Home */}
         <div className="text-center mt-6">
           <Link href="/" className="text-gray-500 hover:text-gray-700 transition-colors">
