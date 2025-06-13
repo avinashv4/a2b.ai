@@ -176,8 +176,8 @@ export default function AIPreferencesPage() {
                   onClick={handleVoiceToggle}
                   className={`transition-all duration-300 ease-in-out ${
                     isRecording 
-                      ? 'w-16 h-16 rounded-full bg-red-600 hover:bg-red-700' 
-                      : 'px-8 py-4 rounded-full bg-blue-600 hover:bg-blue-700'
+                      ? 'w-16 h-16 rounded-full bg-black hover:bg-black' 
+                      : 'px-8 py-4 rounded-full bg-black hover:black'
                   } text-white font-semibold shadow-lg hover:scale-105`}
                 >
                   {isRecording ? (
