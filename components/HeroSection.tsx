@@ -38,7 +38,7 @@ export default function HeroSection() {
           className="bg-white rounded-3xl card-shadow overflow-hidden mb-32 opacity-0 translate-y-8 transition-all duration-700 ease-out"
         >
           {/* Hero Image with Overlay Text */}
-          <div className="relative h-[500px] md:h-[950px]">
+          <div className="relative h-[500px] md:h-[900px]">
             <Image
               src="/bg.png"
               alt="Travel Planning Background"
