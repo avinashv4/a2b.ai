@@ -49,7 +49,7 @@
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/a2b.ai.git
+git clone https://github.com/avinashv4/a2b.ai.git
 
 # Navigate into the project
 cd a2b.ai
