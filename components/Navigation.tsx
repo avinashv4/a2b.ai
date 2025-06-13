@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { User, Plane } from 'lucide-react';
+import { Plane } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Navigation() {
@@ -32,9 +32,6 @@ export default function Navigation() {
 
           {/* Right Side Actions */}
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" className="rounded-full p-2 border border-gray-300">
-              <User className="w-5 h-5" />
-            </Button>
             <Link href="/auth">
               <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-semibold transition-all duration-200 hover:scale-105">
                 Start Planning

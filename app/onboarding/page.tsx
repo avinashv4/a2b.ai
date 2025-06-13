@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plane, ArrowRight, Check, ChevronDown } from 'lucide-react';
+import { Plane, ArrowRight, Check, ChevronDown, User } from 'lucide-react';
 
 interface OnboardingStep {
   id: string;
   question: string;
   placeholder?: string;
-  type: 'text' | 'date' | 'tel' | 'select' | 'address';
+  type: 'text' | 'date' | 'tel' | 'select' | 'address' | 'image';
   options?: { value: string; label: string; flag: string }[];
   fields?: { id: string; placeholder: string; required: boolean }[];
 }
@@ -36,6 +36,7 @@ const onboardingSteps: OnboardingStep[] = [
   { id: 'firstName', question: 'What\'s your first name?', placeholder: 'Enter your first name', type: 'text' },
   { id: 'middleName', question: 'What\'s your middle name?', placeholder: 'Enter your middle name (optional)', type: 'text' },
   { id: 'lastName', question: 'What\'s your last name?', placeholder: 'Enter your last name', type: 'text' },
+  { id: 'profilePicture', question: 'Add a profile picture', type: 'image' },
   { id: 'dateOfBirth', question: 'When were you born?', placeholder: 'DD/MM/YYYY', type: 'date' },
   { 
     id: 'mobileNumber', 
@@ -66,6 +67,8 @@ export default function OnboardingPage() {
   const [selectedCountryCode, setSelectedCountryCode] = useState('+1');
   const [isVisible, setIsVisible] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const currentStepData = onboardingSteps[currentStep];
   const isLastStep = currentStep === onboardingSteps.length - 1;
@@ -89,6 +92,58 @@ export default function OnboardingPage() {
     setShowDropdown(false);
     return () => clearTimeout(timer);
   }, [currentStep, currentStepData?.id, answers]);
+
+  const handleImageUpload = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Make it square by using the smaller dimension
+        const size = Math.min(img.width, img.height);
+        canvas.width = 300;
+        canvas.height = 300;
+        
+        // Calculate crop position to center the image
+        const cropX = (img.width - size) / 2;
+        const cropY = (img.height - size) / 2;
+        
+        ctx?.drawImage(img, cropX, cropY, size, size, 0, 0, 300, 300);
+        
+        const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setProfileImage(croppedDataUrl);
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleImageUpload(files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
 
   const validateDate = (dateStr: string): boolean => {
     if (dateStr.length !== 10) return false;
@@ -120,6 +175,10 @@ export default function OnboardingPage() {
         newAnswers[key] = value;
       });
       setAnswers(newAnswers);
+    } else if (currentStepData.type === 'image') {
+      if (profileImage) {
+        setAnswers(prev => ({ ...prev, [currentStepData.id]: profileImage }));
+      }
     } else if (currentStepData.type === 'date') {
       if (!validateDate(currentAnswer)) return;
       setAnswers(prev => ({ ...prev, [currentStepData.id]: currentAnswer }));
@@ -185,6 +244,67 @@ export default function OnboardingPage() {
   };
 
   const renderInput = () => {
+    if (currentStepData.type === 'image') {
+      return (
+        <div className="space-y-6">
+          {/* Profile Picture Preview */}
+          <div className="flex justify-center">
+            <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100 border-4 border-gray-200">
+              {profileImage ? (
+                <img 
+                  src={profileImage} 
+                  alt="Profile preview" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <User className="w-12 h-12 text-gray-400" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Upload Area */}
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+              isDragging 
+                ? 'border-blue-500 bg-blue-50' 
+                : 'border-gray-300 hover:border-gray-400'
+            }`}
+          >
+            <div className="space-y-4">
+              <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto flex items-center justify-center">
+                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-gray-600 font-medium">Drop your photo here or</p>
+                <label className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer">
+                  browse files
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <p className="text-sm text-gray-500">
+                JPG, PNG or GIF (max 10MB)
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (currentStepData.type === 'address') {
       return (
         <div className="space-y-4">
@@ -268,6 +388,10 @@ export default function OnboardingPage() {
   };
 
   const canProceed = () => {
+    if (currentStepData.type === 'image') {
+      return profileImage !== null;
+    }
+    
     if (currentStepData.type === 'address') {
       const requiredFields = currentStepData.fields?.filter(field => field.required) || [];
       return requiredFields.every(field => addressFields[field.id]?.trim());
