@@ -38,20 +38,21 @@ export default function HeroSection() {
           className="bg-white rounded-3xl card-shadow overflow-hidden mb-32 opacity-0 translate-y-8 transition-all duration-700 ease-out"
         >
           {/* Hero Image with Overlay Text */}
-          <div className="relative h-[500px] md:h-[970px]">
+          <div className="relative h-[500px] md:h-[600px]">
             <Image
               src="/bg.png"
               alt="Travel Planning Background"
               fill
-              className="object-cover"
+              className="object-cover object-center"
               priority
+              quality={95}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
             
             {/* Hero Text Overlay */}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center px-4">
-                <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-8">
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-8">
                   <span style={{ color: '#f8ff6c' }}>Trips made social,</span>
                   <br />
                   <span style={{ color: '#f8ff6c' }}>plans made easy.</span>
