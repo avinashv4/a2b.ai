@@ -184,7 +184,7 @@ export default function DashboardPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8 pt-32">
         <div className="mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Hey Avinash!</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Hey Avinash! Where to next?</h1>
           <p className="text-xl text-gray-600">Start planning your next trip!</p>
         </div>
 
