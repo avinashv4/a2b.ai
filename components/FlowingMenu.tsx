@@ -116,9 +116,11 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], ad
           </h3>
           
           {/* Member Avatars */}
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 transition-all duration-300 ${
+            isHovered ? 'opacity-0 transform scale-95' : 'opacity-100 transform scale-100'
+          }`}>
             <div className="flex -space-x-2">
-              {members.slice(0, 4).map((member, index) => (
+              {members.slice(0, 3).map((member, index) => (
                 <div
                   key={index}
                   className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gray-200"
@@ -132,9 +134,9 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], ad
                 </div>
               ))}
             </div>
-            {additionalMembers > 0 && (
+            {(additionalMembers > 0 || members.length > 3) && (
               <span className="text-[#f8ff6c] hover:text-[#1d4ed8] font-medium ml-2 text-sm transition-colors duration-300">
-                +{additionalMembers} others
+                +{members.length > 3 ? additionalMembers + (members.length - 3) : additionalMembers} others
               </span>
             )}
           </div>
