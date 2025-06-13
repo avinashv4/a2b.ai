@@ -151,7 +151,7 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto px-6 py-8 pt-24">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Hey Avinash!</h1>
-          <p className="text-xl text-gray-600 mb-8">Your collaborative travel planning journey starts here.</p>
+          <p className="text-xl text-gray-600 mb-8">Start planning your next trip!</p>
           
           {/* Placeholder Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
