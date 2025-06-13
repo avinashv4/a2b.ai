@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plane, Users, MapPin, Calendar, Settings, Bell, User, ChevronDown } from 'lucide-react';
+import { Plane, Users, MapPin, Calendar, Settings, Bell, User, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
@@ -43,6 +43,40 @@ export default function DashboardPage() {
       message: "Flight prices dropped for your London trip",
       time: "3 hours ago",
       unread: false
+    }
+  ];
+
+  // Sample travel plans
+  const travelPlans = [
+    {
+      id: 1,
+      destination: "Paris",
+      members: [
+        { name: "You", avatar: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
+        { name: "Sarah", avatar: "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
+        { name: "Mike", avatar: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" }
+      ],
+      additionalMembers: 4
+    },
+    {
+      id: 2,
+      destination: "Tokyo",
+      members: [
+        { name: "You", avatar: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
+        { name: "Emma", avatar: "https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" }
+      ],
+      additionalMembers: 2
+    },
+    {
+      id: 3,
+      destination: "Bali",
+      members: [
+        { name: "You", avatar: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
+        { name: "Alex", avatar: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
+        { name: "Lisa", avatar: "https://images.pexels.com/photos/1036623/pexels-photo-1036623.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
+        { name: "Tom", avatar: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" }
+      ],
+      additionalMembers: 1
     }
   ];
 
@@ -114,7 +148,7 @@ export default function DashboardPage() {
                   className="flex items-center space-x-2 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-semibold">U</span>
+                    <span className="text-white text-sm font-semibold">A</span>
                   </div>
                   <ChevronDown className="w-4 h-4" />
                 </button>
@@ -148,30 +182,71 @@ export default function DashboardPage() {
       </nav>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8 pt-24">
-        <div className="text-center">
+      <div className="max-w-7xl mx-auto px-6 py-8 pt-32">
+        <div className="mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Hey Avinash!</h1>
-          <p className="text-xl text-gray-600 mb-8">Start planning your next trip!</p>
+          <p className="text-xl text-gray-600">Start planning your next trip!</p>
+        </div>
+
+        {/* Travel Plans */}
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-gray-900">Your Travel Plans</h2>
           
-          {/* Placeholder Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
-              <Users className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">My Trips</h3>
-              <p className="text-gray-600">Manage your collaborative trips</p>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
-              <MapPin className="w-12 h-12 text-green-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Destinations</h3>
-              <p className="text-gray-600">Explore amazing places</p>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
-              <Calendar className="w-12 h-12 text-purple-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Itineraries</h3>
-              <p className="text-gray-600">Plan your perfect schedule</p>
-            </div>
+          {/* Travel Plan Cards */}
+          <div className="space-y-4">
+            {travelPlans.map((plan) => (
+              <div key={plan.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  {/* Left Side - Destination and Members */}
+                  <div className="flex-1">
+                    <h3 className="text-3xl font-bold text-gray-900 mb-4">{plan.destination}</h3>
+                    
+                    {/* Member Avatars */}
+                    <div className="flex items-center space-x-2">
+                      <div className="flex -space-x-2">
+                        {plan.members.map((member, index) => (
+                          <div
+                            key={index}
+                            className="w-10 h-10 rounded-full border-2 border-white overflow-hidden bg-gray-200"
+                            style={{ zIndex: plan.members.length - index }}
+                          >
+                            <img
+                              src={member.avatar}
+                              alt={member.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      {plan.additionalMembers > 0 && (
+                        <span className="text-gray-600 font-medium ml-2">
+                          +{plan.additionalMembers} others
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Side - Go Button */}
+                  <div className="flex items-center">
+                    <button className="w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-105">
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Create New Travel Plan Card */}
+            <Link href="/create-trip">
+              <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl p-6 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 cursor-pointer">
+                <div className="flex items-center justify-center space-x-4">
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                    <Plus className="w-6 h-6 text-white" />
+                  </div>
+                  <span className="text-xl font-semibold text-gray-700">Create New Travel Plan</span>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
       </div>
