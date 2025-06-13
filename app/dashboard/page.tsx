@@ -99,7 +99,7 @@ export default function DashboardPage() {
   }));
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Floating Navigation */}
       <nav className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-6xl px-4">
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl nav-shadow px-6 py-4">

@@ -24,6 +24,7 @@ interface Message {
 export default function AIPreferencesPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -77,7 +78,11 @@ export default function AIPreferencesPage() {
   };
 
   const handleChatToggle = () => {
-    setShowChat(!showChat);
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setShowChat(!showChat);
+      setIsTransitioning(false);
+    }, 300);
   };
 
   const handleSendMessage = () => {
@@ -157,8 +162,10 @@ export default function AIPreferencesPage() {
             <p className="text-xl text-gray-600">Tell our AI what you're looking for in this Paris trip</p>
           </div>
 
-          {/* Audio Visualizer */}
-          <div className="relative mb-8">
+          {/* Audio Visualizer - Fade out when showing chat */}
+          <div className={`relative mb-8 transition-all duration-300 ease-in-out ${
+            showChat || isTransitioning ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
+          }`}>
             <div className="w-80 h-80 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center relative overflow-hidden">
               {/* Audio Visualizer Placeholder */}
               <Image
@@ -193,6 +200,59 @@ export default function AIPreferencesPage() {
             </div>
           </div>
 
+          {/* Chat Interface - Fade in when chat is active */}
+          <div className={`w-full max-w-2xl mb-8 transition-all duration-300 ease-in-out ${
+            showChat && !isTransitioning ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+          }`}>
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg h-[500px] flex flex-col">
+              {/* Chat Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 className="text-xl font-semibold text-gray-900">Chat with AI Assistant</h3>
+              </div>
+
+              {/* Chat Messages */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+                        message.isUser
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-900'
+                      }`}
+                    >
+                      <p className="text-sm">{message.text}</p>
+                    </div>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Chat Input */}
+              <div className="p-6 border-t border-gray-200">
+                <div className="flex space-x-3">
+                  <Input
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type your message..."
+                    className="flex-1 h-12 rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!newMessage.trim()}
+                    className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Chat Toggle Button */}
           <Button
             onClick={handleChatToggle}
@@ -200,7 +260,7 @@ export default function AIPreferencesPage() {
             className="mb-8 px-6 py-3 rounded-xl border-gray-300 hover:bg-gray-50 transition-all duration-200"
           >
             <MessageCircle className="w-5 h-5 mr-2" />
-            Prefer to chat instead?
+            {showChat ? 'Talk to AI instead' : 'Chat with AI instead'}
           </Button>
 
           {/* Confirm Preferences Button */}
@@ -225,7 +285,7 @@ export default function AIPreferencesPage() {
         </div>
 
         {/* Right Sidebar - User Status */}
-        <div className="w-80 bg-gray-50 p-6 border-l border-gray-200">
+        <div className="w-80 bg-white p-6 border-l border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Trip Members</h3>
           
           <div className="space-y-4">
@@ -259,7 +319,6 @@ export default function AIPreferencesPage() {
 
           {/* View Itinerary Buttons */}
           <div className="mt-8 space-y-3">
-            {/* Clickable Version */}
             <Button
               disabled={!allUsersReady}
               className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 ${
@@ -270,79 +329,9 @@ export default function AIPreferencesPage() {
             >
               View Travel Itinerary
             </Button>
-            
-            {/* Non-clickable Version (for comparison) */}
-            <div className="relative">
-              <Button
-                disabled
-                className="w-full py-3 rounded-xl font-semibold bg-gray-300 text-gray-500 cursor-not-allowed"
-              >
-                View Travel Itinerary
-              </Button>
-              <span className="absolute -top-6 left-0 text-xs text-gray-400">Non-clickable version</span>
-            </div>
           </div>
         </div>
       </div>
-
-      {/* Chat Modal */}
-      {showChat && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl w-full max-w-2xl h-[600px] flex flex-col shadow-2xl">
-            {/* Chat Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">Chat with AI Assistant</h3>
-              <button
-                onClick={handleChatToggle}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
-                      message.isUser
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-900'
-                    }`}
-                  >
-                    <p className="text-sm">{message.text}</p>
-                  </div>
-                </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Chat Input */}
-            <div className="p-6 border-t border-gray-200">
-              <div className="flex space-x-3">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your message..."
-                  className="flex-1 h-12 rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
-                  className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Send className="w-5 h-5" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
