@@ -252,6 +252,14 @@ export default function DashboardPage() {
               </div>
             ))}
 
+                        {/* FlowingMenu Section */}
+            <div className="mt-16 mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Alternative View - FlowingMenu</h2>
+              <div className="bg-gray-900 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
+                <FlowingMenu items={flowingMenuItems} />
+              </div>
+            </div>
+            
             {/* Create New Travel Plan Card */}
             <Link href="/create-trip">
               <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl p-6 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 cursor-pointer">
@@ -263,14 +271,6 @@ export default function DashboardPage() {
                 </div>
               </div>
             </Link>
-          </div>
-        </div>
-
-        {/* FlowingMenu Section */}
-        <div className="mt-16 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Alternative View - FlowingMenu</h2>
-          <div className="bg-gray-900 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
-            <FlowingMenu items={flowingMenuItems} />
           </div>
         </div>
       </div>
