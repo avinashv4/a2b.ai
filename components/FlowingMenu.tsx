@@ -1,10 +1,13 @@
 import React from "react";
 import { gsap } from "gsap";
+import { ChevronRight } from "lucide-react";
 
 interface MenuItemProps {
   link: string;
   text: string;
   image: string;
+  members?: { name: string; avatar: string }[];
+  additionalMembers?: number;
 }
 
 interface FlowingMenuProps {
@@ -23,10 +26,11 @@ const FlowingMenu: React.FC<FlowingMenuProps> = ({ items = [] }) => {
   );
 };
 
-const MenuItem: React.FC<MenuItemProps> = ({ link, text, image }) => {
+const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], additionalMembers = 0 }) => {
   const itemRef = React.useRef<HTMLDivElement>(null);
   const marqueeRef = React.useRef<HTMLDivElement>(null);
   const marqueeInnerRef = React.useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = React.useState(false);
 
   const animationDefaults = { duration: 0.6, ease: "expo" };
 
@@ -43,6 +47,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image }) => {
   };
 
   const handleMouseEnter = (ev: React.MouseEvent<HTMLAnchorElement>) => {
+    setIsHovered(true);
     if (!itemRef.current || !marqueeRef.current || !marqueeInnerRef.current)
       return;
     const rect = itemRef.current.getBoundingClientRect();
@@ -60,6 +65,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image }) => {
   };
 
   const handleMouseLeave = (ev: React.MouseEvent<HTMLAnchorElement>) => {
+    setIsHovered(false);
     if (!itemRef.current || !marqueeRef.current || !marqueeInnerRef.current)
       return;
     const rect = itemRef.current.getBoundingClientRect();
@@ -98,12 +104,55 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image }) => {
       ref={itemRef}
     >
       <a
-        className="flex items-center justify-center h-full relative cursor-pointer uppercase no-underline font-semibold text-[#f8ff6c] text-[4vh] bg-[#1d4ed8] hover:bg-[#f8ff6c] hover:text-[#1d4ed8] transition-colors duration-300"
+        className="flex items-center h-full relative cursor-pointer no-underline bg-[#1d4ed8] hover:bg-[#f8ff6c] transition-colors duration-300 px-8"
         href={link}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {text}
+        {/* Left Side - Destination and Members */}
+        <div className="flex-1 text-left">
+          <h3 className="text-[#f8ff6c] hover:text-[#1d4ed8] text-[4vh] font-bold uppercase mb-2 transition-colors duration-300">
+            {text}
+          </h3>
+          
+          {/* Member Avatars */}
+          <div className="flex items-center space-x-2">
+            <div className="flex -space-x-2">
+              {members.slice(0, 4).map((member, index) => (
+                <div
+                  key={index}
+                  className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gray-200"
+                  style={{ zIndex: members.length - index }}
+                >
+                  <img
+                    src={member.avatar}
+                    alt={member.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+            {additionalMembers > 0 && (
+              <span className="text-[#f8ff6c] hover:text-[#1d4ed8] font-medium ml-2 text-sm transition-colors duration-300">
+                +{additionalMembers} others
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Right Side - Go Button */}
+        <div className="flex items-center">
+          <div 
+            className="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300"
+            style={{ 
+              backgroundColor: '#f8ff6c',
+              opacity: isHovered ? 0 : 1,
+              transform: isHovered ? 'scale(0.8)' : 'scale(1)'
+            }}
+          >
+            <ChevronRight className="w-6 h-6" style={{ color: '#1d4ed8' }} />
+          </div>
+        </div>
       </a>
       <div
         className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none bg-white translate-y-[101%]"

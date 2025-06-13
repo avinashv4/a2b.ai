@@ -85,6 +85,8 @@ export default function DashboardPage() {
   const flowingMenuItems = travelPlans.map(plan => ({
     link: '#',
     text: plan.destination,
+    members: plan.members,
+    additionalMembers: plan.additionalMembers,
     image: `https://images.pexels.com/photos/${
       plan.destination === 'Paris' ? '338515' : 
       plan.destination === 'Tokyo' ? '2506923' : 
@@ -208,57 +210,14 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-gray-900">Your Travel Plans</h2>
           
-          {/* Travel Plan Cards */}
-          <div className="space-y-4">
-            {travelPlans.map((plan) => (
-              <div key={plan.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
-                  {/* Left Side - Destination and Members */}
-                  <div className="flex-1">
-                    <h3 className="text-3xl font-bold text-gray-900 mb-4">{plan.destination}</h3>
-                    
-                    {/* Member Avatars */}
-                    <div className="flex items-center space-x-2">
-                      <div className="flex -space-x-2">
-                        {plan.members.map((member, index) => (
-                          <div
-                            key={index}
-                            className="w-10 h-10 rounded-full border-2 border-white overflow-hidden bg-gray-200"
-                            style={{ zIndex: plan.members.length - index }}
-                          >
-                            <img
-                              src={member.avatar}
-                              alt={member.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      {plan.additionalMembers > 0 && (
-                        <span className="text-gray-600 font-medium ml-2">
-                          +{plan.additionalMembers} others
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right Side - Go Button */}
-                  <div className="flex items-center">
-                    <button className="w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-105">
-                      <ChevronRight className="w-6 h-6" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-                        {/* FlowingMenu Section */}
-            <div className="mt-16 mb-8">
+          {/* FlowingMenu Section */}
+          <div className="mb-8">
               <div className="bg-gray-900 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
                 <FlowingMenu items={flowingMenuItems} />
               </div>
             </div>
             
+          <div className="space-y-4">
             {/* Create New Travel Plan Card */}
             <Link href="/create-trip">
               <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl p-6 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 cursor-pointer">
