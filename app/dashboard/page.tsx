@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Plane, Users, MapPin, Calendar, Settings, Bell, User, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';
+import FlowingMenu from '@/components/FlowingMenu';
 
 export default function DashboardPage() {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -79,6 +80,21 @@ export default function DashboardPage() {
       additionalMembers: 1
     }
   ];
+
+  // FlowingMenu items based on travel plans
+  const flowingMenuItems = travelPlans.map(plan => ({
+    link: '#',
+    text: plan.destination,
+    image: `https://images.pexels.com/photos/${
+      plan.destination === 'Paris' ? '338515' : 
+      plan.destination === 'Tokyo' ? '2506923' : 
+      '1320684'
+    }/pexels-photo-${
+      plan.destination === 'Paris' ? '338515' : 
+      plan.destination === 'Tokyo' ? '2506923' : 
+      '1320684'
+    }.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`
+  }));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -247,6 +263,14 @@ export default function DashboardPage() {
                 </div>
               </div>
             </Link>
+          </div>
+        </div>
+
+        {/* FlowingMenu Section */}
+        <div className="mt-16 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Alternative View - FlowingMenu</h2>
+          <div className="bg-gray-900 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
+            <FlowingMenu items={flowingMenuItems} />
           </div>
         </div>
       </div>
