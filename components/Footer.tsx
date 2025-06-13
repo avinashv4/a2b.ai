@@ -1,8 +1,17 @@
-import { Plane, Mail, MapPin, Phone } from 'lucide-react';
+'use client';
+
+import { Plane, Mail, MapPin, Phone, ArrowUp } from 'lucide-react';
 
 export default function Footer() {
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
   return (
-    <footer className="bg-gray-900 text-white py-16">
+    <footer className="bg-gray-900 text-white py-16 relative">
       <div className="max-w-6xl mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Section */}
@@ -80,6 +89,15 @@ export default function Footer() {
           </div>
         </div>
       </div>
+
+      {/* Back to Top Button */}
+      <button
+        onClick={scrollToTop}
+        className="absolute bottom-8 right-8 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-110 shadow-lg"
+        aria-label="Back to top"
+      >
+        <ArrowUp className="w-6 h-6" />
+      </button>
     </footer>
   );
 }

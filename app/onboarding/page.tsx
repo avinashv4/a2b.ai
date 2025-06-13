@@ -8,9 +8,10 @@ import { Plane, ArrowRight, Check, ChevronDown } from 'lucide-react';
 interface OnboardingStep {
   id: string;
   question: string;
-  placeholder: string;
-  type: 'text' | 'date' | 'tel' | 'select';
+  placeholder?: string;
+  type: 'text' | 'date' | 'tel' | 'select' | 'address';
   options?: { value: string; label: string; flag: string }[];
+  fields?: { id: string; placeholder: string; required: boolean }[];
 }
 
 const countryCodes = [
@@ -36,65 +37,108 @@ const onboardingSteps: OnboardingStep[] = [
   { id: 'middleName', question: 'What\'s your middle name?', placeholder: 'Enter your middle name (optional)', type: 'text' },
   { id: 'lastName', question: 'What\'s your last name?', placeholder: 'Enter your last name', type: 'text' },
   { id: 'dateOfBirth', question: 'When were you born?', placeholder: 'DD/MM/YYYY', type: 'date' },
-  { id: 'countryCode', question: 'Select your country code', placeholder: 'Choose your country', type: 'select', options: countryCodes },
-  { id: 'mobileNumber', question: 'What\'s your mobile number?', placeholder: 'Enter your mobile number', type: 'tel' },
-  { id: 'addressLine1', question: 'What\'s your address line 1?', placeholder: 'Enter your street address', type: 'text' },
-  { id: 'addressLine2', question: 'What\'s your address line 2?', placeholder: 'Apartment, suite, etc. (optional)', type: 'text' },
-  { id: 'city', question: 'What city do you live in?', placeholder: 'Enter your city', type: 'text' },
-  { id: 'state', question: 'What state/province do you live in?', placeholder: 'Enter your state or province', type: 'text' },
-  { id: 'country', question: 'What country do you live in?', placeholder: 'Enter your country', type: 'text' },
-  { id: 'postCode', question: 'What\'s your postal code?', placeholder: 'Enter your postal/ZIP code', type: 'text' },
+  { 
+    id: 'mobileNumber', 
+    question: 'What\'s your mobile number?', 
+    placeholder: 'Enter your mobile number', 
+    type: 'tel' 
+  },
+  { 
+    id: 'address', 
+    question: 'What\'s your address?', 
+    type: 'address',
+    fields: [
+      { id: 'addressLine1', placeholder: 'Street address', required: true },
+      { id: 'addressLine2', placeholder: 'Apartment, suite, etc. (optional)', required: false },
+      { id: 'city', placeholder: 'City', required: true },
+      { id: 'state', placeholder: 'State/Province', required: true },
+      { id: 'country', placeholder: 'Country', required: true },
+      { id: 'postCode', placeholder: 'Postal/ZIP code', required: true },
+    ]
+  },
 ];
 
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentAnswer, setCurrentAnswer] = useState('');
+  const [addressFields, setAddressFields] = useState<Record<string, string>>({});
+  const [selectedCountryCode, setSelectedCountryCode] = useState('+1');
   const [isVisible, setIsVisible] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
   const currentStepData = onboardingSteps[currentStep];
   const isLastStep = currentStep === onboardingSteps.length - 1;
-  const selectedCountryCode = answers['countryCode'] || '+1';
 
   useEffect(() => {
-    // Initial fade in
     const timer = setTimeout(() => {
       setIsVisible(true);
     }, 100);
 
-    setCurrentAnswer(answers[currentStepData?.id] || '');
+    if (currentStepData.type === 'address') {
+      // Load saved address fields
+      const savedAddress: Record<string, string> = {};
+      currentStepData.fields?.forEach(field => {
+        savedAddress[field.id] = answers[field.id] || '';
+      });
+      setAddressFields(savedAddress);
+    } else {
+      setCurrentAnswer(answers[currentStepData?.id] || '');
+    }
+    
     setShowDropdown(false);
     return () => clearTimeout(timer);
   }, [currentStep, currentStepData?.id, answers]);
 
-  const handleNext = () => {
-    if (!currentAnswer.trim() && !['middleName', 'addressLine2'].includes(currentStepData.id)) return;
+  const validateDate = (dateStr: string): boolean => {
+    if (dateStr.length !== 10) return false;
+    
+    const [day, month, year] = dateStr.split('/').map(Number);
+    if (!day || !month || !year) return false;
+    
+    const inputDate = new Date(year, month - 1, day);
+    const today = new Date();
+    
+    // Check if date is valid and in the past
+    return inputDate.getTime() < today.getTime() && 
+           inputDate.getFullYear() === year &&
+           inputDate.getMonth() === month - 1 &&
+           inputDate.getDate() === day;
+  };
 
-    // Save current answer
-    setAnswers(prev => ({
-      ...prev,
-      [currentStepData.id]: currentAnswer
-    }));
+  const handleNext = () => {
+    if (currentStepData.type === 'address') {
+      // Validate required address fields
+      const requiredFields = currentStepData.fields?.filter(field => field.required) || [];
+      const hasAllRequired = requiredFields.every(field => addressFields[field.id]?.trim());
+      
+      if (!hasAllRequired) return;
+      
+      // Save all address fields
+      const newAnswers = { ...answers };
+      Object.entries(addressFields).forEach(([key, value]) => {
+        newAnswers[key] = value;
+      });
+      setAnswers(newAnswers);
+    } else if (currentStepData.type === 'date') {
+      if (!validateDate(currentAnswer)) return;
+      setAnswers(prev => ({ ...prev, [currentStepData.id]: currentAnswer }));
+    } else {
+      if (!currentAnswer.trim() && currentStepData.id !== 'middleName') return;
+      setAnswers(prev => ({ ...prev, [currentStepData.id]: currentAnswer }));
+    }
 
     if (isLastStep) {
-      // Complete onboarding and redirect to dashboard
       setTimeout(() => {
         window.location.href = '/dashboard';
       }, 500);
       return;
     }
 
-    // Start transition
-    setIsTransitioning(true);
+    // Transition to next step
     setIsVisible(false);
-    
-    // After fade out, move to next step
     setTimeout(() => {
       setCurrentStep(prev => prev + 1);
-      setIsTransitioning(false);
-      // Fade in new question
       setTimeout(() => {
         setIsVisible(true);
       }, 50);
@@ -102,16 +146,14 @@ export default function OnboardingPage() {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && currentStepData.type !== 'select') {
+    if (e.key === 'Enter' && currentStepData.type !== 'address') {
       handleNext();
     }
   };
 
   const formatDateInput = (value: string) => {
-    // Remove all non-digits
     const digits = value.replace(/\D/g, '');
     
-    // Format as DD/MM/YYYY
     if (digits.length <= 2) {
       return digits;
     } else if (digits.length <= 4) {
@@ -122,72 +164,89 @@ export default function OnboardingPage() {
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (currentStepData.type === 'date') {
-      const formatted = formatDateInput(e.target.value);
-      setCurrentAnswer(formatted);
-    } else {
-      setCurrentAnswer(e.target.value);
-    }
+    const formatted = formatDateInput(e.target.value);
+    setCurrentAnswer(formatted);
   };
 
   const handleCountrySelect = (countryCode: string) => {
-    setCurrentAnswer(countryCode);
+    setSelectedCountryCode(countryCode);
     setShowDropdown(false);
   };
 
   const getSelectedCountry = () => {
-    return countryCodes.find(country => country.value === currentAnswer) || countryCodes[0];
+    return countryCodes.find(country => country.value === selectedCountryCode) || countryCodes[0];
+  };
+
+  const handleAddressFieldChange = (fieldId: string, value: string) => {
+    setAddressFields(prev => ({
+      ...prev,
+      [fieldId]: value
+    }));
   };
 
   const renderInput = () => {
-    if (currentStepData.type === 'select') {
-      const selectedCountry = getSelectedCountry();
+    if (currentStepData.type === 'address') {
       return (
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setShowDropdown(!showDropdown)}
-            className="w-full h-16 text-lg rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-center bg-white flex items-center justify-center space-x-3 hover:bg-gray-50 transition-colors"
-          >
-            <span className="text-2xl">{selectedCountry.flag}</span>
-            <span>{selectedCountry.value}</span>
-            <span className="text-gray-600">{selectedCountry.label}</span>
-            <ChevronDown className="w-5 h-5 text-gray-400" />
-          </button>
-          
-          {showDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto z-10">
-              {countryCodes.map((country) => (
-                <button
-                  key={`${country.value}-${country.label}`}
-                  type="button"
-                  onClick={() => handleCountrySelect(country.value)}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
-                >
-                  <span className="text-xl">{country.flag}</span>
-                  <span className="font-medium">{country.value}</span>
-                  <span className="text-gray-600">{country.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="space-y-4">
+          {currentStepData.fields?.map((field, index) => (
+            <Input
+              key={field.id}
+              type="text"
+              placeholder={field.placeholder}
+              value={addressFields[field.id] || ''}
+              onChange={(e) => handleAddressFieldChange(field.id, e.target.value)}
+              className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+              autoFocus={index === 0}
+            />
+          ))}
         </div>
       );
     }
 
     if (currentStepData.type === 'tel') {
+      const selectedCountry = getSelectedCountry();
+      
       return (
-        <div className="flex space-x-3">
-          <div className="flex items-center bg-gray-50 rounded-xl px-4 border border-gray-300">
-            <span className="text-lg font-medium text-gray-700">{selectedCountryCode}</span>
+        <div className="space-y-4">
+          {/* Country Code Selector */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="w-full h-14 text-lg rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white flex items-center justify-center space-x-3 hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-xl">{selectedCountry.flag}</span>
+              <span className="font-medium">{selectedCountry.value}</span>
+              <span className="text-gray-600">{selectedCountry.label}</span>
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            </button>
+            
+            {showDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto z-10">
+                {countryCodes.map((country) => (
+                  <button
+                    key={`${country.value}-${country.label}`}
+                    type="button"
+                    onClick={() => handleCountrySelect(country.value)}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
+                  >
+                    <span className="text-lg">{country.flag}</span>
+                    <span className="font-medium">{country.value}</span>
+                    <span className="text-gray-600">{country.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+          
+          {/* Phone Number Input */}
           <Input
             type="tel"
             placeholder={currentStepData.placeholder}
             value={currentAnswer}
             onChange={(e) => setCurrentAnswer(e.target.value)}
             onKeyPress={handleKeyPress}
-            className="flex-1 h-16 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-center"
+            className="h-16 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-center"
             autoFocus
           />
         </div>
@@ -206,6 +265,19 @@ export default function OnboardingPage() {
         maxLength={currentStepData.type === 'date' ? 10 : undefined}
       />
     );
+  };
+
+  const canProceed = () => {
+    if (currentStepData.type === 'address') {
+      const requiredFields = currentStepData.fields?.filter(field => field.required) || [];
+      return requiredFields.every(field => addressFields[field.id]?.trim());
+    }
+    
+    if (currentStepData.type === 'date') {
+      return validateDate(currentAnswer);
+    }
+    
+    return currentAnswer.trim() || currentStepData.id === 'middleName';
   };
 
   return (
@@ -252,8 +324,8 @@ export default function OnboardingPage() {
               <div className="flex justify-center">
                 <Button
                   onClick={handleNext}
-                  disabled={!currentAnswer.trim() && !['middleName', 'addressLine2'].includes(currentStepData?.id)}
-                  className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105"
+                  disabled={!canProceed()}
+                  className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLastStep ? (
                     <>

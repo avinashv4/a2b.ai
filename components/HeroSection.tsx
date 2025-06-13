@@ -1,13 +1,42 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export default function HeroSection() {
+  const heroRef = useRef<HTMLDivElement>(null);
+  const featureRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('animate-fade-in-up');
+        }
+      });
+    }, observerOptions);
+
+    if (heroRef.current) observer.observe(heroRef.current);
+    if (featureRef.current) observer.observe(featureRef.current);
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section className="min-h-screen bg-white flex items-center justify-center px-4 pt-24">
       <div className="w-full mx-auto">
         {/* Hero Card */}
-        <div className="bg-white rounded-3xl card-shadow overflow-hidden mb-32">
+        <div 
+          ref={heroRef}
+          className="bg-white rounded-3xl card-shadow overflow-hidden mb-32 opacity-0 translate-y-8 transition-all duration-700 ease-out"
+        >
           {/* Hero Image with Overlay Text */}
           <div className="relative h-[500px] md:h-[970px]">
             <Image
@@ -29,8 +58,8 @@ export default function HeroSection() {
                 </h1>
                 <Link href="/auth">
                   <Button 
-                    className="text-white font-semibold px-8 py-4 text-lg rounded-full transition-all duration-200 hover:scale-105"
-                    style={{ backgroundColor: '#f8ff6c', color: 'black' }}
+                    className="text-black font-semibold px-8 py-4 text-lg rounded-full transition-all duration-200 hover:scale-105"
+                    style={{ backgroundColor: '#f8ff6c' }}
                   >
                     Start Planning
                   </Button>
@@ -40,8 +69,11 @@ export default function HeroSection() {
           </div>
         </div>
         
-        {/* Feature Description - Not in card, center aligned */}
-        <div className="max-w-6xl mx-auto text-center mb-32">
+        {/* Feature Description */}
+        <div 
+          ref={featureRef}
+          className="max-w-6xl mx-auto text-center mb-48 opacity-0 translate-y-8 transition-all duration-700 ease-out"
+        >
           <div className="mb-12">
             <h3 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-6">
               Collaborative Planning Made Simple
