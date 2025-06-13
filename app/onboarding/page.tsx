@@ -335,7 +335,7 @@ export default function OnboardingPage() {
               onClick={() => setShowDropdown(!showDropdown)}
               className="w-full h-14 text-lg rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white flex items-center justify-center space-x-3 hover:bg-gray-50 transition-colors"
             >
-              <span className="text-xl">{selectedCountry.flag}</span>
+              <span className="text-xl" style={{ fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif' }}>{selectedCountry.flag}</span>
               <span className="font-medium">{selectedCountry.value}</span>
               <span className="text-gray-600">{selectedCountry.label}</span>
               <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -350,7 +350,7 @@ export default function OnboardingPage() {
                     onClick={() => handleCountrySelect(country.value)}
                     className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
                   >
-                    <span className="text-lg">{country.flag}</span>
+                    <span className="text-lg" style={{ fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif' }}>{country.flag}</span>
                     <span className="font-medium">{country.value}</span>
                     <span className="text-gray-600">{country.label}</span>
                   </button>
