@@ -48,7 +48,7 @@ export default function CreateTripPage() {
     } else {
       // Complete trip creation
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        window.location.href = '/ai-preferences';
       }, 500);
     }
   };

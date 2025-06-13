@@ -83,7 +83,7 @@ export default function DashboardPage() {
 
   // FlowingMenu items based on travel plans
   const flowingMenuItems = travelPlans.map(plan => ({
-    link: '#',
+    link: '/ai-preferences',
     text: plan.destination,
     members: plan.members,
     additionalMembers: plan.additionalMembers,
