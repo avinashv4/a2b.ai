@@ -24,7 +24,10 @@ import {
   Edit2,
   Car,
   Train,
-  Navigation2
+  Navigation2,
+  RefreshCw,
+  X,
+  Menu
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,7 +63,6 @@ interface Flight {
   duration: string;
   price: string;
   stops: string;
-  rating: number;
 }
 
 interface Hotel {
@@ -76,7 +78,7 @@ export default function TravelPlanPage() {
   const [mounted, setMounted] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
-  const [expandedDays, setExpandedDays] = useState<string[]>(['day1']);
+  const [expandedDays, setExpandedDays] = useState<string[]>(['15']);
   const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [showItineraryDays, setShowItineraryDays] = useState(true);
@@ -85,8 +87,22 @@ export default function TravelPlanPage() {
   const [tripName, setTripName] = useState('Paris Adventure');
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempTripName, setTempTripName] = useState(tripName);
+  const [regenerateVotes, setRegenerateVotes] = useState(2);
+  const [showMobileMap, setShowMobileMap] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Set mounted to true after component mounts
   useEffect(() => {
@@ -108,6 +124,14 @@ export default function TravelPlanPage() {
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  };
+
+  const toggleDayExpansion = (dayId: string) => {
+    setExpandedDays(prev => 
+      prev.includes(dayId) 
+        ? prev.filter(id => id !== dayId)
+        : [...prev, dayId]
+    );
   };
 
   const handleVote = (placeId: string, voteType: 'accept' | 'deny') => {
@@ -144,6 +168,10 @@ export default function TravelPlanPage() {
     setIsEditingName(false);
   };
 
+  const handleRegenerateItinerary = () => {
+    setRegenerateVotes(prev => prev + 1);
+  };
+
   // Sample data
   const tripMembers = [
     { name: 'You', avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
@@ -160,8 +188,7 @@ export default function TravelPlanPage() {
       arrival: '2:45 PM',
       duration: '8h 15m',
       price: '$650',
-      stops: 'Direct',
-      rating: 4.5
+      stops: 'Direct'
     },
     {
       id: '2',
@@ -170,8 +197,7 @@ export default function TravelPlanPage() {
       arrival: '12:30 PM',
       duration: '9h 15m',
       price: '$580',
-      stops: '1 stop',
-      rating: 4.2
+      stops: '1 stop'
     },
     {
       id: '3',
@@ -180,8 +206,7 @@ export default function TravelPlanPage() {
       arrival: '9:35 PM',
       duration: '9h 15m',
       price: '$720',
-      stops: 'Direct',
-      rating: 4.3
+      stops: 'Direct'
     }
   ];
 
@@ -221,7 +246,7 @@ export default function TravelPlanPage() {
         {
           id: 'p1',
           name: 'Eiffel Tower',
-          description: 'Iconic iron lattice tower and symbol of Paris',
+          description: 'Iconic iron lattice tower and symbol of Paris. Standing at 330 meters tall, this architectural marvel offers breathtaking views of the city and is a must-visit landmark for any Paris trip.',
           image: 'https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
           duration: '2 hours',
           votes: { accept: 3, deny: 1, userVote: null }
@@ -229,7 +254,7 @@ export default function TravelPlanPage() {
         {
           id: 'p2',
           name: 'Seine River Cruise',
-          description: 'Scenic boat ride along the historic Seine River',
+          description: 'Scenic boat ride along the historic Seine River. Experience Paris from a unique perspective as you glide past famous landmarks including Notre-Dame, the Louvre, and charming riverside cafes.',
           image: 'https://images.pexels.com/photos/1530259/pexels-photo-1530259.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
           duration: '1.5 hours',
           walkTime: '15 min',
@@ -240,7 +265,7 @@ export default function TravelPlanPage() {
         {
           id: 'p3',
           name: 'Louvre Museum',
-          description: 'World\'s largest art museum and historic monument',
+          description: 'World\'s largest art museum and historic monument. Home to thousands of works including the Mona Lisa and Venus de Milo, this former royal palace is a treasure trove of art and history.',
           image: 'https://images.pexels.com/photos/2675266/pexels-photo-2675266.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
           duration: '3 hours',
           walkTime: '8 min',
@@ -258,7 +283,7 @@ export default function TravelPlanPage() {
         {
           id: 'p4',
           name: 'Notre-Dame Cathedral',
-          description: 'Medieval Catholic cathedral and architectural masterpiece',
+          description: 'Medieval Catholic cathedral and architectural masterpiece. This Gothic cathedral, immortalized in Victor Hugo\'s novel, showcases stunning flying buttresses and intricate stone carvings.',
           image: 'https://images.pexels.com/photos/1850619/pexels-photo-1850619.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
           duration: '1.5 hours',
           votes: { accept: 4, deny: 0, userVote: null }
@@ -266,7 +291,7 @@ export default function TravelPlanPage() {
         {
           id: 'p5',
           name: 'Sainte-Chapelle',
-          description: 'Gothic chapel famous for its stunning stained glass',
+          description: 'Gothic chapel famous for its stunning stained glass windows. Built in the 13th century, this royal chapel features some of the most beautiful medieval stained glass in the world.',
           image: 'https://images.pexels.com/photos/2901209/pexels-photo-2901209.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
           duration: '1 hour',
           walkTime: '5 min',
@@ -277,7 +302,7 @@ export default function TravelPlanPage() {
         {
           id: 'p6',
           name: 'Latin Quarter',
-          description: 'Historic area known for its student life and bistros',
+          description: 'Historic area known for its student life and bistros. Wander through narrow medieval streets, browse bookshops, and enjoy authentic French cuisine in this vibrant neighborhood.',
           image: 'https://images.pexels.com/photos/1461974/pexels-photo-1461974.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
           duration: '2 hours',
           walkTime: '12 min',
@@ -295,7 +320,7 @@ export default function TravelPlanPage() {
         {
           id: 'p7',
           name: 'Montmartre & Sacré-Cœur',
-          description: 'Artistic district with stunning basilica views',
+          description: 'Artistic district with stunning basilica views. Explore the bohemian neighborhood where Picasso and Renoir once lived, and visit the beautiful white-domed basilica overlooking Paris.',
           image: 'https://images.pexels.com/photos/1308940/pexels-photo-1308940.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
           duration: '3 hours',
           votes: { accept: 4, deny: 0, userVote: null }
@@ -303,7 +328,7 @@ export default function TravelPlanPage() {
         {
           id: 'p8',
           name: 'Moulin Rouge',
-          description: 'Famous cabaret and birthplace of the can-can dance',
+          description: 'Famous cabaret and birthplace of the can-can dance. Experience the glamour and excitement of this legendary venue that has been entertaining audiences since 1889.',
           image: 'https://images.pexels.com/photos/2901209/pexels-photo-2901209.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
           duration: '2 hours',
           walkTime: '8 min',
@@ -321,9 +346,16 @@ export default function TravelPlanPage() {
 
   const travelSections = [
     { id: 'overview', label: 'Trip Overview', icon: MapPin },
+    { id: 'flights', label: 'Suggested Flights', icon: Plane },
+    { id: 'hotels', label: 'Suggested Hotels', icon: Hotel },
+    { id: 'itinerary', label: 'Itinerary', icon: Calendar, hasCollapse: true },
+  ];
+
+  const mobileNavItems = [
+    { id: 'overview', label: 'Overview', icon: MapPin },
     { id: 'flights', label: 'Flights', icon: Plane },
     { id: 'hotels', label: 'Hotels', icon: Hotel },
-    { id: 'itinerary', label: 'Itinerary', icon: Calendar, hasCollapse: true },
+    { id: 'itinerary', label: 'Itinerary', icon: Calendar },
   ];
 
   const getTravelModeIcon = (mode: string) => {
@@ -419,10 +451,257 @@ export default function TravelPlanPage() {
     );
   }
 
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-white">
+        {/* Mobile Header */}
+        <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
+                <Plane className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold text-gray-900">a2b.ai</span>
+            </div>
+            <Button
+              onClick={() => setShowMobileMap(!showMobileMap)}
+              variant="outline"
+              size="sm"
+              className="px-3 py-2"
+            >
+              <MapPin className="w-4 h-4 mr-2" />
+              {showMobileMap ? 'Close Map' : 'View Map'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile Map Overlay */}
+        {showMobileMap && (
+          <div className="fixed inset-0 bg-white z-50 pt-16">
+            <div className="h-full bg-gray-100 flex items-center justify-center">
+              <div className="text-center">
+                <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">Interactive Map</h3>
+                <p className="text-gray-500">Map integration will be added here</p>
+                <Button
+                  onClick={() => setShowMobileMap(false)}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Close Map
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Content */}
+        <div className="pt-20 pb-20 px-4">
+          {/* Trip Overview */}
+          <div ref={(el) => sectionRefs.current['overview'] = el} className="mb-8">
+            <div className="space-y-6">
+              {/* Trip Image */}
+              <div className="w-full h-48 rounded-2xl overflow-hidden bg-gray-200">
+                <img
+                  src="https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=800&h=400&fit=crop"
+                  alt="Paris"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Trip Header */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">{tripName}</h1>
+                <p className="text-lg text-gray-600 mb-4">June 15-17, 2024 • 3 Days</p>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-blue-600">$2,450</p>
+                  <p className="text-sm text-gray-600">estimated budget per person</p>
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="space-y-4">
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 text-center">
+                  <Plane className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Flight</h3>
+                  <p className="text-sm text-gray-600">Air France • Direct</p>
+                </div>
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 text-center">
+                  <Hotel className="w-6 h-6 text-green-600 mx-auto mb-2" />
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Hotel</h3>
+                  <p className="text-sm text-gray-600">Hotel Le Marais</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Flights Section */}
+          <div ref={(el) => sectionRefs.current['flights'] = el} className="mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Flight Options (Round Trip)</h2>
+            <div className="space-y-4">
+              {flights.map((flight) => (
+                <div key={flight.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">{flight.airline}</h3>
+                      <p className="text-lg font-bold text-blue-600">{flight.price}</p>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <p>{flight.departure} → {flight.arrival}</p>
+                      <p>{flight.duration} • {flight.stops}</p>
+                    </div>
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                      Select Flight
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Hotels Section */}
+          <div ref={(el) => sectionRefs.current['hotels'] = el} className="mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Hotel Options</h2>
+            <div className="space-y-4">
+              {hotels.map((hotel) => (
+                <div key={hotel.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
+                  <div className="space-y-3">
+                    <div className="w-full h-32 rounded-xl overflow-hidden bg-gray-200">
+                      <img
+                        src={hotel.image}
+                        alt={hotel.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">{hotel.name}</h3>
+                      <p className="text-lg font-bold text-green-600">{hotel.price}</p>
+                    </div>
+                    {renderStarRating(hotel.rating)}
+                    <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+                      Select Hotel
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Itinerary Section */}
+          <div ref={(el) => sectionRefs.current['itinerary'] = el} className="mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Daily Itinerary</h2>
+            
+            {itinerary.map((day) => (
+              <div key={day.date} className="mb-6">
+                <Button
+                  onClick={() => toggleDayExpansion(day.date)}
+                  variant="outline"
+                  className="w-full flex items-center justify-between p-4 mb-4"
+                >
+                  <span className="text-lg font-semibold">{day.month} - {day.day} {day.date}</span>
+                  {expandedDays.includes(day.date) ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </Button>
+                
+                {expandedDays.includes(day.date) && (
+                  <div className="space-y-4">
+                    {day.places.map((place, index) => (
+                      <div key={place.id}>
+                        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
+                          <div className="space-y-3">
+                            <div className="w-full h-32 rounded-xl overflow-hidden bg-gray-200">
+                              <img
+                                src={place.image}
+                                alt={place.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-lg font-semibold text-gray-900">{place.name}</h4>
+                              <div className="flex space-x-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleVote(place.id, 'accept')}
+                                  className={`w-8 h-8 rounded-full p-0 ${
+                                    place.votes?.userVote === 'accept'
+                                      ? 'bg-green-600 text-white'
+                                      : 'bg-green-100 text-green-600'
+                                  }`}
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleVote(place.id, 'deny')}
+                                  className={`w-8 h-8 rounded-full p-0 ${
+                                    place.votes?.userVote === 'deny'
+                                      ? 'bg-red-600 text-white'
+                                      : 'bg-red-100 text-red-600'
+                                  }`}
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-600">{place.description}</p>
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <div className="flex items-center space-x-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{place.duration}</span>
+                              </div>
+                              {place.votes && (
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-green-600">👍 {place.votes.accept}</span>
+                                  <span className="text-red-600">👎 {place.votes.deny}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Travel Connection */}
+                        {index < day.places.length - 1 && place.walkTime && (
+                          <div className="flex items-center justify-center py-2">
+                            <div className="flex items-center space-x-2 bg-gray-50 px-4 py-2 rounded-full text-xs text-gray-600">
+                              {getTravelModeIcon(place.travelMode || 'walk')}
+                              <span>{place.walkTime}</span>
+                              <span>•</span>
+                              <span>{place.distance}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
+          <div className="flex items-center justify-around py-2">
+            {mobileNavItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => scrollToSection(item.id)}
+                className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-colors ${
+                  activeSection === item.id ? 'text-blue-600 bg-blue-50' : 'text-gray-600'
+                }`}
+              >
+                <item.icon className="w-5 h-5" />
+                <span className="text-xs font-medium">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white flex">
-      {/* Collapsible Sidebar */}
-      <div className={`${sidebarCollapsed ? 'w-20' : 'w-72'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col`}>
+      {/* Fixed Sidebar */}
+      <div className={`${sidebarCollapsed ? 'w-20' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col fixed h-full z-30`}>
         {/* Sidebar Header */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -504,7 +783,7 @@ export default function TravelPlanPage() {
 
                   {/* Itinerary Days */}
                   {item.id === 'itinerary' && showItineraryDays && !sidebarCollapsed && (
-                    <div className="ml-4 mt-2 space-y-1">
+                    <div className="ml-4 mt-2 space-y-1 transition-all duration-300 ease-in-out">
                       {itinerary.map((day) => (
                         <button
                           key={day.date}
@@ -512,8 +791,8 @@ export default function TravelPlanPage() {
                           className="w-full flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-600"
                         >
                           <div className="flex flex-col items-center text-xs">
-                            <span className="font-medium text-[10px]">{day.day}</span>
-                            <span className="font-bold text-sm">{day.date}</span>
+                            <span className="font-medium text-[9px]">{day.day}</span>
+                            <span className="font-bold text-xs">{day.date}</span>
                           </div>
                           <span className="text-sm">{day.month}</span>
                         </button>
@@ -524,8 +803,8 @@ export default function TravelPlanPage() {
               ))}
             </div>
 
-            {/* Divider */}
-            <div className="border-t border-gray-200"></div>
+            {/* Divider before Itinerary Days (when collapsed) */}
+            {sidebarCollapsed && <div className="border-t border-gray-200"></div>}
 
             {/* Itinerary Days (when collapsed) */}
             {sidebarCollapsed && (
@@ -538,13 +817,34 @@ export default function TravelPlanPage() {
                     onMouseEnter={(e) => handleMouseEnter(`day-${day.date}`, e)}
                     onMouseLeave={handleMouseLeave}
                   >
-                    <span className="text-[10px] font-medium">{day.day}</span>
-                    <span className="text-sm font-bold">{day.date}</span>
+                    <span className="text-[9px] font-medium">{day.day}</span>
+                    <span className="text-xs font-bold">{day.date}</span>
                   </button>
                 ))}
               </div>
             )}
           </div>
+        </div>
+
+        {/* Regenerate Itinerary Button */}
+        <div className="p-4 border-t border-gray-200">
+          <Button
+            onClick={handleRegenerateItinerary}
+            variant="outline"
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors hover:bg-gray-100 ${
+              sidebarCollapsed ? 'justify-center' : ''
+            }`}
+            onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('regenerate', e)}
+            onMouseLeave={handleMouseLeave}
+          >
+            <RefreshCw className="w-5 h-5 text-gray-600" />
+            {!sidebarCollapsed && (
+              <div className="flex items-center justify-between w-full">
+                <span className="font-medium text-gray-700">Regenerate Itinerary</span>
+                <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">{regenerateVotes}</span>
+              </div>
+            )}
+          </Button>
         </div>
 
         {/* Trip Settings */}
@@ -587,7 +887,7 @@ export default function TravelPlanPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex">
+      <div className={`flex-1 flex ${sidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
         {/* Content Section (60%) */}
         <div className="w-3/5 overflow-y-auto">
           {/* Trip Overview */}
@@ -611,7 +911,7 @@ export default function TravelPlanPage() {
                         <Input
                           value={tempTripName}
                           onChange={(e) => setTempTripName(e.target.value)}
-                          className="text-4xl font-bold border-none p-0 h-auto focus:ring-0"
+                          className="text-3xl font-bold border-none p-0 h-auto focus:ring-0"
                           onKeyPress={(e) => e.key === 'Enter' && saveTripName()}
                           autoFocus
                         />
@@ -624,7 +924,7 @@ export default function TravelPlanPage() {
                       </div>
                     ) : (
                       <>
-                        <h1 className="text-4xl font-bold text-gray-900">{tripName}</h1>
+                        <h1 className="text-3xl font-bold text-gray-900">{tripName}</h1>
                         <Button
                           onClick={handleEditTripName}
                           variant="ghost"
@@ -637,16 +937,16 @@ export default function TravelPlanPage() {
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-600">$2,450</p>
-                    <p className="text-gray-600">estimated budget per person</p>
+                    <p className="text-xl font-bold text-blue-600">$2,450</p>
+                    <p className="text-sm text-gray-600">estimated budget per person</p>
                   </div>
                 </div>
                 
-                <p className="text-xl text-gray-600 mb-6">June 15-17, 2024 • 3 Days</p>
+                <p className="text-lg text-gray-600 mb-6">June 15-17, 2024 • 3 Days</p>
                 
                 {/* Trip Members */}
                 <div className="flex items-center space-x-4">
-                  <span className="text-gray-700 font-medium">Travelers:</span>
+                  <span className="text-sm text-gray-700 font-medium">Travelers:</span>
                   <div className="flex -space-x-2">
                     {tripMembers.map((member, index) => (
                       <div
@@ -662,7 +962,7 @@ export default function TravelPlanPage() {
                       </div>
                     ))}
                   </div>
-                  <span className="text-gray-600">{tripMembers.length} travelers</span>
+                  <span className="text-sm text-gray-600">{tripMembers.length} travelers</span>
                 </div>
               </div>
 
@@ -670,21 +970,21 @@ export default function TravelPlanPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
                   <Plane className="w-8 h-8 text-blue-600 mx-auto mb-3" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Flight</h3>
-                  <p className="text-gray-600">Air France • Direct</p>
-                  <p className="text-sm text-gray-500">8h 15m</p>
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">Suggested Flight</h3>
+                  <p className="text-sm text-gray-600">Air France • Direct</p>
+                  <p className="text-xs text-gray-500">8h 15m</p>
                 </div>
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
                   <Hotel className="w-8 h-8 text-green-600 mx-auto mb-3" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Hotel</h3>
-                  <p className="text-gray-600">Hotel Le Marais</p>
-                  <p className="text-sm text-gray-500">4.8★ • $180/night</p>
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">Suggested Hotel</h3>
+                  <p className="text-sm text-gray-600">Hotel Le Marais</p>
+                  <p className="text-xs text-gray-500">4.8★ • $180/night</p>
                 </div>
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
                   <MapPin className="w-8 h-8 text-purple-600 mx-auto mb-3" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Activities</h3>
-                  <p className="text-gray-600">8 attractions</p>
-                  <p className="text-sm text-gray-500">Museums, landmarks</p>
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">Activities</h3>
+                  <p className="text-sm text-gray-600">8 attractions</p>
+                  <p className="text-xs text-gray-500">Museums, landmarks</p>
                 </div>
               </div>
             </div>
@@ -694,7 +994,7 @@ export default function TravelPlanPage() {
           <div ref={(el) => sectionRefs.current['flights'] = el} className="p-8">
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold text-gray-900">Flight Options</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Flight Options (Round Trip)</h2>
                 <Button variant="outline" className="px-6 py-2 rounded-xl">
                   See More Flights
                 </Button>
@@ -706,13 +1006,12 @@ export default function TravelPlanPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-4 mb-3">
-                          <h3 className="text-xl font-semibold text-gray-900">{flight.airline}</h3>
-                          {renderStarRating(flight.rating)}
+                          <h3 className="text-lg font-semibold text-gray-900">{flight.airline}</h3>
                         </div>
-                        <div className="flex items-center space-x-6 text-gray-600">
+                        <div className="flex items-center space-x-6 text-sm text-gray-600">
                           <div>
                             <p className="font-medium">{flight.departure}</p>
-                            <p className="text-sm">Departure</p>
+                            <p className="text-xs">Departure</p>
                           </div>
                           <div className="flex items-center space-x-2">
                             <div className="w-8 h-px bg-gray-300"></div>
@@ -721,16 +1020,16 @@ export default function TravelPlanPage() {
                           </div>
                           <div>
                             <p className="font-medium">{flight.arrival}</p>
-                            <p className="text-sm">Arrival</p>
+                            <p className="text-xs">Arrival</p>
                           </div>
-                          <div className="text-sm">
+                          <div className="text-xs">
                             <p>{flight.duration}</p>
                             <p>{flight.stops}</p>
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-blue-600">{flight.price}</p>
+                        <p className="text-xl font-bold text-blue-600">{flight.price}</p>
                         <Button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl">
                           Select
                         </Button>
@@ -746,7 +1045,7 @@ export default function TravelPlanPage() {
           <div ref={(el) => sectionRefs.current['hotels'] = el} className="p-8">
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold text-gray-900">Hotel Options</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Hotel Options</h2>
                 <Button variant="outline" className="px-6 py-2 rounded-xl">
                   See More Hotels
                 </Button>
@@ -765,9 +1064,9 @@ export default function TravelPlanPage() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-xl font-semibold text-gray-900">{hotel.name}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">{hotel.name}</h3>
                           <div className="text-right">
-                            <p className="text-2xl font-bold text-green-600">{hotel.price}</p>
+                            <p className="text-xl font-bold text-green-600">{hotel.price}</p>
                           </div>
                         </div>
                         {renderStarRating(hotel.rating)}
@@ -775,7 +1074,7 @@ export default function TravelPlanPage() {
                           {hotel.amenities.map((amenity, index) => (
                             <span
                               key={index}
-                              className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
+                              className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
                             >
                               {amenity}
                             </span>
@@ -794,100 +1093,109 @@ export default function TravelPlanPage() {
 
           {/* Itinerary Section */}
           <div ref={(el) => sectionRefs.current['itinerary'] = el} className="p-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-8">Daily Itinerary</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-8">Daily Itinerary</h2>
             
             {itinerary.map((day) => (
               <div key={day.date} ref={(el) => sectionRefs.current[`day-${day.date}`] = el} className="mb-12">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">{day.month} - {day.day} {day.date}</h3>
+                <Button
+                  onClick={() => toggleDayExpansion(day.date)}
+                  variant="outline"
+                  className="w-full flex items-center justify-between p-4 mb-6 text-left"
+                >
+                  <span className="text-xl font-bold">{day.month} - {day.day} {day.date}</span>
+                  {expandedDays.includes(day.date) ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </Button>
                 
-                <div className="space-y-6">
-                  {day.places.map((place, index) => (
-                    <div key={place.id}>
-                      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-                        <div className="flex space-x-6">
-                          <div className="w-48 h-32 rounded-xl overflow-hidden bg-gray-200">
-                            <img
-                              src={place.image}
-                              alt={place.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-3">
-                              <h4 className="text-xl font-semibold text-gray-900">{place.name}</h4>
-                              <div className="flex space-x-2">
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleVote(place.id, 'accept')}
-                                  className={`w-8 h-8 rounded-full p-0 transition-all ${
-                                    place.votes?.userVote === 'accept'
-                                      ? 'bg-green-600 text-white'
-                                      : 'bg-green-100 hover:bg-green-200 text-green-600'
-                                  }`}
-                                  onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
-                                  onMouseLeave={handleMouseLeave}
-                                >
-                                  <Check className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleVote(place.id, 'deny')}
-                                  className={`w-8 h-8 rounded-full p-0 transition-all ${
-                                    place.votes?.userVote === 'deny'
-                                      ? 'bg-red-600 text-white'
-                                      : 'bg-red-100 hover:bg-red-200 text-red-600'
-                                  }`}
-                                  onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
-                                  onMouseLeave={handleMouseLeave}
-                                >
-                                  <RotateCcw className="w-4 h-4" />
-                                </Button>
-                              </div>
+                {expandedDays.includes(day.date) && (
+                  <div className="space-y-6">
+                    {day.places.map((place, index) => (
+                      <div key={place.id}>
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                          <div className="flex space-x-6">
+                            <div className="w-48 h-32 rounded-xl overflow-hidden bg-gray-200">
+                              <img
+                                src={place.image}
+                                alt={place.name}
+                                className="w-full h-full object-cover"
+                              />
                             </div>
-                            <p className="text-gray-600 mb-3">{place.description}</p>
-                            <div className="flex items-center space-x-4 text-sm text-gray-500">
-                              <div className="flex items-center space-x-1">
-                                <Clock className="w-4 h-4" />
-                                <span>{place.duration}</span>
-                              </div>
-                              {place.votes && (
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-green-600">👍 {place.votes.accept}</span>
-                                  <span className="text-red-600">👎 {place.votes.deny}</span>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-lg font-semibold text-gray-900">{place.name}</h4>
+                                <div className="flex space-x-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleVote(place.id, 'accept')}
+                                    className={`w-8 h-8 rounded-full p-0 transition-all ${
+                                      place.votes?.userVote === 'accept'
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-green-100 hover:bg-green-200 text-green-600'
+                                    }`}
+                                    onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
+                                    onMouseLeave={handleMouseLeave}
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleVote(place.id, 'deny')}
+                                    className={`w-8 h-8 rounded-full p-0 transition-all ${
+                                      place.votes?.userVote === 'deny'
+                                        ? 'bg-red-600 text-white'
+                                        : 'bg-red-100 hover:bg-red-200 text-red-600'
+                                    }`}
+                                    onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
+                                    onMouseLeave={handleMouseLeave}
+                                  >
+                                    <RotateCcw className="w-4 h-4" />
+                                  </Button>
                                 </div>
-                              )}
+                              </div>
+                              <p className="text-sm text-gray-600 mb-3">{place.description}</p>
+                              <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                <div className="flex items-center space-x-1">
+                                  <Clock className="w-4 h-4" />
+                                  <span>{place.duration}</span>
+                                </div>
+                                {place.votes && (
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-green-600">👍 {place.votes.accept}</span>
+                                    <span className="text-red-600">👎 {place.votes.deny}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
+                        
+                        {/* Travel Connection */}
+                        {index < day.places.length - 1 && place.walkTime && (
+                          <div className="flex items-center justify-center py-4">
+                            <div className="flex items-center space-x-3 bg-gray-50 px-6 py-3 rounded-full border border-gray-200">
+                              <div className="w-2 h-8 border-l-2 border-dashed border-gray-300"></div>
+                              <div className="flex items-center space-x-3 text-xs text-gray-600">
+                                {getTravelModeIcon(place.travelMode || 'walk')}
+                                <span className="font-medium">{place.walkTime}</span>
+                                <span>•</span>
+                                <span>{place.distance}</span>
+                                <span>•</span>
+                                <span className="capitalize">{place.travelMode || 'walk'}</span>
+                              </div>
+                              <div className="w-2 h-8 border-l-2 border-dashed border-gray-300"></div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      
-                      {/* Travel Connection */}
-                      {index < day.places.length - 1 && place.walkTime && (
-                        <div className="flex items-center justify-center py-4">
-                          <div className="flex items-center space-x-3 bg-gray-50 px-6 py-3 rounded-full border border-gray-200">
-                            <div className="w-2 h-8 border-l-2 border-dashed border-gray-300"></div>
-                            <div className="flex items-center space-x-3 text-sm text-gray-600">
-                              {getTravelModeIcon(place.travelMode || 'walk')}
-                              <span className="font-medium">{place.walkTime}</span>
-                              <span>•</span>
-                              <span>{place.distance}</span>
-                              <span>•</span>
-                              <span className="capitalize">{place.travelMode || 'walk'}</span>
-                            </div>
-                            <div className="w-2 h-8 border-l-2 border-dashed border-gray-300"></div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Map Section (40%) */}
-        <div className="w-2/5 bg-gray-100 border-l border-gray-200">
+        {/* Fixed Map Section (40%) */}
+        <div className="w-2/5 bg-gray-100 border-l border-gray-200 fixed right-0 h-full">
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
               <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -911,7 +1219,7 @@ export default function TravelPlanPage() {
           {sidebarItems.find(item => item.id === hoveredTooltip)?.label ||
            travelSections.find(item => item.id === hoveredTooltip)?.label ||
            itinerary.find(day => `day-${day.date}` === hoveredTooltip)?.month ||
-           'Trip Settings'}
+           (hoveredTooltip === 'regenerate' ? 'Regenerate Itinerary' : 'Trip Settings')}
         </div>
       )}
 
