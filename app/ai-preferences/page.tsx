@@ -327,7 +327,7 @@ export default function AIPreferencesPage() {
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
-              View Travel Itinerary
+              View Travel Plan
             </Button>
           </div>
         </div>
