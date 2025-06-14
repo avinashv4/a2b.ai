@@ -7,7 +7,7 @@ import Link from 'next/link';
 export default function Navigation() {
   return (
     <nav className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-5xl px-4">
-      <div className="bg-white/95 backdrop-blur-sm rounded-2xl nav-shadow px-8 py-5">
+      <div className="bg-yellow/95 backdrop-blur-sm rounded-2xl nav-shadow px-8 py-5">
         <div className="flex items-center justify-between">
           {/* Logo and Brand */}
           <div className="flex items-center space-x-3">
