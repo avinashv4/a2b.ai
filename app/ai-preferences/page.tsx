@@ -162,8 +162,8 @@ export default function AIPreferencesPage() {
             <p className="text-xl text-gray-600">Tell our AI what you're looking for in this Paris trip</p>
           </div>
 
-          {/* Main Interface Container - Fixed positioning */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
+          {/* Main Interface Container */}
+          <div className="flex flex-col items-center justify-center space-y-8">
             {/* Audio Visualizer - Fade out when showing chat */}
             <div className={`relative transition-all duration-300 ease-in-out ${
               showChat || isTransitioning ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
@@ -203,9 +203,9 @@ export default function AIPreferencesPage() {
             </div>
 
             {/* Chat Interface - Fade in when chat is active */}
-            <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out absolute ${
+            <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out ${
               showChat && !isTransitioning ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-            }`}>
+            } ${showChat ? '' : 'absolute'}`}>
               <div className="bg-white rounded-3xl border border-gray-200 shadow-lg h-[500px] flex flex-col">
                 {/* Chat Header */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -256,7 +256,9 @@ export default function AIPreferencesPage() {
             </div>
 
             {/* Bottom Controls */}
-            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex flex-col items-center space-y-4">
+            <div className={`flex flex-col items-center transition-all duration-300 ${
+              showChat ? 'space-y-4' : 'space-y-6'
+            }`}>
               {/* Chat Toggle Button */}
               <Button
                 onClick={handleChatToggle}
@@ -326,7 +328,11 @@ export default function AIPreferencesPage() {
           {/* View Itinerary Buttons */}
           <div className="mt-8 space-y-3">
             <Button
-              onClick={() => window.location.href = '/travel-plan'}
+              onClick={() => {
+                if (allUsersReady) {
+                  window.location.href = '/travel-plan';
+                }
+              }}
               disabled={!allUsersReady}
               className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 ${
                 allUsersReady 
