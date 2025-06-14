@@ -55,7 +55,7 @@ export default function AIPreferencesPage() {
       id: '3',
       name: 'Mike',
       avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-      completed: false
+      completed: true
     },
     {
       id: '4',
