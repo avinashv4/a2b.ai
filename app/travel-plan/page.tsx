@@ -346,8 +346,8 @@ export default function TravelPlanPage() {
 
   const travelSections = [
     { id: 'overview', label: 'Trip Overview', icon: MapPin },
-    { id: 'flights', label: 'Suggested Flights', icon: Plane },
-    { id: 'hotels', label: 'Suggested Hotels', icon: Hotel },
+    { id: 'flights', label: 'Flights', icon: Plane },
+    { id: 'hotels', label: 'Hotels', icon: Hotel },
     { id: 'itinerary', label: 'Itinerary', icon: Calendar, hasCollapse: true },
   ];
 
