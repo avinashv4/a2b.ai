@@ -156,132 +156,138 @@ export default function AIPreferencesPage() {
 
       <div className="flex h-screen pt-24">
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col items-center justify-center px-8">
+        <div className="flex-1 flex flex-col items-center justify-center px-8 relative">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Share Your Travel Preferences</h1>
             <p className="text-xl text-gray-600">Tell our AI what you're looking for in this Paris trip</p>
           </div>
 
-          {/* Audio Visualizer - Fade out when showing chat */}
-          <div className={`relative mb-8 transition-all duration-300 ease-in-out ${
-            showChat || isTransitioning ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
-          }`}>
-            <div className="w-80 h-80 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center relative overflow-hidden">
-              {/* Audio Visualizer Placeholder */}
-              <Image
-                src="/image.png"
-                alt="Audio Visualizer"
-                width={320}
-                height={320}
-                className="rounded-full object-cover"
-                priority
-              />
-              
-              {/* Voice Control Button */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Button
-                  onClick={handleVoiceToggle}
-                  className={`transition-all duration-300 ease-in-out ${
-                    isRecording 
-                      ? 'w-16 h-16 rounded-full bg-black hover:bg-black' 
-                      : 'px-8 py-4 rounded-full bg-black hover:black'
-                  } text-white font-semibold shadow-lg hover:scale-105`}
-                >
-                  {isRecording ? (
-                    <Phone className="w-6 h-6" />
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <Mic className="w-5 h-5" />
-                      <span>Talk to AI</span>
-                    </div>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Chat Interface - Fade in when chat is active */}
-          <div className={`w-full max-w-2xl mb-8 transition-all duration-300 ease-in-out ${
-            showChat && !isTransitioning ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-          }`}>
-            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg h-[500px] flex flex-col">
-              {/* Chat Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-900">Chat with AI Assistant</h3>
-              </div>
-
-              {/* Chat Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
-                        message.isUser
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
-                    >
-                      <p className="text-sm">{message.text}</p>
-                    </div>
-                  </div>
-                ))}
-                <div ref={chatEndRef} />
-              </div>
-
-              {/* Chat Input */}
-              <div className="p-6 border-t border-gray-200">
-                <div className="flex space-x-3">
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type your message..."
-                    className="flex-1 h-12 rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                  />
+          {/* Main Interface Container - Fixed positioning */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            {/* Audio Visualizer - Fade out when showing chat */}
+            <div className={`relative transition-all duration-300 ease-in-out ${
+              showChat || isTransitioning ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
+            }`}>
+              <div className="w-80 h-80 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center relative overflow-hidden">
+                {/* Audio Visualizer Placeholder */}
+                <Image
+                  src="/image.png"
+                  alt="Audio Visualizer"
+                  width={320}
+                  height={320}
+                  className="rounded-full object-cover"
+                  priority
+                />
+                
+                {/* Voice Control Button */}
+                <div className="absolute inset-0 flex items-center justify-center">
                   <Button
-                    onClick={handleSendMessage}
-                    disabled={!newMessage.trim()}
-                    className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleVoiceToggle}
+                    className={`transition-all duration-300 ease-in-out ${
+                      isRecording 
+                        ? 'w-16 h-16 rounded-full bg-black hover:bg-black' 
+                        : 'px-8 py-4 rounded-full bg-black hover:bg-black'
+                    } text-white font-semibold shadow-lg hover:scale-105`}
                   >
-                    <Send className="w-5 h-5" />
+                    {isRecording ? (
+                      <Phone className="w-6 h-6" />
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <Mic className="w-5 h-5" />
+                        <span>Talk to AI</span>
+                      </div>
+                    )}
                   </Button>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Chat Toggle Button */}
-          <Button
-            onClick={handleChatToggle}
-            variant="outline"
-            className="mb-8 px-6 py-3 rounded-xl border-gray-300 hover:bg-gray-50 transition-all duration-200"
-          >
-            <MessageCircle className="w-5 h-5 mr-2" />
-            {showChat ? 'Talk to AI instead' : 'Chat with AI instead'}
-          </Button>
+            {/* Chat Interface - Fade in when chat is active */}
+            <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out absolute ${
+              showChat && !isTransitioning ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+            }`}>
+              <div className="bg-white rounded-3xl border border-gray-200 shadow-lg h-[500px] flex flex-col">
+                {/* Chat Header */}
+                <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900">Chat with AI Assistant</h3>
+                </div>
 
-          {/* Confirm Preferences Button */}
-          <Button
-            onClick={handleConfirmPreferences}
-            disabled={userCompleted}
-            className={`px-8 py-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 ${
-              userCompleted 
-                ? 'bg-green-600 hover:bg-green-700 text-white' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-          >
-            {userCompleted ? (
-              <div className="flex items-center space-x-2">
-                <Check className="w-5 h-5" />
-                <span>Preferences Confirmed</span>
+                {/* Chat Messages */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+                          message.isUser
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                      >
+                        <p className="text-sm">{message.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* Chat Input */}
+                <div className="p-6 border-t border-gray-200">
+                  <div className="flex space-x-3">
+                    <Input
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Type your message..."
+                      className="flex-1 h-12 rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim()}
+                      className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Send className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-            ) : (
-              'Confirm My Preferences'
-            )}
-          </Button>
+            </div>
+
+            {/* Bottom Controls */}
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex flex-col items-center space-y-4">
+              {/* Chat Toggle Button */}
+              <Button
+                onClick={handleChatToggle}
+                variant="outline"
+                className="px-6 py-3 rounded-xl border-gray-300 hover:bg-gray-50 transition-all duration-200"
+              >
+                <MessageCircle className="w-5 h-5 mr-2" />
+                {showChat ? 'Talk to AI instead' : 'Chat with AI instead'}
+              </Button>
+
+              {/* Confirm Preferences Button */}
+              <Button
+                onClick={handleConfirmPreferences}
+                disabled={userCompleted}
+                className={`px-8 py-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 ${
+                  userCompleted 
+                    ? 'bg-green-600 hover:bg-green-700 text-white' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                {userCompleted ? (
+                  <div className="flex items-center space-x-2">
+                    <Check className="w-5 h-5" />
+                    <span>Preferences Confirmed</span>
+                  </div>
+                ) : (
+                  'Confirm My Preferences'
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Right Sidebar - User Status */}
@@ -320,6 +326,7 @@ export default function AIPreferencesPage() {
           {/* View Itinerary Buttons */}
           <div className="mt-8 space-y-3">
             <Button
+              onClick={() => window.location.href = '/travel-plan'}
               disabled={!allUsersReady}
               className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 ${
                 allUsersReady 
