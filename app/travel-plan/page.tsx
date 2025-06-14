@@ -73,6 +73,7 @@ interface Hotel {
 }
 
 export default function TravelPlanPage() {
+  const [mounted, setMounted] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
   const [expandedDays, setExpandedDays] = useState<string[]>(['day1']);
@@ -86,6 +87,11 @@ export default function TravelPlanPage() {
   const [tempTripName, setTempTripName] = useState(tripName);
 
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // Set mounted to true after component mounts
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleMouseEnter = (id: string, event: React.MouseEvent) => {
     setHoveredTooltip(id);
@@ -349,6 +355,8 @@ export default function TravelPlanPage() {
 
   // Scroll spy effect
   useEffect(() => {
+    if (!mounted) return;
+
     const handleScroll = () => {
       const sections = ['overview', 'flights', 'hotels', 'itinerary'];
       const scrollPosition = window.scrollY + 200;
@@ -367,7 +375,49 @@ export default function TravelPlanPage() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [mounted]);
+
+  // Show loading state until mounted
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-white flex">
+        <div className="w-72 bg-white border-r border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
+                <Plane className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold text-gray-900">a2b.ai</span>
+            </div>
+          </div>
+          <div className="p-4">
+            <div className="space-y-2">
+              <div className="h-12 bg-gray-100 rounded-xl animate-pulse"></div>
+              <div className="h-12 bg-gray-100 rounded-xl animate-pulse"></div>
+              <div className="h-12 bg-gray-100 rounded-xl animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 flex">
+          <div className="w-3/5 p-8">
+            <div className="space-y-6">
+              <div className="w-full h-64 bg-gray-100 rounded-2xl animate-pulse"></div>
+              <div className="h-32 bg-gray-100 rounded-2xl animate-pulse"></div>
+              <div className="h-24 bg-gray-100 rounded-2xl animate-pulse"></div>
+            </div>
+          </div>
+          <div className="w-2/5 bg-gray-100 border-l border-gray-200">
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">Loading...</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white flex">
