@@ -93,6 +93,7 @@ export default function TravelPlanPage() {
     '16': false,
     '17': false
   });
+  const [sidebarFullyOpen, setSidebarFullyOpen] = useState(true);
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileSettingsRef = useRef<HTMLDivElement>(null);
@@ -144,6 +145,18 @@ export default function TravelPlanPage() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isMobile]);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (!sidebarCollapsed) {
+      // Wait for the transition to finish before showing text
+      timeout = setTimeout(() => setSidebarFullyOpen(true), 300);
+    } else {
+      // Hide text immediately when collapsing
+      setSidebarFullyOpen(false);
+    }
+    return () => clearTimeout(timeout);
+  }, [sidebarCollapsed]);
 
   const handleMouseEnter = (id: string, event: React.MouseEvent) => {
     setHoveredTooltip(id);
@@ -879,18 +892,18 @@ export default function TravelPlanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex">
-      {/* Collapsible Sidebar */}
+    <div className="flex min-h-screen bg-white">
+      {/* Sidebar */}
       <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col fixed h-full z-10`}>
         {/* Sidebar Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             {!sidebarCollapsed && (
-              <div className={`flex items-center space-x-2 transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>
+              <div className={`flex items-center space-x-2`}>
                 <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
                   <Plane className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-lg font-bold text-gray-900">a2b.ai</span>
+                <span className={`text-lg font-bold text-gray-900 transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>a2b.ai</span>
               </div>
             )}
             <Button
@@ -913,15 +926,15 @@ export default function TravelPlanPage() {
                   <a
                     key={item.id}
                     href={item.href}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
-                      sidebarCollapsed ? 'justify-center' : ''
-                    }`}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100`}
                     onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter(item.id, e)}
                     onMouseLeave={handleMouseLeave}
                   >
-                    <item.icon className="w-4 h-4 text-gray-600" />
-                    {!sidebarCollapsed && (
-                      <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>{item.label}</span>
+                    <div className="h-8 flex items-center">
+                      <item.icon className="w-4 h-4 text-gray-600 transition-opacity duration-300" />
+                    </div>
+                    {!sidebarCollapsed && sidebarFullyOpen && (
+                      <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 opacity-100`}>{item.label}</span>
                     )}
                   </a>
                 );
@@ -933,13 +946,15 @@ export default function TravelPlanPage() {
                   onClick={() => scrollToSection(item.id)}
                   className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
                     activeSection === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
-                  } ${sidebarCollapsed ? 'justify-center' : ''}`}
+                  }`}
                   onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter(item.id, e)}
                   onMouseLeave={handleMouseLeave}
                 >
-                  <item.icon className="w-4 h-4" />
-                  {!sidebarCollapsed && (
-                    <span className={`font-medium text-sm transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>{item.label}</span>
+                  <div className="h-8 flex items-center">
+                    <item.icon className="w-4 h-4 transition-opacity duration-300" />
+                  </div>
+                  {!sidebarCollapsed && sidebarFullyOpen && (
+                    <span className={`font-medium text-sm transition-opacity duration-300 opacity-100`}>{item.label}</span>
                   )}
                 </button>
               );
@@ -966,15 +981,15 @@ export default function TravelPlanPage() {
                 onMouseLeave={handleMouseLeave}
               >
                 <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4 text-gray-600" />
-                  {!sidebarCollapsed && (
-                    <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>Itinerary</span>
+                  <div className="h-8 flex items-center">
+                    <Calendar className="w-4 h-4 text-gray-600" />
+                  </div>
+                  {!sidebarCollapsed && sidebarFullyOpen && (
+                    <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 opacity-100`}>Itinerary</span>
                   )}
                 </div>
                 {!sidebarCollapsed && (
-                  <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${
-                    itineraryExpanded ? 'rotate-180' : ''
-                  }`} />
+                  <ChevronDown className={`w-3 h-3 text-gray-400 transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${itineraryExpanded ? 'rotate-180' : ''}`} />
                 )}
               </button>
 
@@ -983,13 +998,14 @@ export default function TravelPlanPage() {
                 itineraryExpanded && !sidebarCollapsed ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
               }`}>
                 <div className="ml-4 mt-1 space-y-1">
-                  {itinerary.map((day) => (
+                  {itinerary.map((day, idx) => (
                     <button
                       key={day.date}
                       onClick={() => scrollToSection(day.date)}
                       className={`w-full flex items-center space-x-2 px-2 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
                         activeSection === day.date ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
-                      }`}
+                      } transition-all duration-300`} 
+                      style={{ transitionDelay: `${idx * 80}ms` }}
                     >
                       <div className="flex flex-col items-center text-xs">
                         <span className="font-medium leading-none text-xs">{day.day}</span>
@@ -1017,9 +1033,9 @@ export default function TravelPlanPage() {
             onMouseLeave={handleMouseLeave}
           >
             <RefreshCw className="w-4 h-4" />
-            {!sidebarCollapsed && (
-              <div className={`flex items-center justify-between w-full transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>
-                <span className="font-medium text-sm">Regenerate</span>
+            {!sidebarCollapsed && sidebarFullyOpen && (
+              <div className={`flex items-center justify-between w-full`}>
+                <span className={`font-medium text-sm transition-opacity duration-300 opacity-100`}>Regenerate</span>
                 <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
                   {regenerateVotes}
                 </span>
@@ -1038,8 +1054,8 @@ export default function TravelPlanPage() {
               onMouseLeave={handleMouseLeave}
             >
               <Settings className="w-4 h-4" />
-              {!sidebarCollapsed && (
-                <span className={`font-medium text-sm transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>Settings</span>
+              {!sidebarCollapsed && sidebarFullyOpen && (
+                <span className={`font-medium text-sm transition-opacity duration-300 opacity-100`}>Settings</span>
               )}
             </button>
 
@@ -1066,23 +1082,20 @@ export default function TravelPlanPage() {
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className={`flex transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
-        {/* Content Section (60%) */}
-        <div className="w-3/5 p-6 overflow-y-auto">
+      {/* Main Content */}
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'} flex items-start`} style={{ width: 'auto' }}>
+        <div className="max-w-[900px] w-full px-6 pt-6 pb-6 mx-auto">
           {renderMainContent()}
         </div>
+      </div>
 
-        {/* Map Section (40%) */}
-        <div className={`bg-gray-100 border-l border-gray-200 transition-all duration-300 ${sidebarCollapsed ? 'w-2/5' : 'w-2/5'}`}>
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-gray-600 mb-1">Interactive Map</h3>
-              <p className="text-gray-500 text-sm">Map integration will be added here</p>
-              <p className="text-xs text-gray-400 mt-1">Showing locations for selected day</p>
-            </div>
-          </div>
+      {/* Map Section */}
+      <div className="flex-1 bg-gray-100 border-l border-gray-200 flex items-center justify-center sticky top-0 h-screen">
+        <div className="text-center">
+          <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-gray-600 mb-1">Interactive Map</h3>
+          <p className="text-gray-500 text-sm">Map integration will be added here</p>
+          <p className="text-xs text-gray-400 mt-1">Showing locations for selected day</p>
         </div>
       </div>
 
