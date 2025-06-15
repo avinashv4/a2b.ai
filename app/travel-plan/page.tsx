@@ -25,7 +25,10 @@ import {
   Edit3,
   Car,
   Train,
-  Ship
+  Ship,
+  FileText,
+  Save,
+  BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -77,6 +80,7 @@ export default function TravelPlanPage() {
   const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [showSettings, setShowSettings] = useState(false);
+  const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [regenerateVotes, setRegenerateVotes] = useState(3);
   const [hasVotedRegenerate, setHasVotedRegenerate] = useState(false);
@@ -91,6 +95,7 @@ export default function TravelPlanPage() {
   });
 
   const settingsRef = useRef<HTMLDivElement>(null);
+  const mobileSettingsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -107,6 +112,9 @@ export default function TravelPlanPage() {
     const handleClickOutside = (event: MouseEvent) => {
       if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
         setShowSettings(false);
+      }
+      if (mobileSettingsRef.current && !mobileSettingsRef.current.contains(event.target as Node)) {
+        setShowMobileSettings(false);
       }
     };
 
@@ -207,6 +215,16 @@ export default function TravelPlanPage() {
     if (e.key === 'Enter') {
       handleTitleEdit();
     }
+  };
+
+  const handleConfirmItinerary = () => {
+    // Redirect to confirmation page
+    window.location.href = '/itinerary-confirmation';
+  };
+
+  const handleSavePDF = () => {
+    // Generate PDF with trip details
+    console.log('Generating PDF...');
   };
 
   const getTravelModeIcon = (mode: string) => {
@@ -514,6 +532,25 @@ export default function TravelPlanPage() {
           <p className="text-xs text-gray-500">Museums, landmarks</p>
         </div>
       </div>
+
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button
+          onClick={handleConfirmItinerary}
+          className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold"
+        >
+          <BookOpen className="w-4 h-4 mr-2" />
+          Confirm Itinerary
+        </Button>
+        <Button
+          onClick={handleSavePDF}
+          variant="outline"
+          className="flex-1 py-3 rounded-xl font-semibold"
+        >
+          <Save className="w-4 h-4 mr-2" />
+          Save Travel Plan
+        </Button>
+      </div>
     </div>
   );
 
@@ -556,7 +593,7 @@ export default function TravelPlanPage() {
               </div>
               <div className="text-right">
                 <p className="text-xl font-bold text-blue-600">{flight.price}</p>
-                <Button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-xl text-sm">
+                <Button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-xl text-sm">
                   Select
                 </Button>
               </div>
@@ -605,7 +642,7 @@ export default function TravelPlanPage() {
                     </span>
                   ))}
                 </div>
-                <Button className="mt-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1 rounded-xl text-sm">
+                <Button className="mt-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-xl text-sm">
                   Select Hotel
                 </Button>
               </div>
@@ -735,13 +772,53 @@ export default function TravelPlanPage() {
               </div>
               <span className="text-lg font-bold text-gray-900">a2b.ai</span>
             </Link>
-            <Button
-              onClick={() => setShowMobileMap(!showMobileMap)}
-              variant="outline"
-              className="px-3 py-1 rounded-lg text-sm"
-            >
-              {showMobileMap ? 'Close Map' : 'View Map'}
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={() => setShowMobileMap(!showMobileMap)}
+                variant="outline"
+                className="px-3 py-1 rounded-lg text-sm"
+              >
+                {showMobileMap ? 'Close Map' : 'View Map'}
+              </Button>
+              <div className="relative" ref={mobileSettingsRef}>
+                <Button
+                  onClick={() => setShowMobileSettings(!showMobileSettings)}
+                  variant="outline"
+                  className="p-2 rounded-lg"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+                {showMobileSettings && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
+                    <button
+                      onClick={copyInviteLink}
+                      className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <Copy className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm text-gray-700">Copy Invite Link</span>
+                    </button>
+                    <button
+                      onClick={handleRegenerateVote}
+                      disabled={hasVotedRegenerate}
+                      className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm text-gray-700">Regenerate Itinerary</span>
+                      <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full ml-auto">
+                        {regenerateVotes}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                      <span className="text-sm text-red-600">Delete Trip</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -809,7 +886,7 @@ export default function TravelPlanPage() {
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             {!sidebarCollapsed && (
-              <div className="flex items-center space-x-2 opacity-0 animate-fade-in">
+              <div className={`flex items-center space-x-2 transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
                   <Plane className="w-4 h-4 text-white" />
                 </div>
@@ -844,7 +921,7 @@ export default function TravelPlanPage() {
                   >
                     <item.icon className="w-4 h-4 text-gray-600" />
                     {!sidebarCollapsed && (
-                      <span className="font-medium text-gray-700 text-sm opacity-0 animate-fade-in">{item.label}</span>
+                      <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>{item.label}</span>
                     )}
                   </a>
                 );
@@ -862,11 +939,16 @@ export default function TravelPlanPage() {
                 >
                   <item.icon className="w-4 h-4" />
                   {!sidebarCollapsed && (
-                    <span className="font-medium text-sm opacity-0 animate-fade-in">{item.label}</span>
+                    <span className={`font-medium text-sm transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>{item.label}</span>
                   )}
                 </button>
               );
             })}
+
+            {/* Divider before Trip Overview */}
+            <div className="my-2">
+              <div className="border-t border-gray-200"></div>
+            </div>
 
             {/* Divider before Itinerary */}
             <div className="my-2">
@@ -886,7 +968,7 @@ export default function TravelPlanPage() {
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-gray-600" />
                   {!sidebarCollapsed && (
-                    <span className="font-medium text-gray-700 text-sm opacity-0 animate-fade-in">Itinerary</span>
+                    <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>Itinerary</span>
                   )}
                 </div>
                 {!sidebarCollapsed && (
@@ -910,7 +992,7 @@ export default function TravelPlanPage() {
                       }`}
                     >
                       <div className="flex flex-col items-center text-xs">
-                        <span className="font-medium leading-none">{day.day}</span>
+                        <span className="font-medium leading-none text-xs">{day.day}</span>
                         <span className="font-bold text-sm leading-none">{day.date}</span>
                       </div>
                       <span className="font-medium text-sm">{day.month}</span>
@@ -936,7 +1018,7 @@ export default function TravelPlanPage() {
           >
             <RefreshCw className="w-4 h-4" />
             {!sidebarCollapsed && (
-              <div className="flex items-center justify-between w-full opacity-0 animate-fade-in">
+              <div className={`flex items-center justify-between w-full transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>
                 <span className="font-medium text-sm">Regenerate</span>
                 <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
                   {regenerateVotes}
@@ -957,7 +1039,7 @@ export default function TravelPlanPage() {
             >
               <Settings className="w-4 h-4" />
               {!sidebarCollapsed && (
-                <span className="font-medium text-sm opacity-0 animate-fade-in">Settings</span>
+                <span className={`font-medium text-sm transition-opacity duration-300 delay-300 ${sidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>Settings</span>
               )}
             </button>
 
@@ -985,14 +1067,14 @@ export default function TravelPlanPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
+      <div className={`flex transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
         {/* Content Section (60%) */}
         <div className="w-3/5 p-6 overflow-y-auto">
           {renderMainContent()}
         </div>
 
         {/* Map Section (40%) */}
-        <div className="w-2/5 bg-gray-100 border-l border-gray-200 fixed right-0 h-full">
+        <div className={`bg-gray-100 border-l border-gray-200 transition-all duration-300 ${sidebarCollapsed ? 'w-2/5' : 'w-2/5'}`}>
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
               <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
