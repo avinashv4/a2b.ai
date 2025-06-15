@@ -102,7 +102,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-white">
       {/* Floating Navigation */}
       <nav className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-6xl px-4">
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl nav-shadow px-6 py-4">
+        <div className="bg-white rounded-2xl nav-shadow px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo and Brand */}
             <Link href="/" className="flex items-center space-x-3">
@@ -134,7 +134,7 @@ export default function DashboardPage() {
                       {notifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${
+                          className={`px-4 py-3 hover:bg-gray-50 ${
                             notification.unread ? 'bg-blue-50' : ''
                           }`}
                         >
@@ -142,11 +142,6 @@ export default function DashboardPage() {
                           <p className="text-xs text-gray-500">{notification.time}</p>
                         </div>
                       ))}
-                    </div>
-                    <div className="px-4 py-2 border-t border-gray-100">
-                      <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                        View all notifications
-                      </button>
                     </div>
                   </div>
                 )}

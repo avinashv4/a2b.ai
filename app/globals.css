@@ -81,3 +81,16 @@
   opacity: 1 !important;
   transform: translateY(0) !important;
 }
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
