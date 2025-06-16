@@ -77,9 +77,9 @@ export default function CreateTripPage() {
           <GooglePlacesAutocomplete
             value={destination}
             onChange={setDestination}
-            placeholder="Enter destination (e.g., Paris, Tokyo, New York)"
+            placeholder="Enter destination (e.g., Paris, Tokyo, New York, France, California)"
             className="h-16 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-center"
-            types={['(cities)']}
+            types={['(cities)', '(regions)', '(countries)']}
           />
 
           <div className="flex justify-center">

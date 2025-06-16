@@ -7,12 +7,12 @@ interface GooglePlacesAutocompleteProps {
   placeholder?: string;
   className?: string;
   types?: string[];
-  onPlaceSelect?: (place: google.maps.places.PlaceResult) => void;
+  onPlaceSelect?: (place: any) => void;
 }
 
 declare global {
   interface Window {
-    google: typeof google;
+    google: any;
   }
 }
 
@@ -25,8 +25,14 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
   onPlaceSelect
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const autocompleteRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [localValue, setLocalValue] = useState(value);
+
+  // Keep localValue in sync with parent value if it changes externally
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
 
   useEffect(() => {
     const checkGoogleMaps = () => {
@@ -41,18 +47,32 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
 
   useEffect(() => {
     if (isLoaded && inputRef.current && !autocompleteRef.current) {
+      // Set up componentRestrictions for more accurate filtering
+      let options: any = {
+        types: types,
+        fields: ['place_id', 'formatted_address', 'name', 'geometry', 'address_components']
+      };
+      if (types.includes('(countries)')) {
+        options.types = ['(regions)']; // Google does not allow only countries, so we filter manually
+      }
       autocompleteRef.current = new window.google.maps.places.Autocomplete(
         inputRef.current,
-        {
-          types: types,
-          fields: ['place_id', 'formatted_address', 'name', 'geometry', 'address_components']
-        }
+        options
       );
 
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current?.getPlace();
-        if (place && place.formatted_address) {
-          onChange(place.formatted_address);
+        if (place) {
+          let valueToSet = '';
+          if (place.structured_formatting && place.structured_formatting.main_text) {
+            valueToSet = place.structured_formatting.main_text;
+          } else if (place.name) {
+            valueToSet = place.name;
+          } else {
+            valueToSet = '';
+          }
+          setLocalValue(valueToSet);
+          onChange(valueToSet);
           if (onPlaceSelect) {
             onPlaceSelect(place);
           }
@@ -71,8 +91,9 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
     <Input
       ref={inputRef}
       type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={() => onChange(localValue)}
       placeholder={placeholder}
       className={className}
     />

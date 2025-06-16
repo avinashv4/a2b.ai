@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import GooglePlacesAutocomplete from '@/components/GooglePlacesAutocomplete';
 import { Plane, ArrowRight, Check, ChevronDown, User } from 'lucide-react';
 
 interface OnboardingStep {
@@ -177,8 +176,11 @@ export default function OnboardingPage() {
       });
       setAnswers(newAnswers);
     } else if (currentStepData.type === 'image') {
+      // Profile picture is optional
       if (profileImage) {
         setAnswers(prev => ({ ...prev, [currentStepData.id]: profileImage }));
+      } else {
+        setAnswers(prev => ({ ...prev, [currentStepData.id]: '' }));
       }
     } else if (currentStepData.type === 'date') {
       if (!validateDate(currentAnswer)) return;
@@ -247,13 +249,13 @@ export default function OnboardingPage() {
   const handleCityPlaceSelect = (place: google.maps.places.PlaceResult) => {
     if (place.address_components) {
       const addressComponents = place.address_components;
-      const cityComponent = addressComponents.find(component => 
+      const cityComponent = addressComponents.find((component: any) => 
         component.types.includes('locality') || component.types.includes('administrative_area_level_1')
       );
-      const stateComponent = addressComponents.find(component => 
+      const stateComponent = addressComponents.find((component: any) => 
         component.types.includes('administrative_area_level_1')
       );
-      const countryComponent = addressComponents.find(component => 
+      const countryComponent = addressComponents.find((component: any) => 
         component.types.includes('country')
       );
 
@@ -324,6 +326,18 @@ export default function OnboardingPage() {
               </p>
             </div>
           </div>
+
+          {/* Skip Button */}
+          <div className="flex justify-center pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="px-8 py-2 rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200"
+              onClick={handleNext}
+            >
+              Skip
+            </Button>
+          </div>
         </div>
       );
     }
@@ -332,45 +346,15 @@ export default function OnboardingPage() {
       return (
         <div className="space-y-4">
           {currentStepData.fields?.map((field, index) => (
-            field.id === 'city' ? (
-              <GooglePlacesAutocomplete
-                key={field.id}
-                value={addressFields[field.id] || ''}
-                onChange={(value) => handleAddressFieldChange(field.id, value)}
-                placeholder={field.placeholder}
-                className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                types={['(cities)']}
-                onPlaceSelect={handleCityPlaceSelect}
-              />
-            ) : field.id === 'state' ? (
-              <GooglePlacesAutocomplete
-                key={field.id}
-                value={addressFields[field.id] || ''}
-                onChange={(value) => handleAddressFieldChange(field.id, value)}
-                placeholder={field.placeholder}
-                className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                types={['(regions)']}
-              />
-            ) : field.id === 'country' ? (
-              <GooglePlacesAutocomplete
-                key={field.id}
-                value={addressFields[field.id] || ''}
-                onChange={(value) => handleAddressFieldChange(field.id, value)}
-                placeholder={field.placeholder}
-                className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                types={['(regions)']}
-              />
-            ) : (
-              <Input
-                key={field.id}
-                type="text"
-                placeholder={field.placeholder}
-                value={addressFields[field.id] || ''}
-                onChange={(e) => handleAddressFieldChange(field.id, e.target.value)}
-                className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                autoFocus={index === 0}
-              />
-            )
+            <Input
+              key={field.id}
+              type="text"
+              placeholder={field.placeholder}
+              value={addressFields[field.id] || ''}
+              onChange={(e) => handleAddressFieldChange(field.id, e.target.value)}
+              className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+              autoFocus={index === 0}
+            />
           ))}
         </div>
       );
