@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Proza_Libre } from 'next/font/google';
+import Script from 'next/script';
 
 const prozaLibre = Proza_Libre({ 
   subsets: ['latin'],
@@ -19,14 +20,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <script
-          async
-          defer
+      <body className={prozaLibre.className}>
+        <Script
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
+          strategy="beforeInteractive"
         />
-      </head>
-      <body className={prozaLibre.className}>{children}</body>
+        {children}
+      </body>
     </html>
   );
 }
