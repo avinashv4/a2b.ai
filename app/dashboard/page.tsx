@@ -4,12 +4,15 @@ import { useState, useRef, useEffect } from 'react';
 import { Plane, Users, MapPin, Calendar, Settings, Bell, User, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';
 import FlowingMenu from '@/components/FlowingMenu';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function DashboardPage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -24,6 +27,30 @@ export default function DashboardPage() {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setProfileLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('first_name')
+          .eq('user_id', user.id)
+          .single();
+        if (error) {
+          console.error('Profile fetch error:', error);
+        }
+        if (data && data.first_name) {
+          setFirstName(data.first_name);
+        } else {
+          setFirstName(null);
+        }
+      }
+      setProfileLoading(false);
+    };
+    fetchProfile();
   }, []);
 
   const notifications = [
@@ -197,7 +224,13 @@ export default function DashboardPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8 pt-32">
         <div className="mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Hey Avinash! Where to next?</h1>
+          {profileLoading ? (
+            <div className="text-2xl text-gray-700 mb-4">Loading...</div>
+          ) : firstName ? (
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Hey {firstName}! Where to next?</h1>
+          ) : (
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Hey there! Where to next?</h1>
+          )}
           <p className="text-xl text-gray-600">Start planning your next trip!</p>
         </div>
 

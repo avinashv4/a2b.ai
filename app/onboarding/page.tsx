@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plane, ArrowRight, Check, ChevronDown, User } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 interface OnboardingStep {
   id: string;
@@ -49,8 +51,8 @@ const onboardingSteps: OnboardingStep[] = [
     question: 'What\'s your address?', 
     type: 'address',
     fields: [
-      { id: 'addressLine1', placeholder: 'Street address', required: true },
-      { id: 'addressLine2', placeholder: 'Apartment, suite, etc. (optional)', required: false },
+      { id: 'addressLine1', placeholder: 'Door number, Apartment, suite, etc.', required: true },
+      { id: 'addressLine2', placeholder: 'Street name, Locality, etc.', required: false },
       { id: 'city', placeholder: 'City', required: true },
       { id: 'state', placeholder: 'State/Province', required: true },
       { id: 'country', placeholder: 'Country', required: true },
@@ -69,9 +71,25 @@ export default function OnboardingPage() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [onboardingError, setOnboardingError] = useState('');
 
   const currentStepData = onboardingSteps[currentStep];
   const isLastStep = currentStep === onboardingSteps.length - 1;
+
+  useEffect(() => {
+    const checkUser = async () => {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace('/auth');
+        return;
+      }
+      setLoading(false);
+    };
+    checkUser();
+  }, [router]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -161,20 +179,23 @@ export default function OnboardingPage() {
            inputDate.getDate() === day;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStepData.type === 'address') {
       // Validate required address fields
       const requiredFields = currentStepData.fields?.filter(field => field.required) || [];
       const hasAllRequired = requiredFields.every(field => addressFields[field.id]?.trim());
-      
       if (!hasAllRequired) return;
-      
       // Save all address fields
       const newAnswers = { ...answers };
       Object.entries(addressFields).forEach(([key, value]) => {
         newAnswers[key] = value;
       });
       setAnswers(newAnswers);
+      // If last step, merge address fields into answers before saving
+      if (isLastStep) {
+        await saveProfile(newAnswers);
+        return;
+      }
     } else if (currentStepData.type === 'image') {
       // Profile picture is optional
       if (profileImage) {
@@ -190,10 +211,8 @@ export default function OnboardingPage() {
       setAnswers(prev => ({ ...prev, [currentStepData.id]: currentAnswer }));
     }
 
-    if (isLastStep) {
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 500);
+    if (isLastStep && currentStepData.type !== 'address') {
+      await saveProfile(answers);
       return;
     }
 
@@ -205,6 +224,37 @@ export default function OnboardingPage() {
         setIsVisible(true);
       }, 50);
     }, 300);
+  };
+
+  // Helper to save profile
+  const saveProfile = async (profileAnswers: Record<string, string>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const profileData = {
+        user_id: user.id,
+        first_name: profileAnswers.firstName,
+        middle_name: profileAnswers.middleName,
+        last_name: profileAnswers.lastName,
+        profile_picture: profileAnswers.profilePicture,
+        date_of_birth: profileAnswers.dateOfBirth,
+        mobile_number: profileAnswers.mobileNumber,
+        address_line1: profileAnswers.addressLine1,
+        address_line2: profileAnswers.addressLine2,
+        city: profileAnswers.city,
+        state: profileAnswers.state,
+        country: profileAnswers.country,
+        post_code: profileAnswers.postCode
+      };
+      const { error } = await supabase.from('profiles').upsert(profileData);
+      if (error) {
+        setOnboardingError('Failed to save your profile: ' + error.message);
+        console.error('Supabase upsert error:', error);
+        return;
+      }
+    }
+    setTimeout(() => {
+      window.location.href = '/dashboard';
+    }, 500);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -244,28 +294,6 @@ export default function OnboardingPage() {
       ...prev,
       [fieldId]: value
     }));
-  };
-
-  const handleCityPlaceSelect = (place: google.maps.places.PlaceResult) => {
-    if (place.address_components) {
-      const addressComponents = place.address_components;
-      const cityComponent = addressComponents.find((component: any) => 
-        component.types.includes('locality') || component.types.includes('administrative_area_level_1')
-      );
-      const stateComponent = addressComponents.find((component: any) => 
-        component.types.includes('administrative_area_level_1')
-      );
-      const countryComponent = addressComponents.find((component: any) => 
-        component.types.includes('country')
-      );
-
-      setAddressFields(prev => ({
-        ...prev,
-        city: cityComponent?.long_name || prev.city,
-        state: stateComponent?.long_name || prev.state,
-        country: countryComponent?.long_name || prev.country
-      }));
-    }
   };
 
   const renderInput = () => {
@@ -441,6 +469,15 @@ export default function OnboardingPage() {
     return currentAnswer.trim() || currentStepData.id === 'middleName';
   };
 
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-lg">Checking access...</div>;
+  }
+
+  // Render error if onboarding upsert fails
+  if (onboardingError) {
+    return <div className="min-h-screen flex items-center justify-center text-red-600 text-lg">{onboardingError}</div>;
+  }
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4">
       <div className="w-full max-w-2xl">
@@ -478,10 +515,8 @@ export default function OnboardingPage() {
                 {currentStepData?.question}
               </h1>
             </div>
-
             <div className="space-y-6">
               {renderInput()}
-
               <div className="flex justify-center">
                 <Button
                   onClick={handleNext}

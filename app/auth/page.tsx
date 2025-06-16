@@ -1,33 +1,66 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plane, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from "next/navigation";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [signup, setSignup] = useState(false);
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isLogin) {
-      // Redirect to dashboard for login
-      window.location.href = '/dashboard';
-    } else {
-      // Redirect to onboarding for signup
-      window.location.href = '/onboarding';
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('verified')) {
+        setVerified(true);
+      }
+      if (params.get('signup')) {
+        setSignup(true);
+      }
     }
-  };
+  }, []);
 
-  const handleGoogleAuth = () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
     if (isLogin) {
-      window.location.href = '/dashboard';
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      setLoading(false);
+      if (error) {
+        setError(error.message);
+      } else {
+        // Check if user has a profile
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase.from('profiles').select('user_id').eq('user_id', user.id).single();
+          if (data) {
+            window.location.href = '/dashboard';
+          } else {
+            window.location.href = '/onboarding';
+          }
+        }
+      }
     } else {
-      window.location.href = '/onboarding';
+      const { error } = await supabase.auth.signUp({ email, password });
+      setLoading(false);
+      if (error) {
+        setError(error.message);
+      } else {
+        // After signup, redirect to login with a message
+        window.location.href = '/auth?signup=1';
+      }
     }
   };
 
@@ -52,6 +85,12 @@ export default function AuthPage() {
 
         {/* Auth Card */}
         <div className="bg-white rounded-3xl card-shadow p-8">
+          {verified && (
+            <div className="mb-4 text-green-600 text-center font-semibold">Email confirmed! Please log in.</div>
+          )}
+          {signup && (
+            <div className="mb-4 text-green-600 text-center font-semibold">Please check your email for a confirmation link.</div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email Input */}
             <div className="space-y-2">
@@ -92,36 +131,18 @@ export default function AuthPage() {
               </div>
             </div>
 
+            {/* Error Message */}
+            {error && <div className="text-red-600 text-sm font-medium text-center">{error}</div>}
+
             {/* Submit Button */}
             <Button
               type="submit"
               className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105"
+              disabled={loading}
             >
               {isLogin ? 'Sign In' : 'Create Account'}
             </Button>
           </form>
-
-          {/* Divider */}
-          <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-gray-300"></div>
-            <span className="px-4 text-sm text-gray-500">or</span>
-            <div className="flex-1 border-t border-gray-300"></div>
-          </div>
-
-          {/* Google Sign In */}
-          <Button
-            onClick={handleGoogleAuth}
-            variant="outline"
-            className="w-full h-12 border-gray-300 hover:bg-gray-50 rounded-xl transition-all duration-200"
-          >
-            <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            Continue with Google
-          </Button>
 
           {/* Toggle Auth Mode */}
           <div className="mt-6 text-center">
