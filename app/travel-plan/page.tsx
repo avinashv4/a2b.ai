@@ -815,7 +815,9 @@ export default function TravelPlanPage() {
                       disabled={hasVotedRegenerate}
                       className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors disabled:opacity-50"
                     >
-                      <RefreshCw className="w-4 h-4 text-gray-600" />
+                      <div className="h-8 flex items-center">
+                        <RefreshCw className="w-4 h-4" />
+                      </div>
                       <span className="text-sm text-gray-700">Regenerate Itinerary</span>
                       <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full ml-auto">
                         {regenerateVotes}
@@ -867,25 +869,23 @@ export default function TravelPlanPage() {
 
         {/* Mobile Bottom Navigation */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
-          <div className="flex justify-around">
-            {[
-              { id: 'overview', label: 'Overview', icon: MapPin },
-              { id: 'flights', label: 'Flights', icon: Plane },
-              { id: 'hotels', label: 'Hotels', icon: Hotel },
-              { id: 'itinerary', label: 'Itinerary', icon: Calendar }
-            ].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => scrollToSection(item.id)}
-                className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-colors ${
-                  activeSection === item.id ? 'text-blue-600 bg-blue-50' : 'text-gray-600'
-                }`}
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="text-xs font-medium">{item.label}</span>
-              </button>
-            ))}
-          </div>
+          {[
+            { id: 'overview', label: 'Overview', icon: MapPin },
+            { id: 'flights', label: 'Flights', icon: Plane },
+            { id: 'hotels', label: 'Hotels', icon: Hotel },
+            { id: 'itinerary', label: 'Itinerary', icon: Calendar }
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => scrollToSection(item.id)}
+              className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-colors ${
+                activeSection === item.id ? 'text-blue-600 bg-blue-50' : 'text-gray-600'
+              }`}
+            >
+              <item.icon className="w-5 h-5" />
+              <span className="text-xs font-medium">{item.label}</span>
+            </button>
+          ))}
         </div>
       </div>
     );
@@ -933,8 +933,8 @@ export default function TravelPlanPage() {
                     <div className="h-8 flex items-center">
                       <item.icon className="w-4 h-4 text-gray-600 transition-opacity duration-300" />
                     </div>
-                    {!sidebarCollapsed && sidebarFullyOpen && (
-                      <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 opacity-100`}>{item.label}</span>
+                    {!sidebarCollapsed && (
+                      <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
                     )}
                   </a>
                 );
@@ -953,8 +953,8 @@ export default function TravelPlanPage() {
                   <div className="h-8 flex items-center">
                     <item.icon className="w-4 h-4 transition-opacity duration-300" />
                   </div>
-                  {!sidebarCollapsed && sidebarFullyOpen && (
-                    <span className={`font-medium text-sm transition-opacity duration-300 opacity-100`}>{item.label}</span>
+                  {!sidebarCollapsed && (
+                    <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
                   )}
                 </button>
               );
@@ -984,8 +984,8 @@ export default function TravelPlanPage() {
                   <div className="h-8 flex items-center">
                     <Calendar className="w-4 h-4 text-gray-600" />
                   </div>
-                  {!sidebarCollapsed && sidebarFullyOpen && (
-                    <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 opacity-100`}>Itinerary</span>
+                  {!sidebarCollapsed && (
+                    <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Itinerary</span>
                   )}
                 </div>
                 {!sidebarCollapsed && (
@@ -1004,8 +1004,8 @@ export default function TravelPlanPage() {
                       onClick={() => scrollToSection(day.date)}
                       className={`w-full flex items-center space-x-2 px-2 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
                         activeSection === day.date ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
-                      } transition-all duration-300`} 
-                      style={{ transitionDelay: `${idx * 80}ms` }}
+                      } transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                      style={{ transitionDelay: `${150 + idx * 80}ms` }}
                     >
                       <div className="flex flex-col items-center text-xs">
                         <span className="font-medium leading-none text-xs">{day.day}</span>
@@ -1028,17 +1028,17 @@ export default function TravelPlanPage() {
             disabled={hasVotedRegenerate}
             className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
               hasVotedRegenerate ? 'bg-gray-100 text-gray-500' : 'hover:bg-gray-100 text-gray-700'
-            } ${sidebarCollapsed ? 'justify-center' : ''}`}
+            }`}
             onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('regenerate', e)}
             onMouseLeave={handleMouseLeave}
           >
-            <RefreshCw className="w-4 h-4" />
-            {!sidebarCollapsed && sidebarFullyOpen && (
+            <div className="h-8 flex items-center">
+              <RefreshCw className="w-4 h-4" />
+            </div>
+            {!sidebarCollapsed && (
               <div className={`flex items-center justify-between w-full`}>
-                <span className={`font-medium text-sm transition-opacity duration-300 opacity-100`}>Regenerate</span>
-                <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
-                  {regenerateVotes}
-                </span>
+                <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Regenerate</span>
+                <span className={`text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{regenerateVotes}</span>
               </div>
             )}
           </button>
@@ -1047,15 +1047,15 @@ export default function TravelPlanPage() {
           <div className="relative" ref={settingsRef}>
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-700 ${
-                sidebarCollapsed ? 'justify-center' : ''
-              }`}
+              className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-700`}
               onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('settings', e)}
               onMouseLeave={handleMouseLeave}
             >
-              <Settings className="w-4 h-4" />
-              {!sidebarCollapsed && sidebarFullyOpen && (
-                <span className={`font-medium text-sm transition-opacity duration-300 opacity-100`}>Settings</span>
+              <div className="h-8 flex items-center">
+                <Settings className="w-4 h-4" />
+              </div>
+              {!sidebarCollapsed && (
+                <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Settings</span>
               )}
             </button>
 
