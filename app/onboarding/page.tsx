@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import GooglePlacesAutocomplete from '@/components/GooglePlacesAutocomplete';
-import { createClient } from '@/utils/supabase/client';
 import { Plane, ArrowRight, Check, ChevronDown, User } from 'lucide-react';
 
 interface OnboardingStep {
@@ -62,7 +60,6 @@ const onboardingSteps: OnboardingStep[] = [
 ];
 
 export default function OnboardingPage() {
-  const supabase = createClient();
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentAnswer, setCurrentAnswer] = useState('');
@@ -72,7 +69,6 @@ export default function OnboardingPage() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentStepData = onboardingSteps[currentStep];
   const isLastStep = currentStep === onboardingSteps.length - 1;
@@ -165,54 +161,6 @@ export default function OnboardingPage() {
            inputDate.getDate() === day;
   };
 
-  const saveUserData = async (userData: Record<string, string>) => {
-    try {
-      setIsSubmitting(true);
-      
-      // Convert date format from DD/MM/YYYY to YYYY-MM-DD for database
-      let dateOfBirth = null;
-      if (userData.dateOfBirth) {
-        const [day, month, year] = userData.dateOfBirth.split('/');
-        dateOfBirth = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      }
-      
-      const { data, error } = await supabase
-        .from('users')
-        .insert([
-          {
-            first_name: userData.firstName,
-            middle_name: userData.middleName || null,
-            last_name: userData.lastName,
-            profile_picture: userData.profilePicture || null,
-            date_of_birth: dateOfBirth,
-            mobile_number: userData.mobileNumber,
-            country_code: selectedCountryCode,
-            address_line1: userData.addressLine1,
-            address_line2: userData.addressLine2 || null,
-            city: userData.city,
-            state: userData.state,
-            country: userData.country,
-            post_code: userData.postCode,
-          }
-        ]);
-      
-      if (error) {
-        console.error('Error saving user data:', error);
-        alert('Error saving your information. Please try again.');
-        return false;
-      }
-      
-      console.log('User data saved successfully:', data);
-      return true;
-    } catch (error) {
-      console.error('Error saving user data:', error);
-      alert('Error saving your information. Please try again.');
-      return false;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleNext = () => {
     if (currentStepData.type === 'address') {
       // Validate required address fields
@@ -243,29 +191,13 @@ export default function OnboardingPage() {
     }
 
     if (isLastStep) {
-      // Save to Supabase before redirecting
-      const finalAnswers = { ...answers };
-      if (currentStepData.type === 'address') {
-        Object.entries(addressFields).forEach(([key, value]) => {
-          finalAnswers[key] = value;
-        });
-      } else if (currentStepData.type === 'image') {
-        finalAnswers[currentStepData.id] = profileImage || '';
-      } else {
-        finalAnswers[currentStepData.id] = currentAnswer;
-      }
-      
-      saveUserData(finalAnswers).then((success) => {
-        if (success) {
-          setTimeout(() => {
-            window.location.href = '/dashboard';
-          }, 500);
-        }
-      });
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 500);
       return;
     }
 
-    // Continue to next step
+    // Transition to next step
     setIsVisible(false);
     setTimeout(() => {
       setCurrentStep(prev => prev + 1);
@@ -553,15 +485,10 @@ export default function OnboardingPage() {
               <div className="flex justify-center">
                 <Button
                   onClick={handleNext}
-                  disabled={!canProceed() || isSubmitting}
+                  disabled={!canProceed()}
                   className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Saving...</span>
-                    </div>
-                  ) : isLastStep ? (
+                  {isLastStep ? (
                     <>
                       <Check className="w-5 h-5 mr-2" />
                       Complete
