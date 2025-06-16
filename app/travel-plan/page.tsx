@@ -31,6 +31,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import InteractiveMap from '@/components/InteractiveMap';
 import Link from 'next/link';
 
 interface Place {
@@ -97,6 +98,18 @@ export default function TravelPlanPage() {
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileSettingsRef = useRef<HTMLDivElement>(null);
+
+  // Sample location data for the map
+  const mapLocations = [
+    { id: 'p1', name: 'Eiffel Tower', lat: 48.8584, lng: 2.2945, day: 'Day 1' },
+    { id: 'p2', name: 'Seine River Cruise', lat: 48.8566, lng: 2.3522, day: 'Day 1' },
+    { id: 'p3', name: 'Louvre Museum', lat: 48.8606, lng: 2.3376, day: 'Day 1' },
+    { id: 'p4', name: 'Notre-Dame Cathedral', lat: 48.8530, lng: 2.3499, day: 'Day 2' },
+    { id: 'p5', name: 'Sainte-Chapelle', lat: 48.8555, lng: 2.3448, day: 'Day 2' },
+    { id: 'p6', name: 'Latin Quarter', lat: 48.8503, lng: 2.3447, day: 'Day 2' },
+    { id: 'p7', name: 'Montmartre & Sacré-Cœur', lat: 48.8867, lng: 2.3431, day: 'Day 3' },
+    { id: 'p8', name: 'Moulin Rouge', lat: 48.8841, lng: 2.3322, day: 'Day 3' }
+  ];
 
   useEffect(() => {
     const checkMobile = () => {
@@ -851,12 +864,13 @@ export default function TravelPlanPage() {
                   Close
                 </Button>
               </div>
-              <div className="flex-1 bg-gray-100 flex items-center justify-center">
-                <div className="text-center">
-                  <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-1">Interactive Map</h3>
-                  <p className="text-gray-500 text-sm">Map integration will be added here</p>
-                </div>
+              <div className="flex-1">
+                <InteractiveMap
+                  locations={mapLocations}
+                  center={{ lat: 48.8566, lng: 2.3522 }}
+                  zoom={12}
+                  className="w-full h-full"
+                />
               </div>
             </div>
           </div>
@@ -1090,13 +1104,13 @@ export default function TravelPlanPage() {
       </div>
 
       {/* Map Section */}
-      <div className="flex-1 bg-gray-100 border-l border-gray-200 flex items-center justify-center sticky top-0 h-screen">
-        <div className="text-center">
-          <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-gray-600 mb-1">Interactive Map</h3>
-          <p className="text-gray-500 text-sm">Map integration will be added here</p>
-          <p className="text-xs text-gray-400 mt-1">Showing locations for selected day</p>
-        </div>
+      <div className="flex-1 bg-gray-100 border-l border-gray-200 sticky top-0 h-screen">
+        <InteractiveMap
+          locations={mapLocations}
+          center={{ lat: 48.8566, lng: 2.3522 }}
+          zoom={12}
+          className="w-full h-full"
+        />
       </div>
 
       {/* Delete Confirmation Modal */}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import GooglePlacesAutocomplete from '@/components/GooglePlacesAutocomplete';
 import { Plane, ArrowRight, Copy, Check } from 'lucide-react';
 
 export default function CreateTripPage() {
@@ -73,14 +74,12 @@ export default function CreateTripPage() {
     if (currentStep === 0) {
       return (
         <div className="space-y-6">
-          <Input
-            type="text"
-            placeholder="Enter destination (e.g., Paris, Tokyo, New York)"
+          <GooglePlacesAutocomplete
             value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onChange={setDestination}
+            placeholder="Enter destination (e.g., Paris, Tokyo, New York)"
             className="h-16 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-center"
-            autoFocus
+            types={['(cities)']}
           />
 
           <div className="flex justify-center">

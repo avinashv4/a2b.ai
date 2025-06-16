@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import GooglePlacesAutocomplete from '@/components/GooglePlacesAutocomplete';
 import { Plane, ArrowRight, Check, ChevronDown, User } from 'lucide-react';
 
 interface OnboardingStep {
@@ -243,6 +244,28 @@ export default function OnboardingPage() {
     }));
   };
 
+  const handleCityPlaceSelect = (place: google.maps.places.PlaceResult) => {
+    if (place.address_components) {
+      const addressComponents = place.address_components;
+      const cityComponent = addressComponents.find(component => 
+        component.types.includes('locality') || component.types.includes('administrative_area_level_1')
+      );
+      const stateComponent = addressComponents.find(component => 
+        component.types.includes('administrative_area_level_1')
+      );
+      const countryComponent = addressComponents.find(component => 
+        component.types.includes('country')
+      );
+
+      setAddressFields(prev => ({
+        ...prev,
+        city: cityComponent?.long_name || prev.city,
+        state: stateComponent?.long_name || prev.state,
+        country: countryComponent?.long_name || prev.country
+      }));
+    }
+  };
+
   const renderInput = () => {
     if (currentStepData.type === 'image') {
       return (
@@ -309,15 +332,45 @@ export default function OnboardingPage() {
       return (
         <div className="space-y-4">
           {currentStepData.fields?.map((field, index) => (
-            <Input
-              key={field.id}
-              type="text"
-              placeholder={field.placeholder}
-              value={addressFields[field.id] || ''}
-              onChange={(e) => handleAddressFieldChange(field.id, e.target.value)}
-              className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-              autoFocus={index === 0}
-            />
+            field.id === 'city' ? (
+              <GooglePlacesAutocomplete
+                key={field.id}
+                value={addressFields[field.id] || ''}
+                onChange={(value) => handleAddressFieldChange(field.id, value)}
+                placeholder={field.placeholder}
+                className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                types={['(cities)']}
+                onPlaceSelect={handleCityPlaceSelect}
+              />
+            ) : field.id === 'state' ? (
+              <GooglePlacesAutocomplete
+                key={field.id}
+                value={addressFields[field.id] || ''}
+                onChange={(value) => handleAddressFieldChange(field.id, value)}
+                placeholder={field.placeholder}
+                className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                types={['(regions)']}
+              />
+            ) : field.id === 'country' ? (
+              <GooglePlacesAutocomplete
+                key={field.id}
+                value={addressFields[field.id] || ''}
+                onChange={(value) => handleAddressFieldChange(field.id, value)}
+                placeholder={field.placeholder}
+                className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                types={['(regions)']}
+              />
+            ) : (
+              <Input
+                key={field.id}
+                type="text"
+                placeholder={field.placeholder}
+                value={addressFields[field.id] || ''}
+                onChange={(e) => handleAddressFieldChange(field.id, e.target.value)}
+                className="h-14 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                autoFocus={index === 0}
+              />
+            )
           ))}
         </div>
       );
