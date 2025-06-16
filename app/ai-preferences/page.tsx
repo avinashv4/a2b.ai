@@ -159,15 +159,15 @@ export default function AIPreferencesPage() {
         <div className="flex-1 flex flex-col items-center justify-center px-8 relative">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Share Your Travel Preferences</h1>
-            <p className="text-xl text-gray-600">Tell our AI what you're looking for in this Paris trip</p>
+            <p className="text-xl text-gray-600">Tell our AI what you&apos;re looking for in this Paris trip</p>
           </div>
 
           {/* Main Interface Container */}
-          <div className="flex flex-col items-center justify-center space-y-8">
+          <div className="relative w-[600px] h-[600px] flex items-center justify-center">
             {/* Audio Visualizer - Fade out when showing chat */}
-            <div className={`relative transition-all duration-300 ease-in-out ${
+            <div className={`absolute inset-0 w-full h-full transition-all duration-300 ease-in-out ${
               showChat || isTransitioning ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
-            }`}>
+            } flex items-center justify-center`}>
               <div className="w-80 h-80 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center relative overflow-hidden">
                 {/* Audio Visualizer Placeholder */}
                 <Image
@@ -201,17 +201,15 @@ export default function AIPreferencesPage() {
                 </div>
               </div>
             </div>
-
             {/* Chat Interface - Fade in when chat is active */}
-            <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out ${
+            <div className={`absolute inset-0 w-full h-full transition-all duration-300 ease-in-out ${
               showChat && !isTransitioning ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-            } ${showChat ? '' : 'absolute'}`}>
-              <div className="bg-white rounded-3xl border border-gray-200 shadow-lg h-[500px] flex flex-col">
+            } flex items-center justify-center`}>
+              <div className="bg-white rounded-3xl border border-gray-200 shadow-lg w-full h-full flex flex-col">
                 {/* Chat Header */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200">
                   <h3 className="text-xl font-semibold text-gray-900">Chat with AI Assistant</h3>
                 </div>
-
                 {/* Chat Messages */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                   {messages.map((message) => (
@@ -232,7 +230,6 @@ export default function AIPreferencesPage() {
                   ))}
                   <div ref={chatEndRef} />
                 </div>
-
                 {/* Chat Input */}
                 <div className="p-6 border-t border-gray-200">
                   <div className="flex space-x-3">
@@ -254,41 +251,41 @@ export default function AIPreferencesPage() {
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Bottom Controls */}
-            <div className={`flex flex-col items-center transition-all duration-300 ${
-              showChat ? 'space-y-4' : 'space-y-6'
-            }`}>
-              {/* Chat Toggle Button */}
-              <Button
-                onClick={handleChatToggle}
-                variant="outline"
-                className="px-6 py-3 rounded-xl border-gray-300 hover:bg-gray-50 transition-all duration-200"
-              >
-                <MessageCircle className="w-5 h-5 mr-2" />
-                {showChat ? 'Talk to AI instead' : 'Chat with AI instead'}
-              </Button>
+          {/* Bottom Controls */}
+          <div className={`flex flex-col items-center transition-all duration-300 mt-10 ${
+            showChat ? 'space-y-4' : 'space-y-6'
+          }`}>
+            {/* Chat Toggle Button */}
+            <Button
+              onClick={handleChatToggle}
+              variant="outline"
+              className="px-6 py-3 rounded-xl border-gray-300 hover:bg-gray-50 transition-all duration-200"
+            >
+              <MessageCircle className="w-5 h-5 mr-2" />
+              {showChat ? 'Talk to AI instead' : 'Chat with AI instead'}
+            </Button>
 
-              {/* Confirm Preferences Button */}
-              <Button
-                onClick={handleConfirmPreferences}
-                disabled={userCompleted}
-                className={`px-8 py-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 ${
-                  userCompleted 
-                    ? 'bg-green-600 hover:bg-green-700 text-white' 
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
-              >
-                {userCompleted ? (
-                  <div className="flex items-center space-x-2">
-                    <Check className="w-5 h-5" />
-                    <span>Preferences Confirmed</span>
-                  </div>
-                ) : (
-                  'Confirm My Preferences'
-                )}
-              </Button>
-            </div>
+            {/* Confirm Preferences Button */}
+            <Button
+              onClick={handleConfirmPreferences}
+              disabled={userCompleted}
+              className={`px-8 py-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 ${
+                userCompleted 
+                  ? 'bg-green-600 hover:bg-green-700 text-white' 
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              {userCompleted ? (
+                <div className="flex items-center space-x-2">
+                  <Check className="w-5 h-5" />
+                  <span>Preferences Confirmed</span>
+                </div>
+              ) : (
+                'Confirm My Preferences'
+              )}
+            </Button>
           </div>
         </div>
 
