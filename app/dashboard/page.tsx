@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Plane, Users, MapPin, Calendar, Settings, Bell, User, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';
 import FlowingMenu from '@/components/FlowingMenu';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabaseClient';
 
 interface TravelGroup {
