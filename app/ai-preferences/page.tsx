@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Plane, Mic, Phone, MessageCircle, Check, X, Send, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { supabase } from '@/lib/supabaseClient';
 
 interface User {
   id: string;
@@ -36,36 +37,67 @@ export default function AIPreferencesPage() {
   const [newMessage, setNewMessage] = useState('');
   const [userCompleted, setUserCompleted] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [groupId, setGroupId] = useState<string | null>(null);
+  const [groupMembers, setGroupMembers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample users for the trip
-  const users: User[] = [
-    {
-      id: '1',
-      name: 'You',
-      avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-      completed: userCompleted
-    },
-    {
-      id: '2',
-      name: 'Sarah',
-      avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-      completed: true
-    },
-    {
-      id: '3',
-      name: 'Mike',
-      avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-      completed: true
-    },
-    {
-      id: '4',
-      name: 'Emma',
-      avatar: 'https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-      completed: true
-    }
-  ];
+  useEffect(() => {
+    const loadGroupData = async () => {
+      try {
+        // Get group ID from localStorage or URL params
+        const storedGroupId = localStorage.getItem('currentGroupId');
+        if (!storedGroupId) {
+          // Redirect to dashboard if no group ID
+          window.location.href = '/dashboard';
+          return;
+        }
 
-  const allUsersReady = users.every(user => user.completed);
+        setGroupId(storedGroupId);
+
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          window.location.href = '/auth';
+          return;
+        }
+
+        // Load group members
+        const { data: membersData, error: membersError } = await supabase
+          .from('group_members')
+          .select(`
+            user_id,
+            profiles!group_members_user_id_fkey(
+              first_name,
+              last_name,
+              profile_picture
+            )
+          `)
+          .eq('group_id', storedGroupId);
+
+        if (membersError) {
+          console.error('Error loading group members:', membersError);
+          return;
+        }
+
+        const formattedMembers: User[] = membersData.map(member => ({
+          id: member.user_id,
+          name: member.user_id === user.id ? 'You' : `${member.profiles.first_name} ${member.profiles.last_name}`,
+          avatar: member.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+          completed: member.user_id === user.id ? userCompleted : Math.random() > 0.3 // Random for demo
+        }));
+
+        setGroupMembers(formattedMembers);
+      } catch (error) {
+        console.error('Error loading group data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadGroupData();
+  }, [userCompleted]);
+
+  const allUsersReady = groupMembers.every(user => user.completed);
 
   useEffect(() => {
     if (chatEndRef.current) {
@@ -129,6 +161,17 @@ export default function AIPreferencesPage() {
   const handleConfirmPreferences = () => {
     setUserCompleted(true);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading trip details...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -294,7 +337,7 @@ export default function AIPreferencesPage() {
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Trip Members</h3>
           
           <div className="space-y-4">
-            {users.map((user) => (
+            {groupMembers.map((user) => (
               <div key={user.id} className="flex items-center space-x-3 p-3 bg-white rounded-xl shadow-sm">
                 <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200">
                   <img
@@ -327,7 +370,7 @@ export default function AIPreferencesPage() {
             <Button
               onClick={() => {
                 if (allUsersReady) {
-                  window.location.href = '/travel-plan';
+                  window.location.href = `/travel-plan?groupId=${groupId}`;
                 }
               }}
               disabled={!allUsersReady}

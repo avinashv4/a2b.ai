@@ -6,6 +6,19 @@ import Link from 'next/link';
 import FlowingMenu from '@/components/FlowingMenu';
 import { supabase } from '@/lib/supabaseClient';
 
+interface TravelGroup {
+  group_id: string;
+  destination: string;
+  created_at: string;
+  member_count: number;
+  members: Array<{
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    profile_picture?: string;
+  }>;
+}
+
 export default function DashboardPage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -13,6 +26,8 @@ export default function DashboardPage() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [travelGroups, setTravelGroups] = useState<TravelGroup[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(true);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -53,6 +68,80 @@ export default function DashboardPage() {
     fetchProfile();
   }, []);
 
+  useEffect(() => {
+    const fetchTravelGroups = async () => {
+      setGroupsLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Get all groups the user is a member of
+        const { data: groupMemberships, error: membershipError } = await supabase
+          .from('group_members')
+          .select(`
+            group_id,
+            travel_groups!inner(
+              group_id,
+              destination,
+              created_at
+            )
+          `)
+          .eq('user_id', user.id);
+
+        if (membershipError) {
+          console.error('Error fetching group memberships:', membershipError);
+          return;
+        }
+
+        // For each group, get all members
+        const groupsWithMembers = await Promise.all(
+          groupMemberships.map(async (membership) => {
+            const { data: members, error: membersError } = await supabase
+              .from('group_members')
+              .select(`
+                user_id,
+                profiles!group_members_user_id_fkey(
+                  first_name,
+                  last_name,
+                  profile_picture
+                )
+              `)
+              .eq('group_id', membership.group_id);
+
+            if (membersError) {
+              console.error('Error fetching group members:', membersError);
+              return null;
+            }
+
+            const formattedMembers = members.map(member => ({
+              user_id: member.user_id,
+              first_name: member.profiles.first_name,
+              last_name: member.profiles.last_name,
+              profile_picture: member.profiles.profile_picture
+            }));
+
+            return {
+              group_id: membership.travel_groups.group_id,
+              destination: membership.travel_groups.destination,
+              created_at: membership.travel_groups.created_at,
+              member_count: formattedMembers.length,
+              members: formattedMembers
+            };
+          })
+        );
+
+        const validGroups = groupsWithMembers.filter(group => group !== null) as TravelGroup[];
+        setTravelGroups(validGroups);
+      } catch (error) {
+        console.error('Error fetching travel groups:', error);
+      } finally {
+        setGroupsLoading(false);
+      }
+    };
+
+    fetchTravelGroups();
+  }, []);
+
   const notifications = [
     {
       id: 1,
@@ -74,53 +163,24 @@ export default function DashboardPage() {
     }
   ];
 
-  // Sample travel plans
-  const travelPlans = [
-    {
-      id: 1,
-      destination: "Paris",
-      members: [
-        { name: "You", avatar: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
-        { name: "Sarah", avatar: "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
-        { name: "Mike", avatar: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" }
-      ],
-      additionalMembers: 4
-    },
-    {
-      id: 2,
-      destination: "Tokyo",
-      members: [
-        { name: "You", avatar: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
-        { name: "Emma", avatar: "https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" }
-      ],
-      additionalMembers: 2
-    },
-    {
-      id: 3,
-      destination: "Bali",
-      members: [
-        { name: "You", avatar: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
-        { name: "Alex", avatar: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
-        { name: "Lisa", avatar: "https://images.pexels.com/photos/1036623/pexels-photo-1036623.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" },
-        { name: "Tom", avatar: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" }
-      ],
-      additionalMembers: 1
-    }
-  ];
-
   // FlowingMenu items based on travel plans
-  const flowingMenuItems = travelPlans.map(plan => ({
-    link: '/ai-preferences',
-    text: plan.destination,
-    members: plan.members,
-    additionalMembers: plan.additionalMembers,
+  const flowingMenuItems = travelGroups.map(group => ({
+    link: `/travel-plan?groupId=${group.group_id}`,
+    text: group.destination,
+    members: group.members.slice(0, 3).map(member => ({
+      name: `${member.first_name} ${member.last_name}`,
+      avatar: member.profile_picture || `https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`
+    })),
+    additionalMembers: Math.max(0, group.member_count - 3),
     image: `https://images.pexels.com/photos/${
-      plan.destination === 'Paris' ? '338515' : 
-      plan.destination === 'Tokyo' ? '2506923' : 
+      group.destination.toLowerCase().includes('paris') ? '338515' : 
+      group.destination.toLowerCase().includes('tokyo') ? '2506923' : 
+      group.destination.toLowerCase().includes('bali') ? '1320684' :
       '1320684'
     }/pexels-photo-${
-      plan.destination === 'Paris' ? '338515' : 
-      plan.destination === 'Tokyo' ? '2506923' : 
+      group.destination.toLowerCase().includes('paris') ? '338515' : 
+      group.destination.toLowerCase().includes('tokyo') ? '2506923' : 
+      group.destination.toLowerCase().includes('bali') ? '1320684' :
       '1320684'
     }.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`
   }));
@@ -238,12 +298,34 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-gray-900">Your Travel Plans</h2>
           
-          {/* FlowingMenu Section */}
-          <div className="mb-8">
+          {groupsLoading ? (
+            <div className="bg-gray-100 rounded-2xl h-96 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading your trips...</p>
+              </div>
+            </div>
+          ) : travelGroups.length > 0 ? (
+            /* FlowingMenu Section */
+            <div className="mb-8">
               <div className="bg-gray-900 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
                 <FlowingMenu items={flowingMenuItems} />
               </div>
             </div>
+          ) : (
+            <div className="bg-gray-50 rounded-2xl p-12 text-center mb-8">
+              <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <MapPin className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No trips yet</h3>
+              <p className="text-gray-600 mb-6">Create your first travel plan to get started!</p>
+              <Link href="/create-trip">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold">
+                  Create Your First Trip
+                </Button>
+              </Link>
+            </div>
+          )}
             
           <div className="space-y-4">
             {/* Create New Travel Plan Card */}

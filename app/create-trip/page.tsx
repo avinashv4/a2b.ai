@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import GooglePlacesAutocomplete from '@/components/GooglePlacesAutocomplete';
 import { Plane, ArrowRight, Copy, Check } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 export default function CreateTripPage() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -12,6 +14,10 @@ export default function CreateTripPage() {
   const [isVisible, setIsVisible] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [groupId, setGroupId] = useState<string | null>(null);
+  const router = useRouter();
 
   const steps = [
     { id: 'destination', question: 'Where would you like to go?' },
@@ -25,19 +31,68 @@ export default function CreateTripPage() {
       setIsVisible(true);
     }, 100);
 
-    // Generate invite link when moving to invite step
-    if (currentStep === 1 && !inviteLink) {
-      const randomId = Math.random().toString(36).substring(2, 15);
-      setInviteLink(`a2b.ai/join/${randomId}`);
-    }
-
     return () => clearTimeout(timer);
-  }, [currentStep, inviteLink]);
+  }, [currentStep]);
 
-  const handleNext = () => {
+  const createTravelGroup = useCallback(async () => {
+    if (!destination.trim()) return null;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Create travel group
+      const { data: groupData, error: groupError } = await supabase
+        .from('travel_groups')
+        .insert({
+          host_id: user.id,
+          destination: destination.trim()
+        })
+        .select('group_id')
+        .single();
+
+      if (groupError) {
+        throw new Error('Failed to create travel group: ' + groupError.message);
+      }
+
+      // Add host as group member
+      const { error: memberError } = await supabase
+        .from('group_members')
+        .insert({
+          group_id: groupData.group_id,
+          user_id: user.id
+        });
+
+      if (memberError) {
+        throw new Error('Failed to add host to group: ' + memberError.message);
+      }
+
+      return groupData.group_id;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [destination]);
+
+  const handleNext = async () => {
     if (currentStep === 0) {
       if (!destination.trim()) return;
       
+      // Create travel group when moving to invite step
+      const createdGroupId = await createTravelGroup();
+      if (!createdGroupId) return;
+
+      setGroupId(createdGroupId);
+      setInviteLink(`${window.location.origin}/join/${createdGroupId}`);
+
       // Transition to next step
       setIsVisible(false);
       setTimeout(() => {
@@ -48,6 +103,10 @@ export default function CreateTripPage() {
       }, 300);
     } else {
       // Complete trip creation
+      if (groupId) {
+        // Store group ID in localStorage for the AI preferences page
+        localStorage.setItem('currentGroupId', groupId);
+      }
       setTimeout(() => {
         window.location.href = '/ai-preferences';
       }, 500);
@@ -126,10 +185,20 @@ export default function CreateTripPage() {
         <div className="flex justify-center">
           <Button
             onClick={handleNext}
+            disabled={loading}
             className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105"
           >
-            <Check className="w-5 h-5 mr-2" />
-            Complete Trip Setup
+            {loading ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Setting up...</span>
+              </div>
+            ) : (
+              <>
+                <Check className="w-5 h-5 mr-2" />
+                Complete Trip Setup
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -172,6 +241,9 @@ export default function CreateTripPage() {
               <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
                 {currentStepData?.question}
               </h1>
+              {error && (
+                <p className="text-red-600 text-sm mt-2">{error}</p>
+              )}
             </div>
 
             {renderStepContent()}
