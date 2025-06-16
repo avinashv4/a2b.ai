@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import GooglePlacesAutocomplete from '@/components/GooglePlacesAutocomplete';
 import { Plane, ArrowRight, Copy, Check } from 'lucide-react';
 
@@ -100,11 +99,11 @@ export default function CreateTripPage() {
       <div className="space-y-6">
         <div className="space-y-4">
           <div className="relative">
-            <Input
+            <input
               type="text"
               value={inviteLink}
               readOnly
-              className="h-16 text-lg rounded-xl border-gray-300 bg-gray-50 text-center pr-16"
+              className="w-full h-16 text-lg rounded-xl border border-gray-300 bg-gray-50 text-center pr-16 focus:outline-none"
             />
             <button
               onClick={copyToClipboard}

@@ -27,12 +27,6 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [localValue, setLocalValue] = useState(value);
-
-  // Keep localValue in sync with parent value if it changes externally
-  useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
 
   useEffect(() => {
     const checkGoogleMaps = () => {
@@ -71,7 +65,6 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
           } else {
             valueToSet = '';
           }
-          setLocalValue(valueToSet);
           onChange(valueToSet);
           if (onPlaceSelect) {
             onPlaceSelect(place);
@@ -91,9 +84,8 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
     <Input
       ref={inputRef}
       type="text"
-      value={localValue}
-      onChange={(e) => setLocalValue(e.target.value)}
-      onBlur={() => onChange(localValue)}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       className={className}
     />
