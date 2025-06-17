@@ -1,30 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Plane, Mic, Phone, MessageCircle, Check, X, Send, ArrowLeft } from 'lucide-react';
+import { Plane, Mic, Phone, Check, X, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
-
-// ElevenLabs Conversational AI Integration
-declare global {
-  interface Window {
-    ElevenLabs?: {
-      ConversationalAI: {
-        startSession: (config: {
-          agentId: string;
-          onConnect?: () => void;
-          onDisconnect?: () => void;
-          onMessage?: (message: any) => void;
-          onModeChange?: (mode: any) => void;
-        }) => Promise<any>;
-        endSession: () => void;
-      };
-    };
-  }
-}
+import { useConversation } from '@elevenlabs/react';
 
 interface User {
   id: string;
@@ -33,70 +14,37 @@ interface User {
   completed: boolean;
 }
 
-interface Message {
-  id: string;
-  text: string;
-  isUser: boolean;
-  timestamp: Date;
-}
-
 export default function AIPreferencesPage() {
-  const [isRecording, setIsRecording] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: "Hi! I'm your AI travel assistant. I'm here to learn about your preferences for this trip. What kind of experience are you looking for?",
-      isUser: false,
-      timestamp: new Date()
-    }
-  ]);
-  const [newMessage, setNewMessage] = useState('');
   const [userCompleted, setUserCompleted] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const [groupId, setGroupId] = useState<string | null>(null);
   const [groupMembers, setGroupMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [elevenLabsLoaded, setElevenLabsLoaded] = useState(false);
-  const [conversationSession, setConversationSession] = useState<any>(null);
 
-  useEffect(() => {
-    // Load ElevenLabs SDK
-    const script = document.createElement('script');
-    script.src = 'https://elevenlabs.io/convai-widget/index.js';
-    script.async = true;
-    
-    script.onload = () => {
-      // Poll for ElevenLabs SDK availability
-      const checkSDK = setInterval(() => {
-        if (window.ElevenLabs?.ConversationalAI) {
-          setElevenLabsLoaded(true);
-          clearInterval(checkSDK);
-        }
-      }, 100); // Check every 100ms
-      
-      // Timeout after 10 seconds
-      setTimeout(() => {
-        clearInterval(checkSDK);
-        if (!window.ElevenLabs?.ConversationalAI) {
-          console.error('ElevenLabs SDK failed to load within timeout period');
-        }
-      }, 10000);
-    };
-    
-    script.onerror = () => {
-      console.error('Failed to load ElevenLabs SDK script');
-    };
-    
-    document.head.appendChild(script);
+  const conversation = useConversation({
+    onConnect: () => console.log('Connected to ElevenLabs AI'),
+    onDisconnect: () => console.log('Disconnected from ElevenLabs AI'),
+    onMessage: (message) => console.log('AI Message:', message),
+    onError: (error) => console.error('ElevenLabs Error:', error),
+  });
 
-    return () => {
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-    };
-  }, []);
+  const startConversation = useCallback(async () => {
+    try {
+      // Request microphone permission
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Start the conversation with your agent
+      await conversation.startSession({
+        agentId: 'agent_01jxy55f0afx8aax07xahyqsy5',
+      });
+
+    } catch (error) {
+      console.error('Failed to start conversation:', error);
+    }
+  }, [conversation]);
+
+  const stopConversation = useCallback(async () => {
+    await conversation.endSession();
+  }, [conversation]);
 
   useEffect(() => {
     const loadGroupData = async () => {
@@ -156,110 +104,6 @@ export default function AIPreferencesPage() {
 
   const allUsersReady = groupMembers.every(user => user.completed);
 
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
-
-  const handleVoiceToggle = () => {
-    if (!elevenLabsLoaded || !window.ElevenLabs) {
-      console.error('ElevenLabs SDK not loaded');
-      return;
-    }
-
-    if (!isRecording) {
-      // Start ElevenLabs conversation
-      window.ElevenLabs.ConversationalAI.startSession({
-        agentId: 'agent_01jxy55f0afx8aax07xahyqsy5',
-        onConnect: () => {
-          console.log('Connected to ElevenLabs AI');
-          setIsRecording(true);
-        },
-        onDisconnect: () => {
-          console.log('Disconnected from ElevenLabs AI');
-          setIsRecording(false);
-        },
-        onMessage: (message) => {
-          console.log('AI Message:', message);
-          // Add AI message to chat if needed
-          if (message.type === 'agent_response') {
-            const aiMessage: Message = {
-              id: Date.now().toString(),
-              text: message.text || 'AI is processing your request...',
-              isUser: false,
-              timestamp: new Date()
-            };
-            setMessages(prev => [...prev, aiMessage]);
-          }
-        },
-        onModeChange: (mode) => {
-          console.log('Mode changed:', mode);
-        }
-      }).then((session) => {
-        setConversationSession(session);
-      }).catch((error) => {
-        console.error('Failed to start ElevenLabs session:', error);
-      });
-    } else {
-      // End conversation
-      if (window.ElevenLabs?.ConversationalAI) {
-        window.ElevenLabs.ConversationalAI.endSession();
-      }
-      setIsRecording(false);
-      setConversationSession(null);
-    }
-  };
-
-  const handleChatToggle = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setShowChat(!showChat);
-      setIsTransitioning(false);
-    }, 300);
-  };
-
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: newMessage,
-      isUser: true,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setNewMessage('');
-
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponses = [
-        "That sounds interesting! Can you tell me more about your budget preferences?",
-        "Great choice! What type of activities do you enjoy most when traveling?",
-        "I understand. Are you more interested in relaxation or adventure activities?",
-        "Perfect! How important is local cuisine to your travel experience?",
-        "Excellent! Do you prefer staying in city centers or more secluded areas?"
-      ];
-
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: aiResponses[Math.floor(Math.random() * aiResponses.length)],
-        isUser: false,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-    }, 1000);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   const handleConfirmPreferences = () => {
     setUserCompleted(true);
   };
@@ -309,95 +153,75 @@ export default function AIPreferencesPage() {
 
           {/* Main Interface Container */}
           <div className="relative w-[600px] h-[600px] flex items-center justify-center">
-            {/* Audio Visualizer - Fade out when showing chat */}
-            <div className={`absolute inset-0 w-full h-full transition-all duration-300 ease-in-out ${
-              showChat || isTransitioning ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
-            } flex items-center justify-center`}>
-              <div className="w-80 h-80 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center relative overflow-hidden">
-                {/* Audio Visualizer Placeholder */}
-                <Image
-                  src="/image.png"
-                  alt="Audio Visualizer"
-                  width={320}
-                  height={320}
-                  className="rounded-full object-cover"
-                  priority
-                />
-                
-                {/* Voice Control Button */}
+            {/* AI Conversation Interface */}
+            <div className="w-80 h-80 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center relative overflow-hidden border-4 border-white shadow-2xl">
+              {/* Animated Background */}
+              <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-500 ${
+                conversation.status === 'connected' 
+                  ? 'from-green-400 to-blue-500 animate-pulse' 
+                  : 'from-blue-100 to-blue-200'
+              }`} />
+              
+              {/* Audio Visualizer Effect */}
+              {conversation.status === 'connected' && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Button
-                    onClick={handleVoiceToggle}
-                    disabled={!elevenLabsLoaded}
-                    className={`transition-all duration-300 ease-in-out ${
-                      isRecording 
-                        ? 'w-16 h-16 rounded-full bg-black hover:bg-black' 
-                        : 'px-8 py-4 rounded-full bg-black hover:bg-black disabled:bg-gray-400'
-                    } text-white font-semibold shadow-lg hover:scale-105 disabled:cursor-not-allowed`}
-                  >
-                    {isRecording ? (
-                      <Phone className="w-6 h-6" />
-                    ) : !elevenLabsLoaded ? (
-                      <div className="flex items-center space-x-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Loading AI...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-2">
-                        <Mic className="w-5 h-5" />
-                        <span>Talk to AI</span>
-                      </div>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-            {/* Chat Interface - Fade in when chat is active */}
-            <div className={`absolute inset-0 w-full h-full transition-all duration-300 ease-in-out ${
-              showChat && !isTransitioning ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-            } flex items-center justify-center`}>
-              <div className="bg-white rounded-3xl border border-gray-200 shadow-lg w-full h-full flex flex-col">
-                {/* Chat Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                  <h3 className="text-xl font-semibold text-gray-900">Chat with AI Assistant</h3>
-                </div>
-                {/* Chat Messages */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-                    >
+                  <div className="flex space-x-1">
+                    {[...Array(5)].map((_, i) => (
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
-                          message.isUser
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-900'
-                        }`}
-                      >
-                        <p className="text-sm">{message.text}</p>
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
+                        key={i}
+                        className="w-2 bg-white rounded-full animate-pulse"
+                        style={{
+                          height: `${20 + Math.random() * 40}px`,
+                          animationDelay: `${i * 0.1}s`,
+                          animationDuration: '0.8s'
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
-                {/* Chat Input */}
-                <div className="p-6 border-t border-gray-200">
-                  <div className="flex space-x-3">
-                    <Input
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder="Type your message..."
-                      className="flex-1 h-12 rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                    />
+              )}
+              
+              {/* Voice Control Button */}
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <div className="flex flex-col items-center space-y-4">
+                  {conversation.status === 'connected' ? (
                     <Button
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim()}
-                      className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={stopConversation}
+                      className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold shadow-lg hover:scale-105 transition-all duration-200"
                     >
-                      <Send className="w-5 h-5" />
+                      <Phone className="w-6 h-6" />
                     </Button>
+                  ) : (
+                    <Button
+                      onClick={startConversation}
+                      disabled={conversation.status === 'connecting'}
+                      className="px-8 py-4 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold shadow-lg hover:scale-105 transition-all duration-200 disabled:cursor-not-allowed"
+                    >
+                      {conversation.status === 'connecting' ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Connecting...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <Mic className="w-5 h-5" />
+                          <span>Talk to AI</span>
+                        </div>
+                      )}
+                    </Button>
+                  )}
+                  
+                  {/* Status Indicator */}
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-gray-700">
+                      Status: {conversation.status === 'connected' ? 'Connected' : 
+                               conversation.status === 'connecting' ? 'Connecting...' : 'Ready'}
+                    </p>
+                    {conversation.status === 'connected' && (
+                      <p className="text-xs text-gray-600 mt-1">
+                        AI is {conversation.isSpeaking ? 'speaking' : 'listening'}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -405,18 +229,14 @@ export default function AIPreferencesPage() {
           </div>
 
           {/* Bottom Controls */}
-          <div className={`flex flex-col items-center transition-all duration-300 mt-10 ${
-            showChat ? 'space-y-4' : 'space-y-6'
-          }`}>
-            {/* Chat Toggle Button */}
-            <Button
-              onClick={handleChatToggle}
-              variant="outline"
-              className="px-6 py-3 rounded-xl border-gray-300 hover:bg-gray-50 transition-all duration-200"
-            >
-              <MessageCircle className="w-5 h-5 mr-2" />
-              {showChat ? 'Talk to AI instead' : 'Chat with AI instead'}
-            </Button>
+          <div className="flex flex-col items-center space-y-6 mt-10">
+            {/* Instructions */}
+            <div className="text-center max-w-md">
+              <p className="text-gray-600 text-sm">
+                Click "Talk to AI" to start a voice conversation about your travel preferences. 
+                The AI will ask you questions to understand what you're looking for in this trip.
+              </p>
+            </div>
 
             {/* Confirm Preferences Button */}
             <Button
