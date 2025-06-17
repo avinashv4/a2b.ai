@@ -33,6 +33,7 @@ export default function DashboardPage() {
     first_name: string;
     profile_picture?: string;
   } | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -147,7 +148,12 @@ export default function DashboardPage() {
     };
 
     fetchTravelGroups();
-  }, []);
+  }, [refreshTrigger]);
+
+  const handleLeaveTrip = (groupId: string) => {
+    // Refresh the travel groups list
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   const notifications = [
     {
@@ -174,6 +180,7 @@ export default function DashboardPage() {
   const flowingMenuItems = travelGroups.map(group => ({
     link: `/travel-plan?groupId=${group.group_id}`,
     text: group.destination,
+    groupId: group.group_id,
     members: group.members.slice(0, 3).map(member => ({
       name: `${member.first_name} ${member.last_name}`,
       avatar: member.profile_picture || `https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`
@@ -324,7 +331,7 @@ export default function DashboardPage() {
             /* FlowingMenu Section */
             <div className="mb-8">
               <div className="bg-gray-900 rounded-2xl overflow-hidden" style={{ minHeight: '400px', height: 'auto' }}>
-                <FlowingMenu items={flowingMenuItems} />
+                <FlowingMenu items={flowingMenuItems.map(item => ({ ...item, onLeaveTrip: handleLeaveTrip }))} />
               </div>
             </div>
           ) : (
