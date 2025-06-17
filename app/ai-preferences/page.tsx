@@ -66,9 +66,29 @@ export default function AIPreferencesPage() {
     const script = document.createElement('script');
     script.src = 'https://elevenlabs.io/convai-widget/index.js';
     script.async = true;
+    
     script.onload = () => {
-      setElevenLabsLoaded(true);
+      // Poll for ElevenLabs SDK availability
+      const checkSDK = setInterval(() => {
+        if (window.ElevenLabs?.ConversationalAI) {
+          setElevenLabsLoaded(true);
+          clearInterval(checkSDK);
+        }
+      }, 100); // Check every 100ms
+      
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        clearInterval(checkSDK);
+        if (!window.ElevenLabs?.ConversationalAI) {
+          console.error('ElevenLabs SDK failed to load within timeout period');
+        }
+      }, 10000);
     };
+    
+    script.onerror = () => {
+      console.error('Failed to load ElevenLabs SDK script');
+    };
+    
     document.head.appendChild(script);
 
     return () => {
