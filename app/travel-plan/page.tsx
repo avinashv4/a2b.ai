@@ -472,9 +472,9 @@ export default function TravelPlanPage() {
   };
 
   const renderOverviewContent = () => (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Trip Image */}
-      <div className="w-full h-48 md:h-64 rounded-2xl overflow-hidden bg-gray-200">
+      <div className="w-full h-64 md:h-80 rounded-2xl overflow-hidden bg-gray-200">
         <img
           src="https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=800&h=400&fit=crop"
           alt="Paris"
@@ -483,7 +483,7 @@ export default function TravelPlanPage() {
       </div>
 
       {/* Trip Header */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+      <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <div className="flex-1">
             {isEditingTitle ? (
@@ -538,20 +538,20 @@ export default function TravelPlanPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 text-center">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
           <Plane className="w-6 h-6 text-blue-600 mx-auto mb-2" />
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Flight</h3>
           <p className="text-xs text-gray-600">Air France • Direct</p>
           <p className="text-xs text-gray-500">8h 15m</p>
         </div>
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 text-center">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
           <Hotel className="w-6 h-6 text-green-600 mx-auto mb-2" />
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Hotel</h3>
           <p className="text-xs text-gray-600">Hotel Le Marais</p>
           <p className="text-xs text-gray-500">4.8★ • $180/night</p>
         </div>
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 text-center">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
           <MapPin className="w-6 h-6 text-purple-600 mx-auto mb-2" />
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Activities</h3>
           <p className="text-xs text-gray-600">8 attractions</p>
@@ -581,7 +581,7 @@ export default function TravelPlanPage() {
   );
 
   const renderFlightsContent = () => (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Flight Options (Round Trip)</h2>
         <Button variant="outline" className="px-4 py-2 rounded-xl text-sm">
@@ -589,9 +589,9 @@ export default function TravelPlanPage() {
         </Button>
       </div>
       
-      <div className="space-y-3">
+      <div className="space-y-4">
         {flights.map((flight) => (
-          <div key={flight.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div key={flight.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <div className="flex items-center space-x-4 mb-2">
@@ -631,7 +631,7 @@ export default function TravelPlanPage() {
   );
 
   const renderHotelsContent = () => (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Hotel Options</h2>
         <Button variant="outline" className="px-4 py-2 rounded-xl text-sm">
@@ -639,9 +639,9 @@ export default function TravelPlanPage() {
         </Button>
       </div>
       
-      <div className="space-y-3">
+      <div className="space-y-4">
         {hotels.map((hotel) => (
-          <div key={hotel.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div key={hotel.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <div className="flex space-x-4">
               <div className="w-32 h-24 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
                 <img
@@ -680,16 +680,16 @@ export default function TravelPlanPage() {
   );
 
   const renderItineraryContent = () => (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">Daily Itinerary</h2>
       
-      <div className="space-y-4">
+      <div className="space-y-6">
         {itinerary.map((day) => (
           <div key={day.date}>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
               <button
                 onClick={() => toggleDayInMain(day.date)}
-                className="w-full p-4 text-left hover:bg-gray-50 transition-colors flex items-center justify-between"
+                className="w-full p-6 text-left hover:bg-gray-50 transition-colors flex items-center justify-between"
               >
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{day.month}</h3>
@@ -705,10 +705,10 @@ export default function TravelPlanPage() {
               <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
                 dayExpandedStates[day.date] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
               }`}>
-                <div className="p-4 pt-0 space-y-4">
+                <div className="p-6 pt-0 space-y-6">
                   {day.places.map((place, index) => (
                     <div key={place.id}>
-                      <div className="bg-gray-50 rounded-xl p-4">
+                      <div className="bg-gray-50 rounded-xl p-6">
                         <div className="flex space-x-4">
                           <div className="w-24 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
                             <img
@@ -762,7 +762,7 @@ export default function TravelPlanPage() {
                       
                       {/* Connection line and travel info */}
                       {index < day.places.length - 1 && place.walkTime && (
-                        <div className="flex items-center justify-center py-2">
+                        <div className="flex items-center justify-center py-4">
                           <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-full">
                             <div className="w-1 h-4 border-l border-dashed border-gray-400"></div>
                             <div className="flex items-center space-x-1 text-xs text-gray-600">

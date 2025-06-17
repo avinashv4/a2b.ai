@@ -1,6 +1,7 @@
 import React from "react";
 import { gsap } from "gsap";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LogOut } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
 interface MenuItemProps {
   link: string;
@@ -8,6 +9,8 @@ interface MenuItemProps {
   image: string;
   members?: { name: string; avatar: string }[];
   additionalMembers?: number;
+  groupId?: string;
+  onLeaveTrip?: (groupId: string) => void;
 }
 
 interface FlowingMenuProps {
@@ -26,11 +29,14 @@ const FlowingMenu: React.FC<FlowingMenuProps> = ({ items = [] }) => {
   );
 };
 
-const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], additionalMembers = 0 }) => {
+const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], additionalMembers = 0, groupId, onLeaveTrip }) => {
   const itemRef = React.useRef<HTMLDivElement>(null);
   const marqueeRef = React.useRef<HTMLDivElement>(null);
   const marqueeInnerRef = React.useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = React.useState(false);
+  const [showContextMenu, setShowContextMenu] = React.useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = React.useState({ x: 0, y: 0 });
+  const [showLeaveConfirm, setShowLeaveConfirm] = React.useState(false);
 
   const animationDefaults = { duration: 0.6, ease: "expo" };
 
@@ -97,8 +103,52 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], ad
       </React.Fragment>
     ));
   }, [text, image]);
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setShowContextMenu(true);
+  };
+
+  const handleLeaveTrip = async () => {
+    if (!groupId) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error leaving trip:', error);
+        return;
+      }
+
+      if (onLeaveTrip) {
+        onLeaveTrip(groupId);
+      }
+    } catch (error) {
+      console.error('Error leaving trip:', error);
+    }
+  };
+
+  // Close context menu when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => {
+      setShowContextMenu(false);
+    };
+
+    if (showContextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showContextMenu]);
 
   return (
+    <>
     <div
       className="flex-1 relative overflow-hidden text-center shadow-[0_-1px_0_0_#fff]"
       ref={itemRef}
@@ -108,6 +158,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], ad
         href={link}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onContextMenu={handleContextMenu}
       >
         {/* Left Side - Destination and Members */}
         <div className="flex-1 text-left">
@@ -167,6 +218,58 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], ad
         </div>
       </div>
     </div>
+
+    {/* Context Menu */}
+    {showContextMenu && (
+      <div
+        className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[150px]"
+        style={{
+          left: contextMenuPosition.x,
+          top: contextMenuPosition.y,
+        }}
+      >
+        <button
+          onClick={() => {
+            setShowContextMenu(false);
+            setShowLeaveConfirm(true);
+          }}
+          className="w-full flex items-center space-x-2 px-4 py-2 text-left hover:bg-red-50 transition-colors text-red-600"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Leave Trip</span>
+        </button>
+      </div>
+    )}
+
+    {/* Leave Confirmation Modal */}
+    {showLeaveConfirm && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl p-6 max-w-sm mx-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Leave Trip</h3>
+          <p className="text-gray-600 mb-4">
+            Are you sure you want to leave the {text} trip? You won't be able to see the itinerary or participate in planning.
+          </p>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowLeaveConfirm(false)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                handleLeaveTrip();
+                setShowLeaveConfirm(false);
+              }}
+              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+              Leave Trip
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 
