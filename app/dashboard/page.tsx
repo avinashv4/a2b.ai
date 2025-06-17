@@ -29,6 +29,10 @@ export default function DashboardPage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [travelGroups, setTravelGroups] = useState<TravelGroup[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<{
+    first_name: string;
+    profile_picture?: string;
+  } | null>(null);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -52,16 +56,18 @@ export default function DashboardPage() {
       if (user) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('first_name')
+          .select('first_name, profile_picture')
           .eq('user_id', user.id)
           .single();
         if (error) {
           console.error('Profile fetch error:', error);
         }
-        if (data && data.first_name) {
+        if (data) {
           setFirstName(data.first_name);
+          setUserProfile(data);
         } else {
           setFirstName(null);
+          setUserProfile(null);
         }
       }
       setProfileLoading(false);
@@ -248,8 +254,16 @@ export default function DashboardPage() {
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   className="flex items-center space-x-2 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-semibold">A</span>
+                  <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                    {userProfile?.profile_picture ? (
+                      <img
+                        src={userProfile.profile_picture}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-5 h-5 text-gray-400" />
+                    )}
                   </div>
                   <ChevronDown className="w-4 h-4" />
                 </button>
@@ -309,7 +323,7 @@ export default function DashboardPage() {
           ) : travelGroups.length > 0 ? (
             /* FlowingMenu Section */
             <div className="mb-8">
-              <div className="bg-gray-900 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
+              <div className="bg-gray-900 rounded-2xl overflow-hidden" style={{ minHeight: '400px', height: 'auto' }}>
                 <FlowingMenu items={flowingMenuItems} />
               </div>
             </div>
@@ -328,19 +342,21 @@ export default function DashboardPage() {
             </div>
           )}
             
-          <div className="space-y-4">
-            {/* Create New Travel Plan Card */}
-            <Link href="/create-trip">
-              <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl p-6 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 cursor-pointer">
-                <div className="flex items-center justify-center space-x-4">
-                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
-                    <Plus className="w-6 h-6 text-white" />
+          {travelGroups.length > 0 && (
+            <div className="space-y-4">
+              {/* Create New Travel Plan Card */}
+              <Link href="/create-trip">
+                <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl p-6 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 cursor-pointer">
+                  <div className="flex items-center justify-center space-x-4">
+                    <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                      <Plus className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="text-xl font-semibold text-gray-700">Create New Travel Plan</span>
                   </div>
-                  <span className="text-xl font-semibold text-gray-700">Create New Travel Plan</span>
                 </div>
-              </div>
-            </Link>
-          </div>
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

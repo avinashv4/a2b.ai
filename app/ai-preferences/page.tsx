@@ -8,6 +8,24 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 
+// ElevenLabs Conversational AI Integration
+declare global {
+  interface Window {
+    ElevenLabs?: {
+      ConversationalAI: {
+        startSession: (config: {
+          agentId: string;
+          onConnect?: () => void;
+          onDisconnect?: () => void;
+          onMessage?: (message: any) => void;
+          onModeChange?: (mode: any) => void;
+        }) => Promise<any>;
+        endSession: () => void;
+      };
+    };
+  }
+}
+
 interface User {
   id: string;
   name: string;
@@ -40,6 +58,25 @@ export default function AIPreferencesPage() {
   const [groupId, setGroupId] = useState<string | null>(null);
   const [groupMembers, setGroupMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [elevenLabsLoaded, setElevenLabsLoaded] = useState(false);
+  const [conversationSession, setConversationSession] = useState<any>(null);
+
+  useEffect(() => {
+    // Load ElevenLabs SDK
+    const script = document.createElement('script');
+    script.src = 'https://elevenlabs.io/convai-widget/index.js';
+    script.async = true;
+    script.onload = () => {
+      setElevenLabsLoaded(true);
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const loadGroupData = async () => {
@@ -106,7 +143,52 @@ export default function AIPreferencesPage() {
   }, [messages]);
 
   const handleVoiceToggle = () => {
-    setIsRecording(!isRecording);
+    if (!elevenLabsLoaded || !window.ElevenLabs) {
+      console.error('ElevenLabs SDK not loaded');
+      return;
+    }
+
+    if (!isRecording) {
+      // Start ElevenLabs conversation
+      window.ElevenLabs.ConversationalAI.startSession({
+        agentId: 'agent_01jxy55f0afx8aax07xahyqsy5',
+        onConnect: () => {
+          console.log('Connected to ElevenLabs AI');
+          setIsRecording(true);
+        },
+        onDisconnect: () => {
+          console.log('Disconnected from ElevenLabs AI');
+          setIsRecording(false);
+        },
+        onMessage: (message) => {
+          console.log('AI Message:', message);
+          // Add AI message to chat if needed
+          if (message.type === 'agent_response') {
+            const aiMessage: Message = {
+              id: Date.now().toString(),
+              text: message.text || 'AI is processing your request...',
+              isUser: false,
+              timestamp: new Date()
+            };
+            setMessages(prev => [...prev, aiMessage]);
+          }
+        },
+        onModeChange: (mode) => {
+          console.log('Mode changed:', mode);
+        }
+      }).then((session) => {
+        setConversationSession(session);
+      }).catch((error) => {
+        console.error('Failed to start ElevenLabs session:', error);
+      });
+    } else {
+      // End conversation
+      if (window.ElevenLabs?.ConversationalAI) {
+        window.ElevenLabs.ConversationalAI.endSession();
+      }
+      setIsRecording(false);
+      setConversationSession(null);
+    }
   };
 
   const handleChatToggle = () => {
@@ -226,14 +308,20 @@ export default function AIPreferencesPage() {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Button
                     onClick={handleVoiceToggle}
+                    disabled={!elevenLabsLoaded}
                     className={`transition-all duration-300 ease-in-out ${
                       isRecording 
                         ? 'w-16 h-16 rounded-full bg-black hover:bg-black' 
-                        : 'px-8 py-4 rounded-full bg-black hover:bg-black'
-                    } text-white font-semibold shadow-lg hover:scale-105`}
+                        : 'px-8 py-4 rounded-full bg-black hover:bg-black disabled:bg-gray-400'
+                    } text-white font-semibold shadow-lg hover:scale-105 disabled:cursor-not-allowed`}
                   >
                     {isRecording ? (
                       <Phone className="w-6 h-6" />
+                    ) : !elevenLabsLoaded ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Loading AI...</span>
+                      </div>
                     ) : (
                       <div className="flex items-center space-x-2">
                         <Mic className="w-5 h-5" />
