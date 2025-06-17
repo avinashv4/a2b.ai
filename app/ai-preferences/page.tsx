@@ -1,5 +1,14 @@
 'use client';
 
+// Allow custom element 'elevenlabs-convai' in JSX
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'elevenlabs-convai': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & { 'agent-id'?: string };
+    }
+  }
+}
+
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plane, Check, X, ArrowLeft } from 'lucide-react';
@@ -11,6 +20,17 @@ interface User {
   name: string;
   avatar: string;
   completed: boolean;
+}
+
+interface MemberProfile {
+  first_name: string;
+  last_name: string;
+  profile_picture?: string;
+}
+
+interface Member {
+  user_id: string;
+  profiles: MemberProfile;
 }
 
 export default function AIPreferencesPage() {
@@ -72,12 +92,16 @@ export default function AIPreferencesPage() {
           return;
         }
 
-        const formattedMembers: User[] = membersData.map(member => ({
-          id: member.user_id,
-          name: member.user_id === user.id ? 'You' : `${member.profiles.first_name} ${member.profiles.last_name}`,
-          avatar: member.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-          completed: member.user_id === user.id ? userCompleted : Math.random() > 0.3 // Random for demo
-        }));
+        const formattedMembers: User[] = (membersData as unknown as Member[]).map(member => {
+          // Handle case where member.profiles may be an array
+          const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
+          return {
+            id: member.user_id,
+            name: member.user_id === user.id ? 'You' : `${profile.first_name} ${profile.last_name}`,
+            avatar: profile.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+            completed: member.user_id === user.id ? userCompleted : Math.random() > 0.3 // Random for demo
+          };
+        });
 
         setGroupMembers(formattedMembers);
       } catch (error) {
@@ -154,26 +178,27 @@ export default function AIPreferencesPage() {
 
       <div className="flex h-screen pt-24">
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col items-center justify-center px-8 relative">
+        <div className="flex-1 flex flex-col items-center justify-center min-h-screen px-8 relative">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Share Your Travel Preferences</h1>
             <p className="text-xl text-gray-600">Tell our AI what you&apos;re looking for in this {destination} trip</p>
           </div>
 
-          {/* ElevenLabs Conversational AI Widget */}
-          <div className="relative w-[600px] h-[600px] flex items-center justify-center">
-            <div className="w-full h-full flex items-center justify-center">
+          {/* ElevenLabs Conversational AI Widget - only render after loading */}
+          {!loading && (
+            <div className="flex items-center justify-center" style={{ minHeight: 600, padding: 0, margin: 0 }}>
               <elevenlabs-convai 
                 agent-id="agent_01jxy55f0afx8aax07xahyqsy5"
                 style={{
-                  width: '400px',
-                  height: '400px',
+                  width: '600px',
+                  height: '600px',
                   borderRadius: '50%',
-                  boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+                  padding: 0,
+                  margin: 0
                 }}
               ></elevenlabs-convai>
             </div>
-          </div>
+          )}
 
           {/* Bottom Controls */}
           <div className="flex flex-col items-center space-y-6 mt-10">
