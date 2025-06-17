@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plane, Mic, Phone, Check, X, ArrowLeft } from 'lucide-react';
+import { Plane, Check, X, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
-import { useConversation } from '@elevenlabs/react';
 
 interface User {
   id: string;
@@ -19,32 +18,7 @@ export default function AIPreferencesPage() {
   const [groupId, setGroupId] = useState<string | null>(null);
   const [groupMembers, setGroupMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const conversation = useConversation({
-    onConnect: () => console.log('Connected to ElevenLabs AI'),
-    onDisconnect: () => console.log('Disconnected from ElevenLabs AI'),
-    onMessage: (message) => console.log('AI Message:', message),
-    onError: (error) => console.error('ElevenLabs Error:', error),
-  });
-
-  const startConversation = useCallback(async () => {
-    try {
-      // Request microphone permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      // Start the conversation with your agent
-      await conversation.startSession({
-        agentId: 'agent_01jxy55f0afx8aax07xahyqsy5',
-      });
-
-    } catch (error) {
-      console.error('Failed to start conversation:', error);
-    }
-  }, [conversation]);
-
-  const stopConversation = useCallback(async () => {
-    await conversation.endSession();
-  }, [conversation]);
+  const [destination, setDestination] = useState<string>('');
 
   useEffect(() => {
     const loadGroupData = async () => {
@@ -65,6 +39,20 @@ export default function AIPreferencesPage() {
           window.location.href = '/auth';
           return;
         }
+
+        // Load group details including destination
+        const { data: groupData, error: groupError } = await supabase
+          .from('travel_groups')
+          .select('destination')
+          .eq('group_id', storedGroupId)
+          .single();
+
+        if (groupError) {
+          console.error('Error loading group details:', groupError);
+          return;
+        }
+
+        setDestination(groupData.destination);
 
         // Load group members
         const { data: membersData, error: membersError } = await supabase
@@ -101,6 +89,27 @@ export default function AIPreferencesPage() {
 
     loadGroupData();
   }, [userCompleted]);
+
+  useEffect(() => {
+    // Load ElevenLabs widget script
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+    script.async = true;
+    script.type = 'text/javascript';
+    document.head.appendChild(script);
+
+    // Set the destination variable for the AI agent
+    if (destination) {
+      (window as any).elevenLabsDestination = destination;
+    }
+
+    return () => {
+      // Cleanup script on unmount
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+  }, [destination]);
 
   const allUsersReady = groupMembers.every(user => user.completed);
 
@@ -148,83 +157,21 @@ export default function AIPreferencesPage() {
         <div className="flex-1 flex flex-col items-center justify-center px-8 relative">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Share Your Travel Preferences</h1>
-            <p className="text-xl text-gray-600">Tell our AI what you&apos;re looking for in this Paris trip</p>
+            <p className="text-xl text-gray-600">Tell our AI what you&apos;re looking for in this {destination} trip</p>
           </div>
 
-          {/* Main Interface Container */}
+          {/* ElevenLabs Conversational AI Widget */}
           <div className="relative w-[600px] h-[600px] flex items-center justify-center">
-            {/* AI Conversation Interface */}
-            <div className="w-80 h-80 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center relative overflow-hidden border-4 border-white shadow-2xl">
-              {/* Animated Background */}
-              <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-500 ${
-                conversation.status === 'connected' 
-                  ? 'from-green-400 to-blue-500 animate-pulse' 
-                  : 'from-blue-100 to-blue-200'
-              }`} />
-              
-              {/* Audio Visualizer Effect */}
-              {conversation.status === 'connected' && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="flex space-x-1">
-                    {[...Array(5)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="w-2 bg-white rounded-full animate-pulse"
-                        style={{
-                          height: `${20 + Math.random() * 40}px`,
-                          animationDelay: `${i * 0.1}s`,
-                          animationDuration: '0.8s'
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Voice Control Button */}
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                <div className="flex flex-col items-center space-y-4">
-                  {conversation.status === 'connected' ? (
-                    <Button
-                      onClick={stopConversation}
-                      className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold shadow-lg hover:scale-105 transition-all duration-200"
-                    >
-                      <Phone className="w-6 h-6" />
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={startConversation}
-                      disabled={conversation.status === 'connecting'}
-                      className="px-8 py-4 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold shadow-lg hover:scale-105 transition-all duration-200 disabled:cursor-not-allowed"
-                    >
-                      {conversation.status === 'connecting' ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Connecting...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Mic className="w-5 h-5" />
-                          <span>Talk to AI</span>
-                        </div>
-                      )}
-                    </Button>
-                  )}
-                  
-                  {/* Status Indicator */}
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-gray-700">
-                      Status: {conversation.status === 'connected' ? 'Connected' : 
-                               conversation.status === 'connecting' ? 'Connecting...' : 'Ready'}
-                    </p>
-                    {conversation.status === 'connected' && (
-                      <p className="text-xs text-gray-600 mt-1">
-                        AI is {conversation.isSpeaking ? 'speaking' : 'listening'}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
+            <div className="w-full h-full flex items-center justify-center">
+              <elevenlabs-convai 
+                agent-id="agent_01jxy55f0afx8aax07xahyqsy5"
+                style={{
+                  width: '400px',
+                  height: '400px',
+                  borderRadius: '50%',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+                }}
+              ></elevenlabs-convai>
             </div>
           </div>
 
@@ -233,8 +180,8 @@ export default function AIPreferencesPage() {
             {/* Instructions */}
             <div className="text-center max-w-md">
               <p className="text-gray-600 text-sm">
-                Click "Talk to AI" to start a voice conversation about your travel preferences. 
-                The AI will ask you questions to understand what you're looking for in this trip.
+                Use the AI assistant above to share your travel preferences for {destination}. 
+                The AI will help create a personalized itinerary based on your interests.
               </p>
             </div>
 
@@ -313,6 +260,20 @@ export default function AIPreferencesPage() {
           </div>
         </div>
       </div>
+
+      {/* Pass destination to ElevenLabs widget */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            window.addEventListener('DOMContentLoaded', function() {
+              const widget = document.querySelector('elevenlabs-convai');
+              if (widget) {
+                widget.setAttribute('data-destination', '${destination}');
+              }
+            });
+          `
+        }}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React from "react";
 import { gsap } from "gsap";
 import { ChevronRight, LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { transferHostOnLeave } from "@/lib/hostTransfer";
 
 interface MenuItemProps {
   link: string;
@@ -115,6 +116,9 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], ad
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Transfer host if necessary before leaving
+      await transferHostOnLeave(groupId, user.id);
 
       const { error } = await supabase
         .from('group_members')

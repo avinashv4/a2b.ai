@@ -277,12 +277,12 @@ export default function DashboardPage() {
                 
                 {showUserMenu && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-10">
-                    <button className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors">
+                    <Link href="/account-details" className="w-full block px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors">
                       <div className="flex items-center space-x-3">
                         <User className="w-4 h-4" />
                         <span>Account Details</span>
                       </div>
-                    </button>
+                    </Link>
                     <hr className="my-1 border-gray-100" />
                     <button 
                       onClick={() => window.location.href = '/auth'}
