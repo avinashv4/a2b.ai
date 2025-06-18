@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Plane, Check, X, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
+import { useConversation } from '@elevenlabs/react';
 
 interface User {
   id: string;
@@ -39,6 +40,17 @@ export default function AIPreferencesPage() {
   const [groupMembers, setGroupMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [destination, setDestination] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isProcessingPreferences, setIsProcessingPreferences] = useState(false);
+
+  // ElevenLabs conversation hook
+  const conversation = useConversation({
+    onConnect: () => console.log('Connected to ElevenLabs'),
+    onDisconnect: () => console.log('Disconnected from ElevenLabs'),
+    onMessage: (message) => console.log('Message:', message),
+    onError: (error) => console.error('ElevenLabs Error:', error),
+  });
 
   useEffect(() => {
     const loadGroupData = async () => {
@@ -59,6 +71,8 @@ export default function AIPreferencesPage() {
           window.location.href = '/auth';
           return;
         }
+
+        setCurrentUserId(user.id);
 
         // Load group details including destination
         const { data: groupData, error: groupError } = await supabase
@@ -114,31 +128,76 @@ export default function AIPreferencesPage() {
     loadGroupData();
   }, [userCompleted]);
 
-  useEffect(() => {
-    // Load ElevenLabs widget script
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-    script.async = true;
-    script.type = 'text/javascript';
-    document.head.appendChild(script);
-
-    // Set the destination variable for the AI agent
-    if (destination) {
-      (window as any).elevenLabsDestination = destination;
-    }
-
-    return () => {
-      // Cleanup script on unmount
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-    };
-  }, [destination]);
-
   const allUsersReady = groupMembers.every(user => user.completed);
 
-  const handleConfirmPreferences = () => {
-    setUserCompleted(true);
+  const startConversation = async () => {
+    try {
+      // Request microphone permission
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Start the conversation with your agent
+      const session = await conversation.startSession({
+        agentId: 'agent_01jxy55f0afx8aax07xahyqsy5',
+        // Pass destination as context
+        overrides: {
+          agent: {
+            prompt: {
+              prompt: `You are a travel planning assistant helping users plan their trip to ${destination}. Ask them about their travel preferences, interests, budget, and what they want to experience during their trip to ${destination}.`
+            }
+          }
+        }
+      });
+
+      if (session?.conversationId) {
+        setConversationId(session.conversationId);
+      }
+
+    } catch (error) {
+      console.error('Failed to start conversation:', error);
+    }
+  };
+
+  const stopConversation = async () => {
+    await conversation.endSession();
+  };
+
+  const handleConfirmPreferences = async () => {
+    if (!conversationId || !currentUserId || !groupId) {
+      alert('Please complete the conversation with the AI first.');
+      return;
+    }
+
+    setIsProcessingPreferences(true);
+
+    try {
+      // Call our API to extract preferences from the conversation
+      const response = await fetch('/api/extract-preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId,
+          userId: currentUserId,
+          groupId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log('Preferences saved successfully:', result);
+        setUserCompleted(true);
+      } else {
+        console.error('Error saving preferences:', result.error);
+        alert('Failed to save your preferences. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error processing preferences:', error);
+      alert('An error occurred while saving your preferences. Please try again.');
+    } finally {
+      setIsProcessingPreferences(false);
+    }
   };
 
   if (loading) {
@@ -184,19 +243,41 @@ export default function AIPreferencesPage() {
             <p className="text-xl text-gray-600">Tell our AI what you&apos;re looking for in this {destination} trip</p>
           </div>
 
-          {/* ElevenLabs Conversational AI Widget - only render after loading */}
+          {/* ElevenLabs Conversation Interface */}
           {!loading && (
-            <div className="flex items-center justify-center" style={{ minHeight: 600, padding: 0, margin: 0 }}>
-              <elevenlabs-convai 
-                agent-id="agent_01jxy55f0afx8aax07xahyqsy5"
-                style={{
-                  width: '600px',
-                  height: '600px',
-                  borderRadius: '50%',
-                  padding: 0,
-                  margin: 0
-                }}
-              ></elevenlabs-convai>
+            <div className="flex flex-col items-center justify-center space-y-6" style={{ minHeight: 400 }}>
+              <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 max-w-md w-full text-center">
+                <div className="w-24 h-24 bg-blue-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                  <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Travel Assistant</h3>
+                <p className="text-gray-600 mb-4">
+                  Status: {conversation.status === 'connected' ? 'Connected' : 'Ready to start'}
+                </p>
+                <p className="text-sm text-gray-500 mb-6">
+                  {conversation.isSpeaking ? 'AI is speaking...' : 'Ready to listen'}
+                </p>
+                
+                <div className="flex gap-3">
+                  <Button
+                    onClick={startConversation}
+                    disabled={conversation.status === 'connected'}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-semibold disabled:bg-gray-300"
+                  >
+                    Start Conversation
+                  </Button>
+                  <Button
+                    onClick={stopConversation}
+                    disabled={conversation.status !== 'connected'}
+                    variant="outline"
+                    className="flex-1 py-2 rounded-xl font-semibold disabled:bg-gray-100"
+                  >
+                    End Conversation
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -213,20 +294,25 @@ export default function AIPreferencesPage() {
             {/* Confirm Preferences Button */}
             <Button
               onClick={handleConfirmPreferences}
-              disabled={userCompleted}
+              disabled={userCompleted || isProcessingPreferences || !conversationId}
               className={`px-8 py-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 ${
                 userCompleted 
                   ? 'bg-green-600 hover:bg-green-700 text-white' 
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
             >
-              {userCompleted ? (
+              {isProcessingPreferences ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Processing...</span>
+                </div>
+              ) : userCompleted ? (
                 <div className="flex items-center space-x-2">
                   <Check className="w-5 h-5" />
                   <span>Preferences Confirmed</span>
                 </div>
               ) : (
-                'Confirm My Preferences'
+                <span>Confirm My Preferences</span>
               )}
             </Button>
           </div>
@@ -285,20 +371,6 @@ export default function AIPreferencesPage() {
           </div>
         </div>
       </div>
-
-      {/* Pass destination to ElevenLabs widget */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            window.addEventListener('DOMContentLoaded', function() {
-              const widget = document.querySelector('elevenlabs-convai');
-              if (widget) {
-                widget.setAttribute('data-destination', '${destination}');
-              }
-            });
-          `
-        }}
-      />
     </div>
   );
 }
