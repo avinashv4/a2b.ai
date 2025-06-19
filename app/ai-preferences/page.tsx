@@ -39,6 +39,7 @@ export default function AIPreferencesPage() {
   const [groupMembers, setGroupMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [destination, setDestination] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadGroupData = async () => {
@@ -52,6 +53,7 @@ export default function AIPreferencesPage() {
         }
 
         setGroupId(storedGroupId);
+        setCurrentUserId(user.id);
 
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
@@ -175,6 +177,9 @@ export default function AIPreferencesPage() {
             <div className="flex items-center justify-center" style={{ minHeight: 600, padding: 0, margin: 0 }}>
               <elevenlabs-convai 
                 agent-id="agent_01jxy55f0afx8aax07xahyqsy5"
+                data-user-id={currentUserId}
+                data-group-id={groupId}
+                data-destination={destination}
                 style={{
                   width: '600px',
                   height: '600px',
@@ -280,6 +285,8 @@ export default function AIPreferencesPage() {
               const widget = document.querySelector('elevenlabs-convai');
               if (widget) {
                 widget.setAttribute('data-destination', '${destination}');
+                widget.setAttribute('data-user-id', '${currentUserId}');
+                widget.setAttribute('data-group-id', '${groupId}');
               }
             });
           `
