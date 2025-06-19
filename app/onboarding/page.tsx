@@ -201,7 +201,8 @@ export default function OnboardingPage() {
       if (profileImage) {
         setAnswers(prev => ({ ...prev, [currentStepData.id]: profileImage }));
       } else {
-        setAnswers(prev => ({ ...prev, [currentStepData.id]: '' }));
+        // Set default profile image if skipped
+        setAnswers(prev => ({ ...prev, [currentStepData.id]: 'https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png' }));
       }
     } else if (currentStepData.type === 'date') {
       if (!validateDate(currentAnswer)) return;

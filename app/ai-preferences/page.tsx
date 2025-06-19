@@ -33,6 +33,7 @@ export default function AIPreferencesPage() {
   const [destination, setDestination] = useState<string>('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isHost, setIsHost] = useState(false);
 
   useEffect(() => {
     const loadGroupData = async () => {
@@ -59,7 +60,7 @@ export default function AIPreferencesPage() {
         // Load group details including destination
         const { data: groupData, error: groupError } = await supabase
           .from('travel_groups')
-          .select('destination')
+          .select('destination, host_id')
           .eq('group_id', storedGroupId)
           .single();
 
@@ -69,6 +70,7 @@ export default function AIPreferencesPage() {
         }
 
         setDestination(groupData.destination);
+        setIsHost(groupData.host_id === user.id);
 
         // Load group members
         const { data: membersData, error: membersError } = await supabase
@@ -290,18 +292,22 @@ export default function AIPreferencesPage() {
           <div className="mt-8 space-y-3">
             <Button
               onClick={() => {
-                if (allUsersReady) {
+                if (allUsersReady && isHost) {
                   window.location.href = `/travel-plan?groupId=${groupId}`;
+                } else if (!isHost) {
+                  // Show tooltip or message for non-hosts
+                  return;
                 }
               }}
-              disabled={!allUsersReady}
-              className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 ${
-                allUsersReady 
+              disabled={!allUsersReady || !isHost}
+              title={!isHost ? "Waiting for host to generate travel plan" : ""}
+              className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 relative ${
+                allUsersReady && isHost
                   ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-105' 
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
-              View Travel Plan
+              {isHost ? 'Generate Travel Plan' : 'Waiting for Host'}
             </Button>
           </div>
         </div>

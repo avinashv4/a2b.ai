@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plane, ArrowLeft, User, Mail, Phone, MapPin, Calendar, Save, Edit3 } from 'lucide-react';
+import { Plane, ArrowLeft, User, Mail, Phone, MapPin, Calendar, Save, Edit3, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -31,6 +31,7 @@ export default function AccountDetailsPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -121,6 +122,50 @@ export default function AccountDetailsPage() {
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    setUploadingImage(true);
+    setError('');
+
+    try {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Make it square by using the smaller dimension
+          const size = Math.min(img.width, img.height);
+          canvas.width = 300;
+          canvas.height = 300;
+          
+          // Calculate crop position to center the image
+          const cropX = (img.width - size) / 2;
+          const cropY = (img.height - size) / 2;
+          
+          ctx?.drawImage(img, cropX, cropY, size, size, 0, 0, 300, 300);
+          
+          const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          
+          if (profile) {
+            setProfile({ ...profile, profile_picture: croppedDataUrl });
+          }
+          setUploadingImage(false);
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setError('Failed to process image');
+      setUploadingImage(false);
+    }
+  };
+
   const handleFieldChange = (field: keyof UserProfile, value: string) => {
     if (!profile) return;
     setProfile({ ...profile, [field]: value });
@@ -205,7 +250,7 @@ export default function AccountDetailsPage() {
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Profile Information</h2>
             
             <div className="flex items-center space-x-6 mb-8">
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+              <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center group">
                 {profile.profile_picture ? (
                   <img
                     src={profile.profile_picture}
@@ -219,6 +264,29 @@ export default function AccountDetailsPage() {
                     className="w-full h-full object-cover"
                   />
                 )}
+                
+                {/* Upload overlay */}
+                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <label className="cursor-pointer">
+                    <Upload className="w-6 h-6 text-white" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file);
+                      }}
+                      className="hidden"
+                      disabled={uploadingImage}
+                    />
+                  </label>
+                </div>
+                
+                {uploadingImage && (
+                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -226,6 +294,10 @@ export default function AccountDetailsPage() {
                 </h3>
                 <p className="text-gray-600">{profile.email}</p>
               </div>
+            </div>
+            
+            <div className="mb-6 text-center">
+              <p className="text-sm text-gray-500">Hover over your profile picture to change it</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
