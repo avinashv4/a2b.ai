@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get the raw body as text for signature verification
     const body = await request.text();
-    const signature = request.headers.get('elevenlabs-signature') || request.headers.get('ElevenLabs-Signature');
+    const signature = request.headers.get('elevenlabs-signature') || request.headers.get('ElevenLabs-Signature')ElevenLabs-Signature;
     const hmacSecret = process.env.ELEVENLABS_HMAC_SECRET;
 
     if (!hmacSecret) {
