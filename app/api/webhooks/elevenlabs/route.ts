@@ -47,12 +47,21 @@ async function getConversationData(conversationId: string) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 ElevenLabs webhook endpoint hit at:', new Date().toISOString());
+  
   try {
     // Get the raw body as text for signature verification
     const body = await request.text();
-    const signature = request.headers.get('elevenlabs-signature') || request.headers.get('ElevenLabs-Signature')ElevenLabs-Signature;
+    const signature = request.headers.get('elevenlabs-signature') || request.headers.get('ElevenLabs-Signature');
     const hmacSecret = process.env.ELEVENLABS_HMAC_SECRET;
 
+    console.log('📋 Request details:', {
+      hasBody: !!body,
+      bodyLength: body.length,
+      hasSignature: !!signature,
+      hasHmacSecret: !!hmacSecret,
+      headers: Object.fromEntries(request.headers.entries())
+    });
     if (!hmacSecret) {
       console.error('HMAC secret not found in environment variables');
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
@@ -65,6 +74,12 @@ export async function POST(request: NextRequest) {
 
     // Verify the HMAC signature
     const isValidSignature = verifySignature(body, signature, hmacSecret);
+    
+    console.log('🔐 Signature verification:', {
+      isValid: isValidSignature,
+      signature: signature.substring(0, 20) + '...',
+      bodyPreview: body.substring(0, 100) + '...'
+    });
     
     if (!isValidSignature) {
       console.error('Invalid HMAC signature');
@@ -85,6 +100,7 @@ export async function POST(request: NextRequest) {
     
     if (!conversationId) {
       console.error('No conversation ID found in webhook payload');
+      console.log('📄 Full webhook payload:', JSON.stringify(webhookData, null, 2));
       return NextResponse.json({ error: 'Missing conversation ID' }, { status: 400 });
     }
 
@@ -128,6 +144,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Webhook processing error:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

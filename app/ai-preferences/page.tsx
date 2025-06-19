@@ -115,24 +115,10 @@ export default function AIPreferencesPage() {
   }, [userCompleted]);
 
   useEffect(() => {
-    // Load ElevenLabs widget script
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-    script.async = true;
-    script.type = 'text/javascript';
-    document.head.appendChild(script);
-
     // Set the destination variable for the AI agent
     if (destination) {
       (window as any).elevenLabsDestination = destination;
     }
-
-    return () => {
-      // Cleanup script on unmount
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-    };
   }, [destination]);
 
   const allUsersReady = groupMembers.every(user => user.completed);
