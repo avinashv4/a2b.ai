@@ -11,22 +11,20 @@ const supabase = createClient(
 function extractUserContext(webhookData: any) {
   try {
     console.log('🔍 Looking for user context in webhook payload...');
-    
-    // Extract user_id and group_id from conversation_initiation_client_data.dynamic_variables
-    if (webhookData.conversation_initiation_client_data && 
-        webhookData.conversation_initiation_client_data.dynamic_variables) {
-      const dynamicVars = webhookData.conversation_initiation_client_data.dynamic_variables;
+
+    const dynamicVars = webhookData.data?.conversation_initiation_client_data?.dynamic_variables;
+
+    if (dynamicVars?.user_id && dynamicVars?.group_id) {
       const userId = dynamicVars.user_id;
       const groupId = dynamicVars.group_id;
-      
       console.log('✅ Found user context:', { userId, groupId });
       return { userId, groupId };
     }
-    
+
     console.error('❌ Could not find user_id or group_id in conversation_initiation_client_data.dynamic_variables');
     return { userId: null, groupId: null };
   } catch (error) {
-    console.error('Error extracting user context:', error);
+    console.error('❌ Error extracting user context:', error);
     return { userId: null, groupId: null };
   }
 }
@@ -35,31 +33,30 @@ function extractUserContext(webhookData: any) {
 function extractTravelPreferences(webhookData: any) {
   try {
     console.log('🔍 Extracting travel preferences...');
-    
-    if (!webhookData.analysis || !webhookData.analysis.data_collection_results) {
-      console.error('❌ No analysis.data_collection_results found');
+
+    const results = webhookData.data?.analysis?.data_collection_results;
+
+    if (!results) {
+      console.error('❌ No data_collection_results found');
       return null;
     }
-    
-    const dataCollectionResults = webhookData.analysis.data_collection_results;
-    
-    // Extract the "value" field from each preference key
+
     const preferences = {
-      deal_breakers_and_strong_preferences: dataCollectionResults.deal_breakers_and_strong_preferences?.value || null,
-      interests_and_activities: dataCollectionResults.interests_and_activities?.value || null,
-      nice_to_haves_and_openness: dataCollectionResults.nice_to_haves_and_openness?.value || null,
-      travel_motivations: dataCollectionResults.travel_motivations?.value || null,
-      must_do_experiences: dataCollectionResults.must_do_experiences?.value || null,
-      learning_interests: dataCollectionResults.learning_interests?.value || null,
-      schedule_and_logistics: dataCollectionResults.schedule_and_logistics?.value || null,
-      budget_and_spending: dataCollectionResults.budget_and_spending?.value || null,
-      travel_style_preferences: dataCollectionResults.travel_style_preferences?.value || null
+      deal_breakers_and_strong_preferences: results.deal_breakers_and_strong_preferences?.value || null,
+      interests_and_activities: results.interests_and_activities?.value || null,
+      nice_to_haves_and_openness: results.nice_to_haves_and_openness?.value || null,
+      travel_motivations: results.travel_motivations?.value || null,
+      must_do_experiences: results.must_do_experiences?.value || null,
+      learning_interests: results.learning_interests?.value || null,
+      schedule_and_logistics: results.schedule_and_logistics?.value || null,
+      budget_and_spending: results.budget_and_spending?.value || null,
+      travel_style_preferences: results.travel_style_preferences?.value || null,
     };
-    
+
     console.log('✅ Extracted preferences:', preferences);
     return preferences;
   } catch (error) {
-    console.error('Error extracting travel preferences:', error);
+    console.error('❌ Error extracting travel preferences:', error);
     return null;
   }
 }
@@ -68,95 +65,92 @@ function extractTravelPreferences(webhookData: any) {
 async function updateMemberPreferences(userId: string, groupId: string, preferences: any) {
   try {
     console.log('💾 Updating preferences for user:', userId, 'in group:', groupId);
+    console.log('📦 Preferences:', preferences);
 
     const { data, error } = await supabase
       .from('group_members')
       .update({
-        deal_breakers_and_strong_preferences: preferences.deal_breakers_and_strong_preferences,
-        interests_and_activities: preferences.interests_and_activities,
-        nice_to_haves_and_openness: preferences.nice_to_haves_and_openness,
-        travel_motivations: preferences.travel_motivations,
-        must_do_experiences: preferences.must_do_experiences,
-        learning_interests: preferences.learning_interests,
-        schedule_and_logistics: preferences.schedule_and_logistics,
-        budget_and_spending: preferences.budget_and_spending,
-        travel_style_preferences: preferences.travel_style_preferences,
-        preferences_completed_at: new Date().toISOString()
+        ...preferences
       })
       .eq('user_id', userId)
       .eq('group_id', groupId)
       .select();
 
     if (error) {
-      console.error('❌ Error updating member preferences:', error);
+      console.error('❌ Supabase error:', error);
       throw error;
     }
 
-    console.log('✅ Successfully updated preferences for user:', userId);
+    console.log('✅ Preferences updated:', data);
     return data;
   } catch (error) {
-    console.error('Error updating member preferences:', error);
+    console.error('❌ Error updating member preferences:', error);
     throw error;
   }
 }
 
+// POST webhook handler
 export async function POST(request: NextRequest) {
   console.log('🚀 ElevenLabs webhook endpoint hit');
-  
+
   try {
-    // Parse the webhook payload - this contains everything we need
     const webhookData = await request.json();
-    
+
     console.log('📨 Webhook received:', {
       eventType: webhookData.event_type || 'unknown',
-      conversationId: webhookData.conversation_id,
-      agentId: webhookData.agent_id
+      conversationId: webhookData.data?.conversation_id,
+      agentId: webhookData.data?.agent_id,
     });
 
-    // Extract user_id and group_id directly from webhook payload
     const { userId, groupId } = extractUserContext(webhookData);
-    
+
     if (!userId || !groupId) {
-      console.error('❌ Could not extract user_id and group_id from webhook payload');
-      return NextResponse.json({ 
-        error: 'Could not extract user_id and group_id from webhook payload',
-        conversationId: webhookData.conversation_id
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Could not extract user_id and group_id from webhook payload',
+          conversationId: webhookData.data?.conversation_id,
+        },
+        { status: 400 }
+      );
     }
 
-    // Extract travel preferences directly from webhook payload
     const preferences = extractTravelPreferences(webhookData);
-    
+
     if (!preferences) {
-      console.error('❌ Failed to extract preferences from webhook payload');
-      return NextResponse.json({ 
-        error: 'Failed to extract preferences',
-        conversationId: webhookData.conversation_id
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: 'Failed to extract preferences',
+          conversationId: webhookData.data?.conversation_id,
+        },
+        { status: 500 }
+      );
     }
 
-    // Update the database
     await updateMemberPreferences(userId, groupId, preferences);
 
-    console.log('🎉 Successfully processed webhook and updated preferences');
-
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: 'Preferences updated successfully',
-      conversationId: webhookData.conversation_id,
+      conversationId: webhookData.data?.conversation_id,
       userId,
-      groupId
+      groupId,
     });
-
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Webhook processing error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: error?.message || error,
+      },
+      { status: 500 }
+    );
   }
 }
 
+// GET webhook healthcheck
 export async function GET() {
-  return NextResponse.json({ 
+  return NextResponse.json({
     message: 'ElevenLabs webhook endpoint is active',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 }
