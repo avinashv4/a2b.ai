@@ -317,11 +317,11 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full bg-blue-100 flex items-center justify-center">
-                          <span className="text-blue-600 font-semibold text-sm">
-                            {member.first_name[0]}{member.last_name[0]}
-                          </span>
-                        </div>
+                        <img
+                          src="https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png"
+                          alt={`${member.first_name} ${member.last_name}`}
+                          className="w-full h-full object-cover"
+                        />
                       )}
                     </div>
                   ))}

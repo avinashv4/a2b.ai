@@ -8,6 +8,7 @@ interface MenuItemProps {
   link: string;
   text: string;
   image: string;
+  destination?: string;
   members?: { name: string; avatar: string }[];
   additionalMembers?: number;
   groupId?: string;
@@ -18,10 +19,38 @@ interface FlowingMenuProps {
   items?: MenuItemProps[];
 }
 
+// Function to get location image from Unsplash API
+const getLocationImage = async (destination: string): Promise<string> => {
+  try {
+    const response = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(destination)}&per_page=1&orientation=landscape`,
+      {
+        headers: {
+          'Authorization': 'Client-ID YOUR_UNSPLASH_ACCESS_KEY' // Replace with your Unsplash access key
+        }
+      }
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        return data.results[0].urls.regular;
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching location image:', error);
+  }
+  
+  // Fallback to default image
+  return `https://images.pexels.com/photos/1320684/pexels-photo-1320684.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`;
+};
+
 const FlowingMenu: React.FC<FlowingMenuProps> = ({ items = [] }) => {
+  const containerHeight = Math.max(400, items.length * 120); // Minimum 400px, or 120px per item
+  
   return (
-    <div className="w-full overflow-hidden" style={{ minHeight: '400px', height: 'auto' }}>
-      <nav className="flex flex-col h-full m-0 p-0">
+    <div className="w-full overflow-hidden" style={{ height: `${containerHeight}px` }}>
+      <nav className="flex flex-col h-full m-0 p-0 bg-gray-900">
         {items.map((item, idx) => (
           <MenuItem key={idx} {...item} />
         ))}
@@ -30,7 +59,7 @@ const FlowingMenu: React.FC<FlowingMenuProps> = ({ items = [] }) => {
   );
 };
 
-const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], additionalMembers = 0, groupId, onLeaveTrip }) => {
+const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, destination, members = [], additionalMembers = 0, groupId, onLeaveTrip }) => {
   const itemRef = React.useRef<HTMLDivElement>(null);
   const marqueeRef = React.useRef<HTMLDivElement>(null);
   const marqueeInnerRef = React.useRef<HTMLDivElement>(null);
@@ -38,8 +67,16 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], ad
   const [showContextMenu, setShowContextMenu] = React.useState(false);
   const [contextMenuPosition, setContextMenuPosition] = React.useState({ x: 0, y: 0 });
   const [showLeaveConfirm, setShowLeaveConfirm] = React.useState(false);
+  const [dynamicImage, setDynamicImage] = React.useState(image);
 
   const animationDefaults = { duration: 0.6, ease: "expo" };
+
+  // Load dynamic image when component mounts or destination changes
+  React.useEffect(() => {
+    if (destination) {
+      getLocationImage(destination).then(setDynamicImage);
+    }
+  }, [destination]);
 
   const findClosestEdge = (
     mouseX: number,
@@ -98,12 +135,13 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], ad
           {text}
         </span>
         <div
-          className="w-[200px] h-[7vh] my-[2em] mx-[2vw] p-[1em_0] rounded-[50px] bg-cover bg-center"
-          style={{ backgroundImage: `url(${image})` }}
+          className="w-[200px] h-[8vh] my-[2em] mx-[2vw] p-[1em_0] rounded-[50px] bg-cover bg-center"
+          style={{ backgroundImage: `url(${dynamicImage})` }}
         />
       </React.Fragment>
     ));
-  }, [text, image]);
+  }, [text, dynamicImage]);
+  
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
@@ -154,7 +192,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, members = [], ad
   return (
     <>
     <div
-      className="flex-1 relative overflow-hidden text-center shadow-[0_-1px_0_0_#fff]"
+      className="flex-1 relative overflow-hidden text-center shadow-[0_-1px_0_0_#fff] min-h-[120px]"
       ref={itemRef}
     >
       <a

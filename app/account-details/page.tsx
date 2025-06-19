@@ -213,7 +213,11 @@ export default function AccountDetailsPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <User className="w-12 h-12 text-gray-400" />
+                  <img
+                    src="https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png"
+                    alt="Default Profile"
+                    className="w-full h-full object-cover"
+                  />
                 )}
               </div>
               <div>

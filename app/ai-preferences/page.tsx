@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plane, Check, X, ArrowLeft } from 'lucide-react';
+import { Plane, Check, X, ArrowLeft, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import VoiceAgentWidget from '@/components/VoiceAgentWidget';
@@ -32,6 +32,7 @@ export default function AIPreferencesPage() {
   const [loading, setLoading] = useState(true);
   const [destination, setDestination] = useState<string>('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const loadGroupData = async () => {
@@ -74,6 +75,7 @@ export default function AIPreferencesPage() {
           .from('group_members')
           .select(`
             user_id,
+            preferences_completed_at,
             profiles(
               first_name,
               last_name,
@@ -102,8 +104,8 @@ export default function AIPreferencesPage() {
           return {
             id: member.user_id,
             name: member.user_id === user.id ? 'You' : `${profile.first_name} ${profile.last_name}`,
-            avatar: profile.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-            completed: member.user_id === user.id ? userCompleted : Math.random() > 0.3 // Random for demo
+            avatar: profile.profile_picture || 'https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png',
+            completed: member.user_id === user.id ? userCompleted : !!member.preferences_completed_at
           };
         });
 
@@ -123,6 +125,17 @@ export default function AIPreferencesPage() {
 
   const handleConfirmPreferences = () => {
     setUserCompleted(true);
+  };
+
+  const copyInviteLink = async () => {
+    try {
+      const inviteLink = `${window.location.origin}/join/${groupId}`;
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
   };
 
   if (loading) {
@@ -198,6 +211,25 @@ export default function AIPreferencesPage() {
                 The AI will help create a personalized itinerary based on your interests.
               </p>
             </div>
+
+            {/* Copy Invite Link */}
+            <Button
+              onClick={copyInviteLink}
+              variant="outline"
+              className="px-6 py-2 rounded-xl font-medium"
+            >
+              {copied ? (
+                <div className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-green-600" />
+                  <span>Copied!</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Copy className="w-4 h-4" />
+                  <span>Copy Invite Link</span>
+                </div>
+              )}
+            </Button>
 
             {/* Confirm Preferences Button */}
             <Button

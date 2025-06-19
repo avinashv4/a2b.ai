@@ -123,9 +123,9 @@ export default function DashboardPage() {
 
             const formattedMembers = members.map(member => ({
               user_id: member.user_id,
-              first_name: member.profiles.first_name,
-              last_name: member.profiles.last_name,
-              profile_picture: member.profiles.profile_picture
+              first_name: member.profiles?.first_name || 'Unknown',
+              last_name: member.profiles?.last_name || 'User',
+              profile_picture: member.profiles?.profile_picture || 'https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png'
             }));
 
             return {
@@ -196,7 +196,8 @@ export default function DashboardPage() {
       group.destination.toLowerCase().includes('tokyo') ? '2506923' : 
       group.destination.toLowerCase().includes('bali') ? '1320684' :
       '1320684'
-    }.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`
+    }.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`,
+    destination: group.destination
   }));
 
   return (

@@ -34,14 +34,30 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const checkGoogleMaps = () => {
+    const loadGoogleMaps = async () => {
       if (window.google && window.google.maps) {
         setIsLoaded(true);
-      } else {
-        setTimeout(checkGoogleMaps, 100);
+        return;
       }
+
+      // Load Google Maps API with async loading
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&loading=async`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        setIsLoaded(true);
+      };
+      
+      script.onerror = () => {
+        console.error('Failed to load Google Maps API');
+      };
+      
+      document.head.appendChild(script);
     };
-    checkGoogleMaps();
+    
+    loadGoogleMaps();
   }, []);
 
   useEffect(() => {
