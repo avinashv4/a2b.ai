@@ -45,7 +45,6 @@ export default function AIPreferencesPage() {
         }
 
         setGroupId(storedGroupId);
-        setCurrentUserId(user.id);
 
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
@@ -53,6 +52,8 @@ export default function AIPreferencesPage() {
           window.location.href = '/auth';
           return;
         }
+
+        setCurrentUserId(user.id);
 
         // Load group details including destination
         const { data: groupData, error: groupError } = await supabase
