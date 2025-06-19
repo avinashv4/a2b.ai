@@ -1,19 +1,11 @@
 'use client';
 
-// Allow custom element 'elevenlabs-convai' in JSX
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      'elevenlabs-convai': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & { 'agent-id'?: string };
-    }
-  }
-}
-
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plane, Check, X, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
+import VoiceAgentWidget from '@/components/VoiceAgentWidget';
 
 interface User {
   id: string;
@@ -81,7 +73,7 @@ export default function AIPreferencesPage() {
           .from('group_members')
           .select(`
             user_id,
-            profiles(
+            profiles!group_members_user_id_fkey(
               first_name,
               last_name,
               profile_picture
@@ -94,15 +86,16 @@ export default function AIPreferencesPage() {
           return;
         }
 
-        const formattedMembers: User[] = membersData?.map(member => {
-          const profile = member.profiles;
+        const formattedMembers: User[] = (membersData as unknown as Member[]).map(member => {
+          // Handle case where member.profiles may be an array
+          const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
           return {
             id: member.user_id,
             name: member.user_id === user.id ? 'You' : `${profile.first_name} ${profile.last_name}`,
             avatar: profile.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
             completed: member.user_id === user.id ? userCompleted : Math.random() > 0.3 // Random for demo
           };
-        }) || [];
+        });
 
         setGroupMembers(formattedMembers);
       } catch (error) {
@@ -114,13 +107,6 @@ export default function AIPreferencesPage() {
 
     loadGroupData();
   }, [userCompleted]);
-
-  useEffect(() => {
-    // Set the destination variable for the AI agent
-    if (destination) {
-      (window as any).elevenLabsDestination = destination;
-    }
-  }, [destination]);
 
   const allUsersReady = groupMembers.every(user => user.completed);
 
@@ -172,22 +158,13 @@ export default function AIPreferencesPage() {
           </div>
 
           {/* ElevenLabs Conversational AI Widget - only render after loading */}
-          {!loading && (
-            <div className="flex items-center justify-center" style={{ minHeight: 600, padding: 0, margin: 0 }}>
-              <elevenlabs-convai 
-                agent-id="agent_01jxy55f0afx8aax07xahyqsy5"
-                data-user-id={currentUserId}
-                data-group-id={groupId}
-                data-destination={destination}
-                style={{
-                  width: '600px',
-                  height: '600px',
-                  borderRadius: '50%',
-                  padding: 0,
-                  margin: 0
-                }}
-              ></elevenlabs-convai>
-            </div>
+          {!loading && currentUserId && groupId && destination && (
+            <VoiceAgentWidget
+              agentId="agent_01jxy55f0afx8aax07xahyqsy5"
+              userId={currentUserId}
+              groupId={groupId}
+              destination={destination}
+            />
           )}
 
           {/* Bottom Controls */}
@@ -276,21 +253,6 @@ export default function AIPreferencesPage() {
         </div>
       </div>
 
-      {/* Pass destination to ElevenLabs widget */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            window.addEventListener('DOMContentLoaded', function() {
-              const widget = document.querySelector('elevenlabs-convai');
-              if (widget) {
-                widget.setAttribute('data-destination', '${destination}');
-                widget.setAttribute('data-user-id', '${currentUserId}');
-                widget.setAttribute('data-group-id', '${groupId}');
-              }
-            });
-          `
-        }}
-      />
     </div>
   );
 }
