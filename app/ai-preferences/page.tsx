@@ -73,7 +73,7 @@ export default function AIPreferencesPage() {
           .from('group_members')
           .select(`
             user_id,
-            profiles!group_members_user_id_fkey(
+            profiles(
               first_name,
               last_name,
               profile_picture
@@ -83,12 +83,21 @@ export default function AIPreferencesPage() {
 
         if (membersError) {
           console.error('Error loading group members:', membersError);
+          setGroupMembers([]);
           return;
         }
 
-        const formattedMembers: User[] = (membersData as unknown as Member[]).map(member => {
-          // Handle case where member.profiles may be an array
-          const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
+        const formattedMembers: User[] = (membersData || []).map((member: any) => {
+          const profile = member.profiles;
+          if (!profile) {
+            return {
+              id: member.user_id,
+              name: member.user_id === user.id ? 'You' : 'Unknown User',
+              avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+              completed: member.user_id === user.id ? userCompleted : Math.random() > 0.3
+            };
+          }
+          
           return {
             id: member.user_id,
             name: member.user_id === user.id ? 'You' : `${profile.first_name} ${profile.last_name}`,
@@ -98,6 +107,7 @@ export default function AIPreferencesPage() {
         });
 
         setGroupMembers(formattedMembers);
+        console.log('Formatted members:', formattedMembers);
       } catch (error) {
         console.error('Error loading group data:', error);
       } finally {
@@ -158,13 +168,24 @@ export default function AIPreferencesPage() {
           </div>
 
           {/* ElevenLabs Conversational AI Widget - only render after loading */}
-          {!loading && currentUserId && groupId && destination && (
+          {!loading && currentUserId && groupId && destination ? (
             <VoiceAgentWidget
               agentId="agent_01jxy55f0afx8aax07xahyqsy5"
               userId={currentUserId}
               groupId={groupId}
               destination={destination}
             />
+          ) : (
+            <div className="flex items-center justify-center" style={{ minHeight: 600 }}>
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading AI assistant...</p>
+                {loading && <p className="text-sm text-gray-500 mt-2">Loading trip details...</p>}
+                {!currentUserId && <p className="text-sm text-gray-500 mt-2">Getting user information...</p>}
+                {!groupId && <p className="text-sm text-gray-500 mt-2">Loading group information...</p>}
+                {!destination && <p className="text-sm text-gray-500 mt-2">Loading destination...</p>}
+              </div>
+            </div>
           )}
 
           {/* Bottom Controls */}

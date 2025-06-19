@@ -15,6 +15,8 @@ export default function VoiceAgentWidget({
   groupId,
   destination,
 }: VoiceAgentWidgetProps) {
+  console.log('VoiceAgentWidget props:', { agentId, userId, groupId, destination });
+  
   return (
     <div className="flex items-center justify-center" style={{ minHeight: 600, padding: 0, margin: 0 }}>
       <ConvaiWidget
@@ -32,13 +34,6 @@ export default function VoiceAgentWidget({
         expandText="Open Assistant"
         listeningText="Listening..."
         speakingText="Maya is speaking..."
-        style={{
-          width: '600px',
-          height: '600px',
-          borderRadius: '50%',
-          padding: 0,
-          margin: 0
-        }}
       />
     </div>
   );
