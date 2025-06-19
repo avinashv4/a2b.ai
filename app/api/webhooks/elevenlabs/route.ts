@@ -1,20 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-// Verify HMAC signature
-function verifySignature(payload: string, signature: string, secret: string): boolean {
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payload, 'utf8')
-    .digest('hex');
-  
-  // Remove 'sha256=' prefix if present
-  const cleanSignature = signature.replace('sha256=', '');
-  
-  return crypto.timingSafeEqual(
-    Buffer.from(expectedSignature, 'hex'),
-    Buffer.from(cleanSignature, 'hex')
-  );
+// Verify HMAC signature with ElevenLabs format: t=timestamp,v0=hash
+function verifySignature(body: string, signatureHeader: string, secret: string): boolean {
+  try {
+    // Parse the signature header: t=timestamp,v0=hash
+    const headers = signatureHeader.split(',');
+    const timestamp = headers.find((e) => e.startsWith('t='))?.substring(2);
+    const signature = headers.find((e) => e.startsWith('v0='));
+
+    if (!timestamp || !signature) {
+      console.error('Invalid signature format - missing timestamp or signature');
+      return false;
+    }
+
+    // Validate timestamp (reject requests older than 30 minutes)
+    const reqTimestamp = parseInt(timestamp) * 1000;
+    const tolerance = Date.now() - 30 * 60 * 1000; // 30 minutes ago
+    
+    if (reqTimestamp < tolerance) {
+      console.error('Request expired - timestamp too old');
+      return false;
+    }
+
+    // Validate hash
+    const message = `${timestamp}.${body}`;
+    const digest = 'v0=' + crypto.createHmac('sha256', secret).update(message).digest('hex');
+    
+    console.log('🔐 Signature validation details:', {
+      timestamp,
+      message: message.substring(0, 100) + '...',
+      expectedSignature: digest.substring(0, 20) + '...',
+      receivedSignature: signature.substring(0, 20) + '...',
+      isMatch: signature === digest
+    });
+
+    return signature === digest;
+  } catch (error) {
+    console.error('Error verifying signature:', error);
+    return false;
+  }
 }
 
 // Retrieve conversation data using ElevenLabs API
@@ -60,46 +85,45 @@ export async function POST(request: NextRequest) {
       bodyLength: body.length,
       hasSignature: !!signature,
       hasHmacSecret: !!hmacSecret,
+      signatureFormat: signature ? signature.substring(0, 50) + '...' : 'none',
       headers: Object.fromEntries(request.headers.entries())
     });
+
     if (!hmacSecret) {
-      console.error('HMAC secret not found in environment variables');
+      console.error('❌ HMAC secret not found in environment variables');
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
     if (!signature) {
-      console.error('No signature found in request headers');
+      console.error('❌ No signature found in request headers');
       return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
     }
 
-    // Verify the HMAC signature
+    // Verify the HMAC signature using ElevenLabs format
     const isValidSignature = verifySignature(body, signature, hmacSecret);
     
-    console.log('🔐 Signature verification:', {
-      isValid: isValidSignature,
-      signature: signature.substring(0, 20) + '...',
-      bodyPreview: body.substring(0, 100) + '...'
-    });
-    
     if (!isValidSignature) {
-      console.error('Invalid HMAC signature');
+      console.error('❌ Invalid HMAC signature');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
+
+    console.log('✅ Signature verification passed');
 
     // Parse the webhook payload
     const webhookData = JSON.parse(body);
     
-    console.log('✅ Webhook received and verified:', {
+    console.log('📨 Webhook received and verified:', {
       timestamp: new Date().toISOString(),
       eventType: webhookData.event_type || 'unknown',
-      conversationId: webhookData.conversation_id
+      conversationId: webhookData.conversation_id,
+      agentId: webhookData.agent_id
     });
 
     // Extract conversation ID
     const conversationId = webhookData.conversation_id;
     
     if (!conversationId) {
-      console.error('No conversation ID found in webhook payload');
+      console.error('❌ No conversation ID found in webhook payload');
       console.log('📄 Full webhook payload:', JSON.stringify(webhookData, null, 2));
       return NextResponse.json({ error: 'Missing conversation ID' }, { status: 400 });
     }
@@ -154,5 +178,8 @@ export async function POST(request: NextRequest) {
 
 // Handle other HTTP methods
 export async function GET() {
-  return NextResponse.json({ message: 'ElevenLabs webhook endpoint is active' });
+  return NextResponse.json({ 
+    message: 'ElevenLabs webhook endpoint is active',
+    timestamp: new Date().toISOString()
+  });
 }
