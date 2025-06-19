@@ -7,44 +7,15 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Retrieve conversation data using ElevenLabs API
-async function getConversationData(conversationId: string) {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('ElevenLabs API key not found');
-  }
-
+// Extract user_id and group_id from webhook payload
+function extractUserContext(webhookData: any) {
   try {
-    const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`, {
-      method: 'GET',
-      headers: {
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch conversation data: ${response.status} ${response.statusText}`);
-    }
-
-    const conversationData = await response.json();
-    return conversationData;
-  } catch (error) {
-    console.error('Error fetching conversation data:', error);
-    throw error;
-  }
-}
-
-// Extract user_id and group_id from conversation data
-function extractUserContext(conversationData: any) {
-  try {
-    console.log('🔍 Looking for user context in conversation data...');
+    console.log('🔍 Looking for user context in webhook payload...');
     
     // Extract user_id and group_id from conversation_initiation_client_data.dynamic_variables
-    if (conversationData.conversation_initiation_client_data && 
-        conversationData.conversation_initiation_client_data.dynamic_variables) {
-      const dynamicVars = conversationData.conversation_initiation_client_data.dynamic_variables;
+    if (webhookData.conversation_initiation_client_data && 
+        webhookData.conversation_initiation_client_data.dynamic_variables) {
+      const dynamicVars = webhookData.conversation_initiation_client_data.dynamic_variables;
       const userId = dynamicVars.user_id;
       const groupId = dynamicVars.group_id;
       
@@ -60,17 +31,17 @@ function extractUserContext(conversationData: any) {
   }
 }
 
-// Extract travel preferences from conversation data
-function extractTravelPreferences(conversationData: any) {
+// Extract travel preferences from webhook payload
+function extractTravelPreferences(webhookData: any) {
   try {
     console.log('🔍 Extracting travel preferences...');
     
-    if (!conversationData.analysis || !conversationData.analysis.data_collection_results) {
+    if (!webhookData.analysis || !webhookData.analysis.data_collection_results) {
       console.error('❌ No analysis.data_collection_results found');
       return null;
     }
     
-    const dataCollectionResults = conversationData.analysis.data_collection_results;
+    const dataCollectionResults = webhookData.analysis.data_collection_results;
     
     // Extract the "value" field from each preference key
     const preferences = {
@@ -133,7 +104,7 @@ export async function POST(request: NextRequest) {
   console.log('🚀 ElevenLabs webhook endpoint hit');
   
   try {
-    // Parse the webhook payload
+    // Parse the webhook payload - this contains everything we need
     const webhookData = await request.json();
     
     console.log('📨 Webhook received:', {
@@ -142,48 +113,37 @@ export async function POST(request: NextRequest) {
       agentId: webhookData.agent_id
     });
 
-    // Extract conversation ID
-    const conversationId = webhookData.conversation_id;
-    
-    if (!conversationId) {
-      console.error('❌ No conversation ID found in webhook payload');
-      return NextResponse.json({ error: 'Missing conversation ID' }, { status: 400 });
-    }
-
-    // Fetch conversation data using the conversation ID
-    const conversationData = await getConversationData(conversationId);
-    
-    // Extract user_id and group_id
-    const { userId, groupId } = extractUserContext(conversationData);
+    // Extract user_id and group_id directly from webhook payload
+    const { userId, groupId } = extractUserContext(webhookData);
     
     if (!userId || !groupId) {
-      console.error('❌ Could not extract user_id and group_id from conversation data');
+      console.error('❌ Could not extract user_id and group_id from webhook payload');
       return NextResponse.json({ 
-        error: 'Could not extract user_id and group_id from conversation data',
-        conversationId
+        error: 'Could not extract user_id and group_id from webhook payload',
+        conversationId: webhookData.conversation_id
       }, { status: 400 });
     }
 
-    // Extract travel preferences
-    const preferences = extractTravelPreferences(conversationData);
+    // Extract travel preferences directly from webhook payload
+    const preferences = extractTravelPreferences(webhookData);
     
     if (!preferences) {
-      console.error('❌ Failed to extract preferences from conversation');
+      console.error('❌ Failed to extract preferences from webhook payload');
       return NextResponse.json({ 
         error: 'Failed to extract preferences',
-        conversationId 
+        conversationId: webhookData.conversation_id
       }, { status: 500 });
     }
 
     // Update the database
     await updateMemberPreferences(userId, groupId, preferences);
 
-    console.log('🎉 Successfully processed conversation and updated preferences');
+    console.log('🎉 Successfully processed webhook and updated preferences');
 
     return NextResponse.json({ 
       success: true, 
       message: 'Preferences updated successfully',
-      conversationId,
+      conversationId: webhookData.conversation_id,
       userId,
       groupId
     });
