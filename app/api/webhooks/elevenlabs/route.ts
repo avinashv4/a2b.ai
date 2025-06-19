@@ -154,32 +154,53 @@ function extractTravelPreferences(conversationData: any) {
   }
 }
 
-// Find user and group from widget data attributes
+// Extract user identifiers from conversation initiation client data
 function extractUserContext(conversationData: any) {
   try {
     console.log('🔍 Looking for user context in conversation data...');
+    console.log('📊 Full conversation data structure:', JSON.stringify(conversationData, null, 2));
     
-    // The user_id and group_id should be passed as data attributes to the widget
-    // and should be available in the conversation metadata or context
+    // Extract user_id and group_id from conversation_initiation_client_data.dynamic_variables
     let userId = null;
     let groupId = null;
     
-    // Check various possible locations for the user context
-    if (conversationData.metadata) {
-      userId = conversationData.metadata.user_id || conversationData.metadata.userId;
-      groupId = conversationData.metadata.group_id || conversationData.metadata.groupId;
+    // Check conversation_initiation_client_data.dynamic_variables first (primary location)
+    if (conversationData.conversation_initiation_client_data && 
+        conversationData.conversation_initiation_client_data.dynamic_variables) {
+      const dynamicVars = conversationData.conversation_initiation_client_data.dynamic_variables;
+      userId = dynamicVars.user_id;
+      groupId = dynamicVars.group_id;
+      console.log('✅ Found user context in dynamic_variables:', { userId, groupId });
     }
     
-    if (conversationData.context) {
-      userId = userId || conversationData.context.user_id || conversationData.context.userId;
-      groupId = groupId || conversationData.context.group_id || conversationData.context.groupId;
+    // Fallback: Check various other possible locations for the user context
+    if (!userId || !groupId) {
+      console.log('⚠️ User context not found in dynamic_variables, checking fallback locations...');
+      
+      if (conversationData.metadata) {
+        userId = userId || conversationData.metadata.user_id || conversationData.metadata.userId;
+        groupId = groupId || conversationData.metadata.group_id || conversationData.metadata.groupId;
+      }
+      
+      if (conversationData.context) {
+        userId = userId || conversationData.context.user_id || conversationData.context.userId;
+        groupId = groupId || conversationData.context.group_id || conversationData.context.groupId;
+      }
+      
+      // Check root level
+      userId = userId || conversationData.user_id || conversationData.userId;
+      groupId = groupId || conversationData.group_id || conversationData.groupId;
     }
     
-    // Check root level
-    userId = userId || conversationData.user_id || conversationData.userId;
-    groupId = groupId || conversationData.group_id || conversationData.groupId;
+    console.log('🔍 Final extracted user context:', { userId, groupId });
     
-    console.log('🔍 Extracted user context:', { userId, groupId });
+    if (!userId || !groupId) {
+      console.error('❌ Could not extract user_id or group_id from conversation data');
+      console.log('📄 Available conversation data keys:', Object.keys(conversationData));
+      if (conversationData.conversation_initiation_client_data) {
+        console.log('📄 conversation_initiation_client_data keys:', Object.keys(conversationData.conversation_initiation_client_data));
+      }
+    }
     
     return { userId, groupId };
   } catch (error) {
@@ -360,21 +381,31 @@ export async function POST(request: NextRequest) {
         console.log('✅ Found user context from conversation data:', { userId, groupId });
         userGroup = { user_id: userId, group_id: groupId };
       } else {
-        console.log('⚠️ No user context in conversation data, using fallback method');
-        // Fallback: find the most recent group member who hasn't completed preferences
-        userGroup = await findActiveGroupMember();
-      }
-      
-      if (!userGroup) {
-        console.error('❌ Could not determine user and group for conversation');
-        console.log('💡 Tip: Make sure user_id and group_id are passed as data attributes to the ElevenLabs widget');
+        console.error('❌ Could not extract user_id and group_id from conversation data');
+        console.log('💡 Make sure the ElevenLabs widget is configured with proper dynamic_variables');
+        console.log('📊 Expected structure: conversation_initiation_client_data.dynamic_variables.user_id');
+        console.log('📊 Expected structure: conversation_initiation_client_data.dynamic_variables.group_id');
+        
+        // Log the actual structure for debugging
+        if (conversationData.conversation_initiation_client_data) {
+          console.log('🔍 Actual conversation_initiation_client_data:', 
+            JSON.stringify(conversationData.conversation_initiation_client_data, null, 2));
+        }
+        
         return NextResponse.json({ 
-          error: 'Could not determine user context',
+          error: 'Could not extract user_id and group_id from conversation data',
           conversationId,
-          preferences 
+          debug: {
+            hasConversationInitData: !!conversationData.conversation_initiation_client_data,
+            hasDynamicVariables: !!(conversationData.conversation_initiation_client_data?.dynamic_variables),
+            availableKeys: conversationData.conversation_initiation_client_data ? 
+              Object.keys(conversationData.conversation_initiation_client_data) : [],
+            dynamicVariablesKeys: conversationData.conversation_initiation_client_data?.dynamic_variables ? 
+              Object.keys(conversationData.conversation_initiation_client_data.dynamic_variables) : []
+          }
         }, { status: 400 });
       }
-
+      
       // Update the group member's preferences
       await updateMemberPreferences(userGroup.user_id, userGroup.group_id, preferences);
 
