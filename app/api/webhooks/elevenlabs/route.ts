@@ -154,68 +154,53 @@ function extractTravelPreferences(conversationData: any) {
   }
 }
 
-// Find user and group from conversation context
-async function findUserAndGroup(conversationData: any) {
+// Find user and group from widget data attributes
+function extractUserContext(conversationData: any) {
   try {
+    console.log('🔍 Looking for user context in conversation data...');
+    
+    // The user_id and group_id should be passed as data attributes to the widget
+    // and should be available in the conversation metadata or context
     let userId = null;
     let groupId = null;
     
-    console.log('🔍 Looking for user context in conversation data...');
-    console.log('📊 Conversation data keys:', Object.keys(conversationData));
-    
-    // Check multiple possible locations for user context
+    // Check various possible locations for the user context
     if (conversationData.metadata) {
-      console.log('📋 Checking metadata:', Object.keys(conversationData.metadata));
       userId = conversationData.metadata.user_id || conversationData.metadata.userId;
       groupId = conversationData.metadata.group_id || conversationData.metadata.groupId;
     }
     
-    if (conversationData.agent_context) {
-      console.log('📋 Checking agent_context:', Object.keys(conversationData.agent_context));
-      userId = userId || conversationData.agent_context.user_id || conversationData.agent_context.userId;
-      groupId = groupId || conversationData.agent_context.group_id || conversationData.agent_context.groupId;
-    }
-    
     if (conversationData.context) {
-      console.log('📋 Checking context:', Object.keys(conversationData.context));
       userId = userId || conversationData.context.user_id || conversationData.context.userId;
       groupId = groupId || conversationData.context.group_id || conversationData.context.groupId;
     }
     
-    // Check if user context was passed in the root level
+    // Check root level
     userId = userId || conversationData.user_id || conversationData.userId;
     groupId = groupId || conversationData.group_id || conversationData.groupId;
     
-    console.log('🔍 Found user context:', { userId, groupId });
+    console.log('🔍 Extracted user context:', { userId, groupId });
     
-    if (userId && groupId) {
-      console.log('✅ Found user context from conversation metadata:', { userId, groupId });
-      
-      // Verify that this user is actually a member of this group
-      const { data: member, error } = await supabase
-        .from('group_members')
-        .select('user_id, group_id')
-        .eq('user_id', userId)
-        .eq('group_id', groupId)
-        .single();
-        
-      if (error || !member) {
-        console.error('❌ User not found in specified group:', { userId, groupId, error });
-        return null;
-      }
-      
-      return { user_id: userId, group_id: groupId };
-    }
+    return { userId, groupId };
+  } catch (error) {
+    console.error('Error extracting user context:', error);
+    return { userId: null, groupId: null };
+  }
+}
+
+// Find the most recent active group member who hasn't completed preferences
+async function findActiveGroupMember() {
+  try {
+    console.log('🔍 Looking for active group member who needs to complete preferences...');
     
-    console.log('⚠️ No user context found in conversation data, trying fallback method');
-    
-    // Fallback: try to find the most recent group member who hasn't completed preferences
-    
+    // Find the most recent group member who hasn't completed preferences
+    // This assumes that the user who just finished the conversation is the one we need to update
     const { data: incompleteMembers, error } = await supabase
       .from('group_members')
-      .select('user_id, group_id')
-      .is('interests_and_activities', null)
-      .limit(5);
+      .select('user_id, group_id, created_at')
+      .is('preferences_completed_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
     if (error) {
       console.error('Error finding incomplete members:', error);
@@ -223,21 +208,17 @@ async function findUserAndGroup(conversationData: any) {
     }
 
     if (incompleteMembers && incompleteMembers.length > 0) {
-      console.log(`📋 Found ${incompleteMembers.length} incomplete members, using first one:`, incompleteMembers[0]);
+      console.log('✅ Found active member:', incompleteMembers[0]);
       return {
         user_id: incompleteMembers[0].user_id,
         group_id: incompleteMembers[0].group_id
       };
-    } else {
-      console.log('📋 No incomplete members found, checking all members...');
-      const { data: allMembers } = await supabase.from('group_members').select('user_id, group_id').limit(5);
-      console.log('📋 All members sample:', allMembers);
     }
 
-    console.log('❌ Could not find any incomplete group members');
+    console.log('❌ No incomplete group members found');
     return null;
   } catch (error) {
-    console.error('Error finding user and group:', error);
+    console.error('Error finding active group member:', error);
     return null;
   }
 }
@@ -246,6 +227,19 @@ async function findUserAndGroup(conversationData: any) {
 async function updateMemberPreferences(userId: string, groupId: string, preferences: any) {
   try {
     console.log('💾 Updating preferences for user:', userId, 'in group:', groupId);
+
+    // First verify that this user is actually a member of this group
+    const { data: member, error: memberError } = await supabase
+      .from('group_members')
+      .select('user_id, group_id')
+      .eq('user_id', userId)
+      .eq('group_id', groupId)
+      .single();
+
+    if (memberError || !member) {
+      console.error('❌ User not found in specified group:', { userId, groupId, error: memberError });
+      throw new Error(`User ${userId} is not a member of group ${groupId}`);
+    }
 
     const { data, error } = await supabase
       .from('group_members')
@@ -357,12 +351,23 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
-      // Find the user and group for this conversation
-      const userGroup = await findUserAndGroup(conversationData);
+      // Try to get user context from conversation data first
+      const { userId, groupId } = extractUserContext(conversationData);
+      
+      let userGroup = null;
+      
+      if (userId && groupId) {
+        console.log('✅ Found user context from conversation data:', { userId, groupId });
+        userGroup = { user_id: userId, group_id: groupId };
+      } else {
+        console.log('⚠️ No user context in conversation data, using fallback method');
+        // Fallback: find the most recent group member who hasn't completed preferences
+        userGroup = await findActiveGroupMember();
+      }
       
       if (!userGroup) {
         console.error('❌ Could not determine user and group for conversation');
-        console.log('💡 Tip: Consider passing user_id and group_id as metadata to the AI agent');
+        console.log('💡 Tip: Make sure user_id and group_id are passed as data attributes to the ElevenLabs widget');
         return NextResponse.json({ 
           error: 'Could not determine user context',
           conversationId,

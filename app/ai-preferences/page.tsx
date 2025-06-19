@@ -81,7 +81,7 @@ export default function AIPreferencesPage() {
           .from('group_members')
           .select(`
             user_id,
-            profiles!group_members_user_id_fkey(
+            profiles(
               first_name,
               last_name,
               profile_picture
@@ -94,16 +94,15 @@ export default function AIPreferencesPage() {
           return;
         }
 
-        const formattedMembers: User[] = (membersData as unknown as Member[]).map(member => {
-          // Handle case where member.profiles may be an array
-          const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
+        const formattedMembers: User[] = membersData?.map(member => {
+          const profile = member.profiles;
           return {
             id: member.user_id,
             name: member.user_id === user.id ? 'You' : `${profile.first_name} ${profile.last_name}`,
             avatar: profile.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
             completed: member.user_id === user.id ? userCompleted : Math.random() > 0.3 // Random for demo
           };
-        });
+        }) || [];
 
         setGroupMembers(formattedMembers);
       } catch (error) {
