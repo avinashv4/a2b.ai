@@ -45,7 +45,6 @@ export default function VoiceAgentWidget({
         agent-id={agentId}
         variant="expanded"
         dynamic-variables={dynamicVariables}
-        avatar-image-url="https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop"
         action-text="Need help planning your trip?"
         start-call-text="Start Chat"
         end-call-text="End"
