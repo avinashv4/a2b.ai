@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
@@ -7,47 +6,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-// Verify HMAC signature with ElevenLabs format: t=timestamp,v0=hash
-function verifySignature(body: string, signatureHeader: string, secret: string): boolean {
-  try {
-    // Parse the signature header: t=timestamp,v0=hash
-    const headers = signatureHeader.split(',');
-    const timestamp = headers.find((e) => e.startsWith('t='))?.substring(2);
-    const signature = headers.find((e) => e.startsWith('v0='));
-
-    if (!timestamp || !signature) {
-      console.error('Invalid signature format - missing timestamp or signature');
-      return false;
-    }
-
-    // Validate timestamp (reject requests older than 30 minutes)
-    const reqTimestamp = parseInt(timestamp) * 1000;
-    const tolerance = Date.now() - 30 * 60 * 1000; // 30 minutes ago
-    
-    if (reqTimestamp < tolerance) {
-      console.error('Request expired - timestamp too old');
-      return false;
-    }
-
-    // Validate hash
-    const message = `${timestamp}.${body}`;
-    const digest = 'v0=' + crypto.createHmac('sha256', secret).update(message).digest('hex');
-    
-    console.log('🔐 Signature validation details:', {
-      timestamp,
-      message: message.substring(0, 100) + '...',
-      expectedSignature: digest.substring(0, 20) + '...',
-      receivedSignature: signature.substring(0, 20) + '...',
-      isMatch: signature === digest
-    });
-
-    return signature === digest;
-  } catch (error) {
-    console.error('Error verifying signature:', error);
-    return false;
-  }
-}
 
 // Retrieve conversation data using ElevenLabs API
 async function getConversationData(conversationId: string) {
@@ -78,75 +36,56 @@ async function getConversationData(conversationId: string) {
   }
 }
 
+// Extract user_id and group_id from conversation data
+function extractUserContext(conversationData: any) {
+  try {
+    console.log('🔍 Looking for user context in conversation data...');
+    
+    // Extract user_id and group_id from conversation_initiation_client_data.dynamic_variables
+    if (conversationData.conversation_initiation_client_data && 
+        conversationData.conversation_initiation_client_data.dynamic_variables) {
+      const dynamicVars = conversationData.conversation_initiation_client_data.dynamic_variables;
+      const userId = dynamicVars.user_id;
+      const groupId = dynamicVars.group_id;
+      
+      console.log('✅ Found user context:', { userId, groupId });
+      return { userId, groupId };
+    }
+    
+    console.error('❌ Could not find user_id or group_id in conversation_initiation_client_data.dynamic_variables');
+    return { userId: null, groupId: null };
+  } catch (error) {
+    console.error('Error extracting user context:', error);
+    return { userId: null, groupId: null };
+  }
+}
+
 // Extract travel preferences from conversation data
 function extractTravelPreferences(conversationData: any) {
   try {
-    console.log('🔍 Analyzing conversation data structure...');
-    console.log('📊 Top-level keys:', Object.keys(conversationData));
+    console.log('🔍 Extracting travel preferences...');
     
-    // Check if the analysis structure exists
-    if (!conversationData.analysis) {
-      console.error('❌ No "analysis" key found in conversation data');
-      console.log('📄 Available keys:', Object.keys(conversationData));
-      return null;
-    }
-    
-    if (!conversationData.analysis.data_collection_results) {
-      console.error('❌ No "data_collection_results" key found in analysis');
-      console.log('📄 Analysis keys:', Object.keys(conversationData.analysis));
+    if (!conversationData.analysis || !conversationData.analysis.data_collection_results) {
+      console.error('❌ No analysis.data_collection_results found');
       return null;
     }
     
     const dataCollectionResults = conversationData.analysis.data_collection_results;
-    console.log('📋 Data collection results keys:', Object.keys(dataCollectionResults));
-    
-    // Initialize preferences object with default values
-    const preferences = {
-      deal_breakers_and_strong_preferences: null,
-      interests_and_activities: null,
-      nice_to_haves_and_openness: null,
-      travel_motivations: null,
-      must_do_experiences: null,
-      learning_interests: null,
-      schedule_and_logistics: null,
-      budget_and_spending: null,
-      travel_style_preferences: null
-    };
     
     // Extract the "value" field from each preference key
-    const preferenceKeys = [
-      'deal_breakers_and_strong_preferences',
-      'interests_and_activities',
-      'nice_to_haves_and_openness',
-      'travel_motivations',
-      'must_do_experiences',
-      'learning_interests',
-      'schedule_and_logistics',
-      'budget_and_spending',
-      'travel_style_preferences'
-    ];
+    const preferences = {
+      deal_breakers_and_strong_preferences: dataCollectionResults.deal_breakers_and_strong_preferences?.value || null,
+      interests_and_activities: dataCollectionResults.interests_and_activities?.value || null,
+      nice_to_haves_and_openness: dataCollectionResults.nice_to_haves_and_openness?.value || null,
+      travel_motivations: dataCollectionResults.travel_motivations?.value || null,
+      must_do_experiences: dataCollectionResults.must_do_experiences?.value || null,
+      learning_interests: dataCollectionResults.learning_interests?.value || null,
+      schedule_and_logistics: dataCollectionResults.schedule_and_logistics?.value || null,
+      budget_and_spending: dataCollectionResults.budget_and_spending?.value || null,
+      travel_style_preferences: dataCollectionResults.travel_style_preferences?.value || null
+    };
     
-    let extractedCount = 0;
-    
-    for (const key of preferenceKeys) {
-      if (dataCollectionResults[key] && dataCollectionResults[key].value) {
-        preferences[key] = dataCollectionResults[key].value;
-        extractedCount++;
-        console.log(`✅ Extracted ${key}:`, 
-          typeof dataCollectionResults[key].value === 'string' 
-            ? dataCollectionResults[key].value.substring(0, 100) + '...'
-            : dataCollectionResults[key].value
-        );
-      } else {
-        console.log(`⚠️ No value found for ${key}`);
-        if (dataCollectionResults[key]) {
-          console.log(`   Available fields:`, Object.keys(dataCollectionResults[key]));
-        }
-      }
-    }
-    
-    console.log(`🎯 Successfully extracted ${extractedCount} out of ${preferenceKeys.length} preferences`);
-
+    console.log('✅ Extracted preferences:', preferences);
     return preferences;
   } catch (error) {
     console.error('Error extracting travel preferences:', error);
@@ -154,113 +93,10 @@ function extractTravelPreferences(conversationData: any) {
   }
 }
 
-// Extract user identifiers from conversation initiation client data
-function extractUserContext(conversationData: any) {
-  try {
-    console.log('🔍 Looking for user context in conversation data...');
-    console.log('📊 Full conversation data structure:', JSON.stringify(conversationData, null, 2));
-    
-    // Extract user_id and group_id from conversation_initiation_client_data.dynamic_variables
-    let userId = null;
-    let groupId = null;
-    
-    // Check conversation_initiation_client_data.dynamic_variables first (primary location)
-    if (conversationData.conversation_initiation_client_data && 
-        conversationData.conversation_initiation_client_data.dynamic_variables) {
-      const dynamicVars = conversationData.conversation_initiation_client_data.dynamic_variables;
-      userId = dynamicVars.user_id;
-      groupId = dynamicVars.group_id;
-      console.log('✅ Found user context in dynamic_variables:', { userId, groupId });
-    }
-    
-    // Fallback: Check various other possible locations for the user context
-    if (!userId || !groupId) {
-      console.log('⚠️ User context not found in dynamic_variables, checking fallback locations...');
-      
-      if (conversationData.metadata) {
-        userId = userId || conversationData.metadata.user_id || conversationData.metadata.userId;
-        groupId = groupId || conversationData.metadata.group_id || conversationData.metadata.groupId;
-      }
-      
-      if (conversationData.context) {
-        userId = userId || conversationData.context.user_id || conversationData.context.userId;
-        groupId = groupId || conversationData.context.group_id || conversationData.context.groupId;
-      }
-      
-      // Check root level
-      userId = userId || conversationData.user_id || conversationData.userId;
-      groupId = groupId || conversationData.group_id || conversationData.groupId;
-    }
-    
-    console.log('🔍 Final extracted user context:', { userId, groupId });
-    
-    if (!userId || !groupId) {
-      console.error('❌ Could not extract user_id or group_id from conversation data');
-      console.log('📄 Available conversation data keys:', Object.keys(conversationData));
-      if (conversationData.conversation_initiation_client_data) {
-        console.log('📄 conversation_initiation_client_data keys:', Object.keys(conversationData.conversation_initiation_client_data));
-      }
-    }
-    
-    return { userId, groupId };
-  } catch (error) {
-    console.error('Error extracting user context:', error);
-    return { userId: null, groupId: null };
-  }
-}
-
-// Find the most recent active group member who hasn't completed preferences
-async function findActiveGroupMember() {
-  try {
-    console.log('🔍 Looking for active group member who needs to complete preferences...');
-    
-    // Find the most recent group member who hasn't completed preferences
-    // This assumes that the user who just finished the conversation is the one we need to update
-    const { data: incompleteMembers, error } = await supabase
-      .from('group_members')
-      .select('user_id, group_id, created_at')
-      .is('preferences_completed_at', null)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (error) {
-      console.error('Error finding incomplete members:', error);
-      return null;
-    }
-
-    if (incompleteMembers && incompleteMembers.length > 0) {
-      console.log('✅ Found active member:', incompleteMembers[0]);
-      return {
-        user_id: incompleteMembers[0].user_id,
-        group_id: incompleteMembers[0].group_id
-      };
-    }
-
-    console.log('❌ No incomplete group members found');
-    return null;
-  } catch (error) {
-    console.error('Error finding active group member:', error);
-    return null;
-  }
-}
-
-// Update group member preferences in Supabase
+// Update group member preferences in database
 async function updateMemberPreferences(userId: string, groupId: string, preferences: any) {
   try {
     console.log('💾 Updating preferences for user:', userId, 'in group:', groupId);
-
-    // First verify that this user is actually a member of this group
-    const { data: member, error: memberError } = await supabase
-      .from('group_members')
-      .select('user_id, group_id')
-      .eq('user_id', userId)
-      .eq('group_id', groupId)
-      .single();
-
-    if (memberError || !member) {
-      console.error('❌ User not found in specified group:', { userId, groupId, error: memberError });
-      throw new Error(`User ${userId} is not a member of group ${groupId}`);
-    }
 
     const { data, error } = await supabase
       .from('group_members')
@@ -294,47 +130,13 @@ async function updateMemberPreferences(userId: string, groupId: string, preferen
 }
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 ElevenLabs webhook endpoint hit at:', new Date().toISOString());
+  console.log('🚀 ElevenLabs webhook endpoint hit');
   
   try {
-    // Get the raw body as text for signature verification
-    const body = await request.text();
-    const signature = request.headers.get('elevenlabs-signature') || request.headers.get('ElevenLabs-Signature');
-    const hmacSecret = process.env.ELEVENLABS_HMAC_SECRET;
-
-    console.log('📋 Request details:', {
-      hasBody: !!body,
-      bodyLength: body.length,
-      hasSignature: !!signature,
-      hasHmacSecret: !!hmacSecret,
-      signatureFormat: signature ? signature.substring(0, 50) + '...' : 'none'
-    });
-
-    if (!hmacSecret) {
-      console.error('❌ HMAC secret not found in environment variables');
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
-
-    if (!signature) {
-      console.error('❌ No signature found in request headers');
-      return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
-    }
-
-    // Verify the HMAC signature using ElevenLabs format
-    const isValidSignature = verifySignature(body, signature, hmacSecret);
-    
-    if (!isValidSignature) {
-      console.error('❌ Invalid HMAC signature');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    }
-
-    console.log('✅ Signature verification passed');
-
     // Parse the webhook payload
-    const webhookData = JSON.parse(body);
+    const webhookData = await request.json();
     
-    console.log('📨 Webhook received and verified:', {
-      timestamp: new Date().toISOString(),
+    console.log('📨 Webhook received:', {
       eventType: webhookData.event_type || 'unknown',
       conversationId: webhookData.conversation_id,
       agentId: webhookData.agent_id
@@ -345,101 +147,53 @@ export async function POST(request: NextRequest) {
     
     if (!conversationId) {
       console.error('❌ No conversation ID found in webhook payload');
-      console.log('📄 Full webhook payload:', JSON.stringify(webhookData, null, 2));
       return NextResponse.json({ error: 'Missing conversation ID' }, { status: 400 });
     }
 
-    console.log('📞 Conversation ID received:', conversationId);
-
     // Fetch conversation data using the conversation ID
-    try {
-      const conversationData = await getConversationData(conversationId);
-      
-      console.log('📊 Conversation data retrieved:', {
-        conversationId,
-        dataKeys: Object.keys(conversationData),
-        timestamp: new Date().toISOString()
-      });
-
-      // Extract travel preferences from conversation
-      const preferences = extractTravelPreferences(conversationData);
-      
-      if (!preferences) {
-        console.error('❌ Failed to extract preferences from conversation');
-        return NextResponse.json({ 
-          error: 'Failed to extract preferences',
-          conversationId 
-        }, { status: 500 });
-      }
-
-      // Try to get user context from conversation data first
-      const { userId, groupId } = extractUserContext(conversationData);
-      
-      let userGroup = null;
-      
-      if (userId && groupId) {
-        console.log('✅ Found user context from conversation data:', { userId, groupId });
-        userGroup = { user_id: userId, group_id: groupId };
-      } else {
-        console.error('❌ Could not extract user_id and group_id from conversation data');
-        console.log('💡 Make sure the ElevenLabs widget is configured with proper dynamic_variables');
-        console.log('📊 Expected structure: conversation_initiation_client_data.dynamic_variables.user_id');
-        console.log('📊 Expected structure: conversation_initiation_client_data.dynamic_variables.group_id');
-        
-        // Log the actual structure for debugging
-        if (conversationData.conversation_initiation_client_data) {
-          console.log('🔍 Actual conversation_initiation_client_data:', 
-            JSON.stringify(conversationData.conversation_initiation_client_data, null, 2));
-        }
-        
-        return NextResponse.json({ 
-          error: 'Could not extract user_id and group_id from conversation data',
-          conversationId,
-          debug: {
-            hasConversationInitData: !!conversationData.conversation_initiation_client_data,
-            hasDynamicVariables: !!(conversationData.conversation_initiation_client_data?.dynamic_variables),
-            availableKeys: conversationData.conversation_initiation_client_data ? 
-              Object.keys(conversationData.conversation_initiation_client_data) : [],
-            dynamicVariablesKeys: conversationData.conversation_initiation_client_data?.dynamic_variables ? 
-              Object.keys(conversationData.conversation_initiation_client_data.dynamic_variables) : []
-          }
-        }, { status: 400 });
-      }
-      
-      // Update the group member's preferences
-      await updateMemberPreferences(userGroup.user_id, userGroup.group_id, preferences);
-
-      console.log('🎉 Successfully processed conversation and updated preferences');
-
+    const conversationData = await getConversationData(conversationId);
+    
+    // Extract user_id and group_id
+    const { userId, groupId } = extractUserContext(conversationData);
+    
+    if (!userId || !groupId) {
+      console.error('❌ Could not extract user_id and group_id from conversation data');
       return NextResponse.json({ 
-        success: true, 
-        message: 'Conversation processed and preferences updated successfully',
-        conversationId,
-        userId: userGroup.user_id,
-        groupId: userGroup.group_id,
-        extractedPreferences: Object.keys(preferences).filter(key => preferences[key] !== null)
-      });
+        error: 'Could not extract user_id and group_id from conversation data',
+        conversationId
+      }, { status: 400 });
+    }
 
-    } catch (error) {
-      console.error('❌ Error processing conversation:', error);
+    // Extract travel preferences
+    const preferences = extractTravelPreferences(conversationData);
+    
+    if (!preferences) {
+      console.error('❌ Failed to extract preferences from conversation');
       return NextResponse.json({ 
-        error: 'Failed to process conversation data',
-        conversationId,
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Failed to extract preferences',
+        conversationId 
       }, { status: 500 });
     }
 
+    // Update the database
+    await updateMemberPreferences(userId, groupId, preferences);
+
+    console.log('🎉 Successfully processed conversation and updated preferences');
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Preferences updated successfully',
+      conversationId,
+      userId,
+      groupId
+    });
+
   } catch (error) {
     console.error('❌ Webhook processing error:', error);
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// Handle other HTTP methods
 export async function GET() {
   return NextResponse.json({ 
     message: 'ElevenLabs webhook endpoint is active',
