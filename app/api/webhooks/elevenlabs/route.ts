@@ -81,6 +81,25 @@ async function getConversationData(conversationId: string) {
 // Extract travel preferences from conversation data
 function extractTravelPreferences(conversationData: any) {
   try {
+    console.log('🔍 Analyzing conversation data structure...');
+    console.log('📊 Top-level keys:', Object.keys(conversationData));
+    
+    // Check if the analysis structure exists
+    if (!conversationData.analysis) {
+      console.error('❌ No "analysis" key found in conversation data');
+      console.log('📄 Available keys:', Object.keys(conversationData));
+      return null;
+    }
+    
+    if (!conversationData.analysis.data_collection_results) {
+      console.error('❌ No "data_collection_results" key found in analysis');
+      console.log('📄 Analysis keys:', Object.keys(conversationData.analysis));
+      return null;
+    }
+    
+    const dataCollectionResults = conversationData.analysis.data_collection_results;
+    console.log('📋 Data collection results keys:', Object.keys(dataCollectionResults));
+    
     // Initialize preferences object with default values
     const preferences = {
       deal_breakers_and_strong_preferences: null,
@@ -93,106 +112,40 @@ function extractTravelPreferences(conversationData: any) {
       budget_and_spending: null,
       travel_style_preferences: null
     };
-
-    // Extract conversation transcript or messages
-    let conversationText = '';
     
-    if (conversationData.messages && Array.isArray(conversationData.messages)) {
-      conversationText = conversationData.messages
-        .map((msg: any) => msg.content || msg.text || '')
-        .join(' ');
-    } else if (conversationData.transcript) {
-      conversationText = conversationData.transcript;
-    } else if (conversationData.conversation_text) {
-      conversationText = conversationData.conversation_text;
-    }
-
-    console.log('📝 Conversation text length:', conversationText.length);
-
-    // Simple keyword-based extraction (you can enhance this with AI/NLP)
-    const text = conversationText.toLowerCase();
-
-    // Extract deal breakers and strong preferences
-    if (text.includes('deal breaker') || text.includes('absolutely not') || text.includes('must have') || text.includes('non-negotiable')) {
-      const dealBreakerMatches = conversationText.match(/(?:deal breaker|absolutely not|must have|non-negotiable)[^.!?]*[.!?]/gi);
-      if (dealBreakerMatches) {
-        preferences.deal_breakers_and_strong_preferences = dealBreakerMatches.join(' ');
+    // Extract the "value" field from each preference key
+    const preferenceKeys = [
+      'deal_breakers_and_strong_preferences',
+      'interests_and_activities',
+      'nice_to_haves_and_openness',
+      'travel_motivations',
+      'must_do_experiences',
+      'learning_interests',
+      'schedule_and_logistics',
+      'budget_and_spending',
+      'travel_style_preferences'
+    ];
+    
+    let extractedCount = 0;
+    
+    for (const key of preferenceKeys) {
+      if (dataCollectionResults[key] && dataCollectionResults[key].value) {
+        preferences[key] = dataCollectionResults[key].value;
+        extractedCount++;
+        console.log(`✅ Extracted ${key}:`, 
+          typeof dataCollectionResults[key].value === 'string' 
+            ? dataCollectionResults[key].value.substring(0, 100) + '...'
+            : dataCollectionResults[key].value
+        );
+      } else {
+        console.log(`⚠️ No value found for ${key}`);
+        if (dataCollectionResults[key]) {
+          console.log(`   Available fields:`, Object.keys(dataCollectionResults[key]));
+        }
       }
     }
-
-    // Extract interests and activities
-    if (text.includes('interest') || text.includes('activity') || text.includes('hobby') || text.includes('enjoy')) {
-      const interestMatches = conversationText.match(/(?:interest|activity|hobby|enjoy|like to)[^.!?]*[.!?]/gi);
-      if (interestMatches) {
-        preferences.interests_and_activities = interestMatches.join(' ');
-      }
-    }
-
-    // Extract nice to haves
-    if (text.includes('nice to have') || text.includes('would be nice') || text.includes('open to') || text.includes('flexible')) {
-      const niceToHaveMatches = conversationText.match(/(?:nice to have|would be nice|open to|flexible)[^.!?]*[.!?]/gi);
-      if (niceToHaveMatches) {
-        preferences.nice_to_haves_and_openness = niceToHaveMatches.join(' ');
-      }
-    }
-
-    // Extract travel motivations
-    if (text.includes('motivation') || text.includes('reason') || text.includes('why') || text.includes('purpose')) {
-      const motivationMatches = conversationText.match(/(?:motivation|reason|why|purpose)[^.!?]*[.!?]/gi);
-      if (motivationMatches) {
-        preferences.travel_motivations = motivationMatches.join(' ');
-      }
-    }
-
-    // Extract must-do experiences
-    if (text.includes('must do') || text.includes('bucket list') || text.includes('definitely want') || text.includes('essential')) {
-      const mustDoMatches = conversationText.match(/(?:must do|bucket list|definitely want|essential)[^.!?]*[.!?]/gi);
-      if (mustDoMatches) {
-        preferences.must_do_experiences = mustDoMatches.join(' ');
-      }
-    }
-
-    // Extract learning interests
-    if (text.includes('learn') || text.includes('culture') || text.includes('history') || text.includes('education')) {
-      const learningMatches = conversationText.match(/(?:learn|culture|history|education)[^.!?]*[.!?]/gi);
-      if (learningMatches) {
-        preferences.learning_interests = learningMatches.join(' ');
-      }
-    }
-
-    // Extract schedule and logistics
-    if (text.includes('schedule') || text.includes('time') || text.includes('logistics') || text.includes('planning')) {
-      const scheduleMatches = conversationText.match(/(?:schedule|time|logistics|planning)[^.!?]*[.!?]/gi);
-      if (scheduleMatches) {
-        preferences.schedule_and_logistics = scheduleMatches.join(' ');
-      }
-    }
-
-    // Extract budget and spending
-    if (text.includes('budget') || text.includes('money') || text.includes('cost') || text.includes('expensive') || text.includes('cheap')) {
-      const budgetMatches = conversationText.match(/(?:budget|money|cost|expensive|cheap|\$\d+)[^.!?]*[.!?]/gi);
-      if (budgetMatches) {
-        preferences.budget_and_spending = budgetMatches.join(' ');
-      }
-    }
-
-    // Extract travel style preferences
-    if (text.includes('style') || text.includes('prefer') || text.includes('comfort') || text.includes('adventure') || text.includes('luxury')) {
-      const styleMatches = conversationText.match(/(?:style|prefer|comfort|adventure|luxury)[^.!?]*[.!?]/gi);
-      if (styleMatches) {
-        preferences.travel_style_preferences = styleMatches.join(' ');
-      }
-    }
-
-    // If no specific matches found, store the full conversation as general preferences
-    if (Object.values(preferences).every(val => val === null) && conversationText.length > 0) {
-      preferences.interests_and_activities = conversationText.substring(0, 1000); // Limit length
-    }
-
-    console.log('🎯 Extracted preferences:', {
-      hasPreferences: Object.values(preferences).some(val => val !== null),
-      extractedFields: Object.entries(preferences).filter(([_, val]) => val !== null).map(([key, _]) => key)
-    });
+    
+    console.log(`🎯 Successfully extracted ${extractedCount} out of ${preferenceKeys.length} preferences`);
 
     return preferences;
   } catch (error) {
@@ -204,27 +157,36 @@ function extractTravelPreferences(conversationData: any) {
 // Find user and group from conversation context
 async function findUserAndGroup(conversationData: any) {
   try {
-    // Try to extract user context from conversation metadata
     let userId = null;
     let groupId = null;
     
-    // Check if user context was passed in conversation metadata
+    console.log('🔍 Looking for user context in conversation data...');
+    console.log('📊 Conversation data keys:', Object.keys(conversationData));
+    
+    // Check multiple possible locations for user context
     if (conversationData.metadata) {
+      console.log('📋 Checking metadata:', Object.keys(conversationData.metadata));
       userId = conversationData.metadata.user_id || conversationData.metadata.userId;
       groupId = conversationData.metadata.group_id || conversationData.metadata.groupId;
     }
     
-    // Check if user context was passed in agent context
     if (conversationData.agent_context) {
+      console.log('📋 Checking agent_context:', Object.keys(conversationData.agent_context));
       userId = userId || conversationData.agent_context.user_id || conversationData.agent_context.userId;
       groupId = groupId || conversationData.agent_context.group_id || conversationData.agent_context.groupId;
     }
     
-    // Check if user context was passed in conversation context
     if (conversationData.context) {
+      console.log('📋 Checking context:', Object.keys(conversationData.context));
       userId = userId || conversationData.context.user_id || conversationData.context.userId;
       groupId = groupId || conversationData.context.group_id || conversationData.context.groupId;
     }
+    
+    // Check if user context was passed in the root level
+    userId = userId || conversationData.user_id || conversationData.userId;
+    groupId = groupId || conversationData.group_id || conversationData.groupId;
+    
+    console.log('🔍 Found user context:', { userId, groupId });
     
     if (userId && groupId) {
       console.log('✅ Found user context from conversation metadata:', { userId, groupId });
@@ -245,7 +207,7 @@ async function findUserAndGroup(conversationData: any) {
       return { user_id: userId, group_id: groupId };
     }
     
-    console.log('⚠️ No user context found in conversation metadata, trying fallback method');
+    console.log('⚠️ No user context found in conversation data, trying fallback method');
     
     // Fallback: try to find the most recent group member who hasn't completed preferences
     
@@ -253,7 +215,7 @@ async function findUserAndGroup(conversationData: any) {
       .from('group_members')
       .select('user_id, group_id')
       .is('interests_and_activities', null)
-      .limit(1);
+      .limit(5);
 
     if (error) {
       console.error('Error finding incomplete members:', error);
@@ -261,10 +223,15 @@ async function findUserAndGroup(conversationData: any) {
     }
 
     if (incompleteMembers && incompleteMembers.length > 0) {
+      console.log(`📋 Found ${incompleteMembers.length} incomplete members, using first one:`, incompleteMembers[0]);
       return {
         user_id: incompleteMembers[0].user_id,
         group_id: incompleteMembers[0].group_id
       };
+    } else {
+      console.log('📋 No incomplete members found, checking all members...');
+      const { data: allMembers } = await supabase.from('group_members').select('user_id, group_id').limit(5);
+      console.log('📋 All members sample:', allMembers);
     }
 
     console.log('❌ Could not find any incomplete group members');
