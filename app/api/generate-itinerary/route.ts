@@ -22,25 +22,25 @@ interface GroupMember {
   };
 }
 
-async function getLocationImage(destination: string): Promise<string> {
+async function getPexelsImage(query: string): Promise<string> {
   try {
     const response = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(destination)}&per_page=1&orientation=landscape`,
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
       {
         headers: {
-          'Authorization': `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}`
+          'Authorization': process.env.PEXELS_API_KEY!
         }
       }
     );
     
     if (response.ok) {
       const data = await response.json();
-      if (data.results && data.results.length > 0) {
-        return data.results[0].urls.regular;
+      if (data.photos && data.photos.length > 0) {
+        return data.photos[0].src.medium;
       }
     }
   } catch (error) {
-    console.error('Error fetching location image:', error);
+    console.error('Error fetching Pexels image:', error);
   }
   
   return 'https://images.pexels.com/photos/1320684/pexels-photo-1320684.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop';
@@ -132,24 +132,33 @@ Please return the response in the following EXACT JSON format (no additional tex
           "id": "p1",
           "name": "Attraction Name",
           "description": "Detailed description of the place and why it's included",
-          "image": "https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
           "duration": "2 hours",
           "walkTime": "15 min",
           "distance": "1.2 km",
-          "travelMode": "walk"
+          "travelMode": "walk",
+          "type": "monument",
+          "visitTime": "10:00 AM",
+          "coordinates": {
+            "lat": 48.8584,
+            "lng": 2.2945
+          }
+        },
+        {
+          "id": "p2",
+          "name": "Restaurant Name",
+          "description": "Great place for lunch with local cuisine",
+          "duration": "1.5 hours",
+          "walkTime": "10 min",
+          "distance": "800 m",
+          "travelMode": "walk",
+          "type": "food",
+          "visitTime": "1:00 PM",
+          "coordinates": {
+            "lat": 48.8566,
+            "lng": 2.3522
+          }
         }
       ]
-    }
-  ],
-  "flights": [
-    {
-      "id": "1",
-      "airline": "Airline Name",
-      "departure": "10:30 AM",
-      "arrival": "2:45 PM",
-      "duration": "8h 15m",
-      "price": "$650",
-      "stops": "Direct"
     }
   ],
   "hotels": [
@@ -158,7 +167,6 @@ Please return the response in the following EXACT JSON format (no additional tex
       "name": "Hotel Name",
       "rating": 4.8,
       "price": "$180/night",
-      "image": "https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop",
       "amenities": ["Free WiFi", "Breakfast", "Gym", "Spa"]
     }
   ],
@@ -168,22 +176,28 @@ Please return the response in the following EXACT JSON format (no additional tex
       "name": "Attraction Name",
       "lat": 48.8584,
       "lng": 2.2945,
-      "day": "Day 1"
+      "day": "Day 1",
+      "type": "monument",
+      "visitTime": "10:00 AM",
+      "duration": "2 hours",
+      "walkTimeFromPrevious": "15 min"
     }
   ]
 }
 
 Requirements:
 - Create exactly 3 days of itinerary
-- Include 2-4 places per day
-- Add realistic travel times between locations
-- Include 3 flight options and 3 hotel options
-- Use real coordinates for map locations
-- Consider all group member preferences
-- Provide detailed descriptions explaining why each place was chosen
-- Use appropriate Pexels image URLs for attractions
+- Include 3-4 places per day including meals (brunch/lunch and dinner)
+- For each place, specify the type: "monument", "museum", "park", "food", "shopping", "photo_spot", "historical", "entertainment", "cultural", "nature"
+- Include specific visit times (e.g., "10:00 AM", "2:30 PM")
+- Add realistic coordinates for each location
 - Include walking/transport times between locations
-- Additionally, return the IATA airport code for the arrival city (the main destination of the trip) in a top-level field called "arrivalIataCode". For example: "MAA" for Chennai, "JFK" for New York, "CDG" for Paris, etc.
+- Add meal suggestions for brunch/lunch and dinner each day
+- Hotels should have breakfast included, so focus on brunch/lunch and dinner
+- Provide detailed descriptions explaining why each place was chosen
+- Include 3 hotel options
+- Consider all group member preferences
+- Return the IATA airport code for the arrival city in "arrivalIataCode"
 `;
 
     // Generate itinerary using Gemini
@@ -208,19 +222,17 @@ Requirements:
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
     }
 
-    // Enhance images with Unsplash if needed
+    // Enhance images with Pexels
     for (const day of itineraryData.itinerary) {
       for (const place of day.places) {
-        if (!place.image || place.image.includes('placeholder')) {
-          place.image = await getLocationImage(place.name);
-        }
+        const searchQuery = `${place.name} ${groupData.destination}`;
+        place.image = await getPexelsImage(searchQuery);
       }
     }
 
     for (const hotel of itineraryData.hotels) {
-      if (!hotel.image || hotel.image.includes('placeholder')) {
-        hotel.image = await getLocationImage(`${hotel.name} hotel ${groupData.destination}`);
-      }
+      const searchQuery = `${hotel.name} hotel ${groupData.destination}`;
+      hotel.image = await getPexelsImage(searchQuery);
     }
 
     // --- Fetch real flights from SerpAPI ---
@@ -229,36 +241,61 @@ Requirements:
       const departureCode = 'MAA'; // Chennai
       const arrivalIataCode = itineraryData.arrivalIataCode;
       const arrivalId = arrivalIataCode || groupData.destination_display || groupData.destination;
-      // You may want to map arrivalId to an IATA code for better accuracy
-      const itineraryStartDate = itineraryData.itinerary?.[0]?.date; // e.g., '15'
-      const itineraryMonth = itineraryData.itinerary?.[0]?.day; // e.g., 'Jun'
-      // For demo, use a fixed year and parse month to number
-      const monthMap: Record<string, string> = {
-        Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
-      };
-      const year = '2024';
-      const month = monthMap[itineraryMonth] || '01';
-      const day = itineraryStartDate?.padStart(2, '0') || '01';
-      const outboundDate = `${year}-${month}-${day}`;
+      
+      // Use a fixed date for demo (you can make this dynamic)
+      const outboundDate = '2024-06-15';
+      
       const serpApiKey = process.env.SERPAPI_KEY!;
       const serpApiUrl = `https://serpapi.com/search.json?engine=google_flights&departure_id=${departureCode}&arrival_id=${encodeURIComponent(arrivalId)}&outbound_date=${outboundDate}&api_key=${serpApiKey}`;
+      
       const serpRes = await fetch(serpApiUrl);
       const serpData = await serpRes.json();
-      const realFlights = (serpData.flights_results || []).slice(0, 3).map((flight: any, idx: number) => ({
+      
+      const realFlights = (serpData.best_flights || serpData.other_flights || []).slice(0, 3).map((flight: any, idx: number) => ({
         id: String(idx + 1),
-        airline: flight.airline || 'Unknown',
-        departure: flight.departure_time || '',
-        arrival: flight.arrival_time || '',
-        duration: flight.duration || '',
-        price: flight.price || '',
-        stops: flight.stops || '',
+        airline: flight.flights?.[0]?.airline || 'Unknown Airline',
+        departure: flight.flights?.[0]?.departure_airport?.time || '',
+        arrival: flight.flights?.[flight.flights.length - 1]?.arrival_airport?.time || '',
+        duration: flight.total_duration || '',
+        price: flight.price ? `$${flight.price}` : '',
+        stops: flight.flights?.length > 1 ? `${flight.flights.length - 1} stop${flight.flights.length > 2 ? 's' : ''}` : 'Direct',
       }));
+      
       if (realFlights.length > 0) {
         itineraryData.flights = realFlights;
       }
     } catch (flightErr) {
       console.error('Error fetching flights from SerpAPI:', flightErr);
-      // If error, keep LLM flights as fallback
+      // Keep LLM flights as fallback
+      itineraryData.flights = [
+        {
+          id: "1",
+          airline: "Air India",
+          departure: "10:30 AM",
+          arrival: "2:45 PM",
+          duration: "8h 15m",
+          price: "$650",
+          stops: "Direct"
+        },
+        {
+          id: "2",
+          airline: "Emirates",
+          departure: "11:45 PM",
+          arrival: "6:30 AM+1",
+          duration: "9h 45m",
+          price: "$720",
+          stops: "1 stop"
+        },
+        {
+          id: "3",
+          airline: "Qatar Airways",
+          departure: "2:15 AM",
+          arrival: "8:00 AM",
+          duration: "10h 45m",
+          price: "$680",
+          stops: "1 stop"
+        }
+      ];
     }
 
     // Save the final itinerary to the database

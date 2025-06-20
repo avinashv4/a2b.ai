@@ -55,6 +55,7 @@ export default function CreateTripPage() {
           host_id: user.id,
           destination: destination.trim(),
           destination_display: destinationDisplay.trim(),
+          trip_name: `Trip to ${destinationDisplay.trim()}`
         })
         .select('group_id')
         .single();
