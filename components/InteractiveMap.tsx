@@ -8,6 +8,10 @@ interface Location {
   lat: number;
   lng: number;
   day?: string;
+  type?: string;
+  visitTime?: string;
+  duration?: string;
+  walkTimeFromPrevious?: string;
 }
 
 interface InteractiveMapProps {
@@ -94,9 +98,15 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
         const infoWindow = new window.google.maps.InfoWindow({
           content: `
-            <div class="p-2">
-              <h3 class="font-semibold text-gray-900">${location.name}</h3>
-              ${location.day ? `<p class="text-sm text-gray-600">${location.day}</p>` : ''}
+            <div class="p-4 max-w-xs">
+              <div class="flex items-center space-x-2 mb-2">
+                <span class="text-lg">${getTypeIcon(location.type || 'attraction')}</span>
+                <h3 class="font-semibold text-gray-900 text-sm">${location.name}</h3>
+              </div>
+              ${location.day ? `<p class="text-xs text-gray-600 mb-1">${location.day}</p>` : ''}
+              ${location.visitTime ? `<p class="text-xs text-blue-600 mb-1">📅 Visit at ${location.visitTime}</p>` : ''}
+              ${location.duration ? `<p class="text-xs text-green-600 mb-1">⏱️ Duration: ${location.duration}</p>` : ''}
+              ${location.walkTimeFromPrevious ? `<p class="text-xs text-orange-600">🚶 ${location.walkTimeFromPrevious} from previous</p>` : ''}
             </div>
           `
         });
@@ -148,5 +158,21 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     </div>
   );
 };
+// Helper function to get type icon (same as in travel-plan page)
+function getTypeIcon(type: string): string {
+  switch (type) {
+    case 'monument': return '🏛️';
+    case 'museum': return '🏛️';
+    case 'park': return '🌳';
+    case 'food': return '🍽️';
+    case 'shopping': return '🛍️';
+    case 'photo_spot': return '📸';
+    case 'historical': return '🏰';
+    case 'entertainment': return '🎭';
+    case 'cultural': return '🎨';
+    case 'nature': return '🌿';
+    default: return '📍';
+  }
+}
 
 export default InteractiveMap;

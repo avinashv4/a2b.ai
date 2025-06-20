@@ -108,9 +108,10 @@ export default function TravelPlanPage() {
   const [showMobileMap, setShowMobileMap] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [tripTitle, setTripTitle] = useState('Your Trip Plan');
+  const [tripTitle, setTripTitle] = useState('');
   const [dayExpandedStates, setDayExpandedStates] = useState<Record<string, boolean>>({});
   const [sidebarFullyOpen, setSidebarFullyOpen] = useState(true);
+  const [savingTitle, setSavingTitle] = useState(false);
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileSettingsRef = useRef<HTMLDivElement>(null);
@@ -127,7 +128,7 @@ export default function TravelPlanPage() {
       try {
         const { data: groupData, error: groupError } = await supabase
           .from('travel_groups')
-          .select('itinerary, destination_display')
+          .select('itinerary, destination_display, trip_name')
           .eq('group_id', groupId)
           .single();
 
@@ -153,7 +154,7 @@ export default function TravelPlanPage() {
         }
         
         setItineraryData(finalItineraryData);
-        setTripTitle(groupData.destination_display || 'Trip Plan');
+        setTripTitle(groupData.trip_name || groupData.destination_display || 'Trip Plan');
 
         // Initialize expanded states for days
         if (finalItineraryData?.itinerary) {
@@ -312,6 +313,28 @@ export default function TravelPlanPage() {
 
   const handleTitleEdit = () => {
     setIsEditingTitle(false);
+    saveTripTitle();
+  };
+
+  const saveTripTitle = async () => {
+    const groupId = searchParams.get('groupId');
+    if (!groupId || savingTitle) return;
+    
+    setSavingTitle(true);
+    try {
+      const { error } = await supabase
+        .from('travel_groups')
+        .update({ trip_name: tripTitle })
+        .eq('group_id', groupId);
+
+      if (error) {
+        console.error('Error saving trip title:', error);
+      }
+    } catch (error) {
+      console.error('Error saving trip title:', error);
+    } finally {
+      setSavingTitle(false);
+    }
   };
 
   const handleTitleKeyPress = (e: React.KeyboardEvent) => {
@@ -334,6 +357,38 @@ export default function TravelPlanPage() {
       case 'train': return <Train className="w-3 h-3" />;
       case 'ferry': return <Ship className="w-3 h-3" />;
       default: return <Navigation className="w-3 h-3" />;
+    }
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'monument': return '🏛️';
+      case 'museum': return '🏛️';
+      case 'park': return '🌳';
+      case 'food': return '🍽️';
+      case 'shopping': return '🛍️';
+      case 'photo_spot': return '📸';
+      case 'historical': return '🏰';
+      case 'entertainment': return '🎭';
+      case 'cultural': return '🎨';
+      case 'nature': return '🌿';
+      default: return '📍';
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'monument': return 'Monument';
+      case 'museum': return 'Museum';
+      case 'park': return 'Park';
+      case 'food': return 'Restaurant';
+      case 'shopping': return 'Shopping';
+      case 'photo_spot': return 'Photo Spot';
+      case 'historical': return 'Historical';
+      case 'entertainment': return 'Entertainment';
+      case 'cultural': return 'Cultural';
+      case 'nature': return 'Nature';
+      default: return 'Attraction';
     }
   };
 
@@ -436,8 +491,9 @@ export default function TravelPlanPage() {
                 onChange={(e) => setTripTitle(e.target.value)}
                 onBlur={handleTitleEdit}
                 onKeyPress={handleTitleKeyPress}
-                className="text-2xl md:text-3xl font-bold text-gray-900 bg-transparent border-b-2 border-blue-500 focus:outline-none"
+                className="text-2xl md:text-3xl font-bold text-gray-900 bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
                 autoFocus
+                disabled={savingTitle}
               />
             ) : (
               <div className="flex items-center space-x-2">
@@ -445,8 +501,13 @@ export default function TravelPlanPage() {
                 <button
                   onClick={() => setIsEditingTitle(true)}
                   className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={savingTitle}
                 >
-                  <Edit3 className="w-4 h-4" />
+                  {savingTitle ? (
+                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Edit3 className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             )}
@@ -662,7 +723,16 @@ export default function TravelPlanPage() {
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-base font-semibold text-gray-900">{place.name}</h4>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-lg">{getTypeIcon(place.type || 'attraction')}</span>
+                                <div>
+                                  <h4 className="text-base font-semibold text-gray-900">{place.name}</h4>
+                                  <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                    <span className="bg-gray-200 px-2 py-1 rounded-full">{getTypeLabel(place.type || 'attraction')}</span>
+                                    {place.visitTime && <span>Visit at {place.visitTime}</span>}
+                                  </div>
+                                </div>
+                              </div>
                               <div className="flex space-x-1">
                                 <Button
                                   size="sm"
