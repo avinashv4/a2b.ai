@@ -83,9 +83,9 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
 
         const formattedMembers = membersData?.map(member => ({
           user_id: member.user_id,
-          first_name: member.profiles.first_name,
-          last_name: member.profiles.last_name,
-          profile_picture: member.profiles.profile_picture
+          first_name: member.profiles[0].first_name,
+          last_name: member.profiles[0].last_name,
+          profile_picture: member.profiles[0].profile_picture
         })) || [];
 
         // Check if current user is already a member
@@ -94,6 +94,7 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
 
         setTravelGroup({
           ...groupData,
+          host: groupData.host[0],
           member_count: formattedMembers.length
         });
         setMembers(formattedMembers);
@@ -240,7 +241,7 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to the Trip!</h1>
             <p className="text-gray-600 mb-6">
-              You've successfully joined the {travelGroup?.destination} trip. 
+              You&apos;ve successfully joined the {travelGroup?.destination} trip. 
               Redirecting you to share your preferences...
             </p>
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -267,7 +268,7 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
         <div className="bg-white rounded-3xl card-shadow p-8 mb-6">
           <div className="text-center mb-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              You're Invited to Join a Trip!
+              You&apos;re Invited to Join a Trip!
             </h1>
             <p className="text-gray-600">
               {travelGroup?.host.first_name} {travelGroup?.host.last_name} has invited you to join their trip

@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabaseClient';
 interface TravelGroup {
   group_id: string;
   destination: string;
+  destination_display: string;
   created_at: string;
   member_count: number;
   members: Array<{
@@ -91,6 +92,7 @@ export default function DashboardPage() {
             travel_groups!inner(
               group_id,
               destination,
+              destination_display,
               created_at
             )
           `)
@@ -123,15 +125,16 @@ export default function DashboardPage() {
 
             const formattedMembers = members.map(member => ({
               user_id: member.user_id,
-              first_name: member.profiles?.first_name || 'Unknown',
-              last_name: member.profiles?.last_name || 'User',
-              profile_picture: member.profiles?.profile_picture || 'https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png'
+              first_name: (member.profiles as any)?.first_name || 'Unknown',
+              last_name: (member.profiles as any)?.last_name || 'User',
+              profile_picture: (member.profiles as any)?.profile_picture || 'https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png'
             }));
 
             return {
-              group_id: membership.travel_groups.group_id,
-              destination: membership.travel_groups.destination,
-              created_at: membership.travel_groups.created_at,
+              group_id: (membership.travel_groups as any).group_id,
+              destination: (membership.travel_groups as any).destination,
+              destination_display: (membership.travel_groups as any).destination_display,
+              created_at: (membership.travel_groups as any).created_at,
               member_count: formattedMembers.length,
               members: formattedMembers
             };
@@ -179,7 +182,7 @@ export default function DashboardPage() {
   // FlowingMenu items based on travel plans
   const flowingMenuItems = travelGroups.map(group => ({
     link: `/travel-plan?groupId=${group.group_id}`,
-    text: group.destination,
+    text: group.destination_display,
     groupId: group.group_id,
     members: group.members.slice(0, 3).map(member => ({
       name: `${member.first_name} ${member.last_name}`,
@@ -187,14 +190,14 @@ export default function DashboardPage() {
     })),
     additionalMembers: Math.max(0, group.member_count - 3),
     image: `https://images.pexels.com/photos/${
-      group.destination.toLowerCase().includes('paris') ? '338515' : 
-      group.destination.toLowerCase().includes('tokyo') ? '2506923' : 
-      group.destination.toLowerCase().includes('bali') ? '1320684' :
+      group.destination_display.toLowerCase().includes('paris') ? '338515' : 
+      group.destination_display.toLowerCase().includes('tokyo') ? '2506923' : 
+      group.destination_display.toLowerCase().includes('bali') ? '1320684' :
       '1320684'
     }/pexels-photo-${
-      group.destination.toLowerCase().includes('paris') ? '338515' : 
-      group.destination.toLowerCase().includes('tokyo') ? '2506923' : 
-      group.destination.toLowerCase().includes('bali') ? '1320684' :
+      group.destination_display.toLowerCase().includes('paris') ? '338515' : 
+      group.destination_display.toLowerCase().includes('tokyo') ? '2506923' : 
+      group.destination_display.toLowerCase().includes('bali') ? '1320684' :
       '1320684'
     }.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`,
     destination: group.destination

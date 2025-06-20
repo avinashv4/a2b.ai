@@ -70,7 +70,8 @@ async function updateMemberPreferences(userId: string, groupId: string, preferen
     const { data, error } = await supabase
       .from('group_members')
       .update({
-        ...preferences
+        ...preferences,
+        preferences_completed_at: new Date().toISOString(),
       })
       .eq('user_id', userId)
       .eq('group_id', groupId)

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { 
   Home, 
   Plane, 
@@ -33,6 +34,7 @@ import {
 import { Button } from '@/components/ui/button';
 import InteractiveMap from '@/components/InteractiveMap';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabaseClient';
 
 interface Place {
   id: string;
@@ -73,7 +75,25 @@ interface Hotel {
   amenities: string[];
 }
 
+interface ItineraryData {
+  itinerary: DayItinerary[];
+  flights: Flight[];
+  hotels: Hotel[];
+  mapLocations: any[]; // You can define a proper type for this
+}
+
+interface TripMember {
+  name: string;
+  avatar: string;
+}
+
 export default function TravelPlanPage() {
+  const [itineraryData, setItineraryData] = useState<ItineraryData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const [tripMembers, setTripMembers] = useState<TripMember[]>([]);
+  
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
   const [expandedDays, setExpandedDays] = useState<string[]>(['15']);
@@ -88,28 +108,87 @@ export default function TravelPlanPage() {
   const [showMobileMap, setShowMobileMap] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [tripTitle, setTripTitle] = useState('Paris Adventure');
-  const [dayExpandedStates, setDayExpandedStates] = useState<Record<string, boolean>>({
-    '15': true,
-    '16': false,
-    '17': false
-  });
+  const [tripTitle, setTripTitle] = useState('Your Trip Plan');
+  const [dayExpandedStates, setDayExpandedStates] = useState<Record<string, boolean>>({});
   const [sidebarFullyOpen, setSidebarFullyOpen] = useState(true);
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileSettingsRef = useRef<HTMLDivElement>(null);
 
-  // Sample location data for the map
-  const mapLocations = [
-    { id: 'p1', name: 'Eiffel Tower', lat: 48.8584, lng: 2.2945, day: 'Day 1' },
-    { id: 'p2', name: 'Seine River Cruise', lat: 48.8566, lng: 2.3522, day: 'Day 1' },
-    { id: 'p3', name: 'Louvre Museum', lat: 48.8606, lng: 2.3376, day: 'Day 1' },
-    { id: 'p4', name: 'Notre-Dame Cathedral', lat: 48.8530, lng: 2.3499, day: 'Day 2' },
-    { id: 'p5', name: 'Sainte-Chapelle', lat: 48.8555, lng: 2.3448, day: 'Day 2' },
-    { id: 'p6', name: 'Latin Quarter', lat: 48.8503, lng: 2.3447, day: 'Day 2' },
-    { id: 'p7', name: 'Montmartre & Sacré-Cœur', lat: 48.8867, lng: 2.3431, day: 'Day 3' },
-    { id: 'p8', name: 'Moulin Rouge', lat: 48.8841, lng: 2.3322, day: 'Day 3' }
-  ];
+  useEffect(() => {
+    const groupId = searchParams.get('groupId');
+    if (!groupId) {
+      setError('Group ID not found.');
+      setLoading(false);
+      return;
+    }
+
+    const fetchOrGenerateItinerary = async () => {
+      try {
+        const { data: groupData, error: groupError } = await supabase
+          .from('travel_groups')
+          .select('itinerary, destination_display')
+          .eq('group_id', groupId)
+          .single();
+
+        if (groupError) throw groupError;
+
+        let finalItineraryData: ItineraryData | null = null;
+        if (groupData?.itinerary) {
+          finalItineraryData = groupData.itinerary as ItineraryData;
+        } else {
+          const response = await fetch('/api/generate-itinerary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupId }),
+          });
+
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || 'Failed to generate itinerary.');
+          }
+
+          const result = await response.json();
+          finalItineraryData = result.data;
+        }
+        
+        setItineraryData(finalItineraryData);
+        setTripTitle(groupData.destination_display || 'Trip Plan');
+
+        // Initialize expanded states for days
+        if (finalItineraryData?.itinerary) {
+          const initialExpanded: Record<string, boolean> = {};
+          finalItineraryData.itinerary.forEach((day, index) => {
+            initialExpanded[day.date] = index === 0; // Expand first day by default
+          });
+          setDayExpandedStates(initialExpanded);
+        }
+
+        // Fetch members
+        const { data: membersData, error: membersError } = await supabase
+          .from('group_members')
+          .select('profiles!group_members_user_id_fkey(first_name, last_name, profile_picture)')
+          .eq('group_id', groupId);
+
+        if (membersError) {
+          console.error('Error fetching members:', membersError);
+        } else if (membersData) {
+          const formattedMembers = membersData.map((m: any) => ({
+            name: `${m.profiles.first_name} ${m.profiles.last_name}`,
+            avatar: m.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
+          }));
+          setTripMembers(formattedMembers);
+        }
+
+      } catch (err: any) {
+        setError(err.message || 'An unexpected error occurred.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrGenerateItinerary();
+  }, [searchParams]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -138,9 +217,10 @@ export default function TravelPlanPage() {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (isMobile) return;
+      if (isMobile || !itineraryData) return;
       
-      const sections = ['overview', 'flights', 'hotels', '15', '16', '17'];
+      const dayIds = itineraryData.itinerary.map(day => day.date);
+      const sections = ['overview', 'flights', 'hotels', ...dayIds];
       const scrollPosition = window.scrollY + 200;
       
       for (const section of sections) {
@@ -157,15 +237,13 @@ export default function TravelPlanPage() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile]);
+  }, [isMobile, itineraryData]);
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
     if (!sidebarCollapsed) {
-      // Wait for the transition to finish before showing text
       timeout = setTimeout(() => setSidebarFullyOpen(true), 300);
     } else {
-      // Hide text immediately when collapsing
       setSidebarFullyOpen(false);
     }
     return () => clearTimeout(timeout);
@@ -207,14 +285,14 @@ export default function TravelPlanPage() {
     }
   };
 
-  const handleVote = (placeId: string, voteType: 'accept' | 'deny') => {
-    // Update the place vote status
-    setItinerary(prev => prev.map(day => ({
-      ...day,
-      places: day.places.map(place => 
-        place.id === placeId ? { ...place, voted: voteType } : place
-      )
-    })));
+  const handleVote = (dayIndex: number, placeId: string, voteType: 'accept' | 'deny') => {
+    if (!itineraryData) return;
+    const newItinerary = [...itineraryData.itinerary];
+    const placeIndex = newItinerary[dayIndex].places.findIndex(p => p.id === placeId);
+    if (placeIndex !== -1) {
+      newItinerary[dayIndex].places[placeIndex].voted = voteType;
+      setItineraryData({ ...itineraryData, itinerary: newItinerary });
+    }
   };
 
   const handleRegenerateVote = () => {
@@ -230,7 +308,6 @@ export default function TravelPlanPage() {
 
   const copyInviteLink = () => {
     navigator.clipboard.writeText('a2b.ai/join/abc123');
-    // You could add a toast notification here
   };
 
   const handleTitleEdit = () => {
@@ -244,12 +321,10 @@ export default function TravelPlanPage() {
   };
 
   const handleConfirmItinerary = () => {
-    // Redirect to confirmation page
     window.location.href = '/itinerary-confirmation';
   };
 
   const handleSavePDF = () => {
-    // Generate PDF with trip details
     console.log('Generating PDF...');
   };
 
@@ -262,165 +337,33 @@ export default function TravelPlanPage() {
     }
   };
 
-  // Sample data
-  const tripMembers = [
-    { name: 'You', avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
-    { name: 'Sarah', avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
-    { name: 'Mike', avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
-    { name: 'Emma', avatar: 'https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' }
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h1 className="text-2xl font-bold text-gray-800">Generating Your Travel Plan...</h1>
+          <p className="text-gray-600 mt-2">Our AI is crafting the perfect trip for you. This might take a moment.</p>
+        </div>
+      </div>
+    );
+  }
 
-  const flights: Flight[] = [
-    {
-      id: '1',
-      airline: 'Air France',
-      departure: '10:30 AM',
-      arrival: '2:45 PM',
-      duration: '8h 15m',
-      price: '$650',
-      stops: 'Direct'
-    },
-    {
-      id: '2',
-      airline: 'Delta',
-      departure: '6:15 AM',
-      arrival: '12:30 PM',
-      duration: '9h 15m',
-      price: '$580',
-      stops: '1 stop'
-    },
-    {
-      id: '3',
-      airline: 'United',
-      departure: '3:20 PM',
-      arrival: '9:35 PM',
-      duration: '9h 15m',
-      price: '$720',
-      stops: 'Direct'
-    }
-  ];
+  if (error || !itineraryData) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center text-center p-4">
+        <div>
+          <h1 className="text-2xl font-bold text-red-600">Oops! Something went wrong.</h1>
+          <p className="text-gray-600 mt-2">{error || 'Could not load itinerary data.'}</p>
+          <Link href="/dashboard">
+            <Button className="mt-4">Back to Dashboard</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-  const hotels: Hotel[] = [
-    {
-      id: '1',
-      name: 'Hotel Le Marais',
-      rating: 4.8,
-      price: '$180/night',
-      image: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop',
-      amenities: ['Free WiFi', 'Breakfast', 'Gym', 'Spa']
-    },
-    {
-      id: '2',
-      name: 'Grand Hotel Opera',
-      rating: 4.6,
-      price: '$220/night',
-      image: 'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop',
-      amenities: ['Free WiFi', 'Restaurant', 'Bar', 'Concierge']
-    },
-    {
-      id: '3',
-      name: 'Boutique Hotel Montmartre',
-      rating: 4.4,
-      price: '$150/night',
-      image: 'https://images.pexels.com/photos/338504/pexels-photo-338504.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop',
-      amenities: ['Free WiFi', 'Rooftop Terrace', 'Pet Friendly']
-    }
-  ];
-
-  const [itinerary, setItinerary] = useState<DayItinerary[]>([
-    {
-      date: '15',
-      day: 'Jun',
-      month: 'Day 1',
-      places: [
-        {
-          id: 'p1',
-          name: 'Eiffel Tower',
-          description: 'Iconic iron lattice tower and symbol of Paris. Built in 1889, this architectural marvel offers breathtaking views of the city from its three observation levels.',
-          image: 'https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '2 hours'
-        },
-        {
-          id: 'p2',
-          name: 'Seine River Cruise',
-          description: 'Scenic boat ride along the historic Seine River. Enjoy panoramic views of Paris landmarks including Notre-Dame, the Louvre, and charming bridges while learning about the city\'s rich history.',
-          image: 'https://images.pexels.com/photos/1530259/pexels-photo-1530259.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '1.5 hours',
-          walkTime: '15 min',
-          distance: '1.2 km',
-          travelMode: 'walk'
-        },
-        {
-          id: 'p3',
-          name: 'Louvre Museum',
-          description: 'World\'s largest art museum and historic monument. Home to thousands of works including the Mona Lisa and Venus de Milo. The palace itself is a masterpiece of French architecture.',
-          image: 'https://images.pexels.com/photos/2675266/pexels-photo-2675266.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '3 hours',
-          walkTime: '20 min',
-          distance: '1.8 km',
-          travelMode: 'walk'
-        }
-      ]
-    },
-    {
-      date: '16',
-      day: 'Jun',
-      month: 'Day 2',
-      places: [
-        {
-          id: 'p4',
-          name: 'Notre-Dame Cathedral',
-          description: 'Medieval Catholic cathedral and architectural masterpiece. Despite recent restoration work, this Gothic wonder remains one of the finest examples of French Gothic architecture.',
-          image: 'https://images.pexels.com/photos/1850619/pexels-photo-1850619.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '1.5 hours'
-        },
-        {
-          id: 'p5',
-          name: 'Sainte-Chapelle',
-          description: 'Gothic chapel famous for its stunning stained glass windows. Built in the 13th century, it houses some of the most beautiful medieval stained glass in the world.',
-          image: 'https://images.pexels.com/photos/2901209/pexels-photo-2901209.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '1 hour',
-          walkTime: '5 min',
-          distance: '400 m',
-          travelMode: 'walk'
-        },
-        {
-          id: 'p6',
-          name: 'Latin Quarter',
-          description: 'Historic area known for its student life, lively atmosphere, and bistros. Wander through narrow medieval streets, visit the Panthéon, and enjoy authentic French cuisine.',
-          image: 'https://images.pexels.com/photos/1461974/pexels-photo-1461974.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '2 hours',
-          walkTime: '10 min',
-          distance: '800 m',
-          travelMode: 'walk'
-        }
-      ]
-    },
-    {
-      date: '17',
-      day: 'Jun',
-      month: 'Day 3',
-      places: [
-        {
-          id: 'p7',
-          name: 'Montmartre & Sacré-Cœur',
-          description: 'Artistic district with stunning basilica views. Explore the bohemian neighborhood where Picasso and Renoir once lived, and enjoy panoramic views from the Sacré-Cœur Basilica.',
-          image: 'https://images.pexels.com/photos/1308940/pexels-photo-1308940.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '3 hours'
-        },
-        {
-          id: 'p8',
-          name: 'Moulin Rouge',
-          description: 'Famous cabaret and birthplace of the can-can dance. Experience the glamour and excitement of this legendary venue with its iconic red windmill and spectacular shows.',
-          image: 'https://images.pexels.com/photos/2901209/pexels-photo-2901209.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '2 hours',
-          walkTime: '8 min',
-          distance: '650 m',
-          travelMode: 'walk'
-        }
-      ]
-    }
-  ]);
+  const { itinerary, flights, hotels, mapLocations } = itineraryData;
 
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, isExternal: true, href: '/dashboard' },
@@ -542,19 +485,19 @@ export default function TravelPlanPage() {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
           <Plane className="w-6 h-6 text-blue-600 mx-auto mb-2" />
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Flight</h3>
-          <p className="text-xs text-gray-600">Air France • Direct</p>
-          <p className="text-xs text-gray-500">8h 15m</p>
+          <p className="text-xs text-gray-600">{flights[0]?.airline} • {flights[0]?.stops}</p>
+          <p className="text-xs text-gray-500">{flights[0]?.duration}</p>
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
           <Hotel className="w-6 h-6 text-green-600 mx-auto mb-2" />
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Hotel</h3>
-          <p className="text-xs text-gray-600">Hotel Le Marais</p>
-          <p className="text-xs text-gray-500">4.8★ • $180/night</p>
+          <p className="text-xs text-gray-600">{hotels[0]?.name}</p>
+          <p className="text-xs text-gray-500">{hotels[0]?.rating}★ • {hotels[0]?.price}</p>
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
           <MapPin className="w-6 h-6 text-purple-600 mx-auto mb-2" />
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Activities</h3>
-          <p className="text-xs text-gray-600">8 attractions</p>
+          <p className="text-xs text-gray-600">{itinerary.flatMap(day => day.places).length} attractions</p>
           <p className="text-xs text-gray-500">Museums, landmarks</p>
         </div>
       </div>
@@ -684,7 +627,7 @@ export default function TravelPlanPage() {
       <h2 className="text-2xl font-bold text-gray-900">Daily Itinerary</h2>
       
       <div className="space-y-6">
-        {itinerary.map((day) => (
+        {itinerary.map((day, dayIndex) => (
           <div key={day.date}>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
               <button
@@ -723,7 +666,7 @@ export default function TravelPlanPage() {
                               <div className="flex space-x-1">
                                 <Button
                                   size="sm"
-                                  onClick={() => handleVote(place.id, 'accept')}
+                                  onClick={() => handleVote(dayIndex, place.id, 'accept')}
                                   className={`w-6 h-6 rounded-full p-0 transition-colors ${
                                     place.voted === 'accept' 
                                       ? 'bg-green-600 text-white' 
@@ -736,7 +679,7 @@ export default function TravelPlanPage() {
                                 </Button>
                                 <Button
                                   size="sm"
-                                  onClick={() => handleVote(place.id, 'deny')}
+                                  onClick={() => handleVote(dayIndex, place.id, 'deny')}
                                   className={`w-6 h-6 rounded-full p-0 transition-colors ${
                                     place.voted === 'deny' 
                                       ? 'bg-red-600 text-white' 
@@ -882,7 +825,7 @@ export default function TravelPlanPage() {
         </div>
 
         {/* Mobile Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 flex justify-around">
           {[
             { id: 'overview', label: 'Overview', icon: MapPin },
             { id: 'flights', label: 'Flights', icon: Plane },
@@ -974,13 +917,8 @@ export default function TravelPlanPage() {
               );
             })}
 
-            {/* Divider before Trip Overview */}
-            <div className="my-2">
-              <div className="border-t border-gray-200"></div>
-            </div>
-
-            {/* Divider before Itinerary */}
-            <div className="my-2">
+            {/* Divider */}
+            <div className="pt-2">
               <div className="border-t border-gray-200"></div>
             </div>
 
@@ -1016,6 +954,7 @@ export default function TravelPlanPage() {
                     <button
                       key={day.date}
                       onClick={() => scrollToSection(day.date)}
+                      id={`sidebar-${day.date}`}
                       className={`w-full flex items-center space-x-2 px-2 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
                         activeSection === day.date ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
                       } transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
@@ -1104,10 +1043,10 @@ export default function TravelPlanPage() {
       </div>
 
       {/* Map Section */}
-      <div className="flex-1 bg-gray-100 border-l border-gray-200 sticky top-0 h-screen">
+      <div className="hidden md:block flex-1 bg-gray-100 border-l border-gray-200 sticky top-0 h-screen">
         <InteractiveMap
           locations={mapLocations}
-          center={{ lat: 48.8566, lng: 2.3522 }}
+          center={mapLocations[0] ? { lat: mapLocations[0].lat, lng: mapLocations[0].lng } : { lat: 48.8566, lng: 2.3522 }}
           zoom={12}
           className="w-full h-full"
         />
@@ -1147,13 +1086,9 @@ export default function TravelPlanPage() {
             top: tooltipPosition.y - 10,
           }}
         >
-          {hoveredTooltip === 'dashboard' && 'Dashboard'}
-          {hoveredTooltip === 'overview' && 'Trip Overview'}
-          {hoveredTooltip === 'flights' && 'Flights'}
-          {hoveredTooltip === 'hotels' && 'Hotels'}
-          {hoveredTooltip === 'itinerary' && 'Itinerary'}
-          {hoveredTooltip === 'regenerate' && 'Regenerate Itinerary'}
-          {hoveredTooltip === 'settings' && 'Settings'}
+          {sidebarItems.find(item => item.id === hoveredTooltip)?.label || 
+           itinerary.find(day => day.date === hoveredTooltip)?.month ||
+           hoveredTooltip.charAt(0).toUpperCase() + hoveredTooltip.slice(1)}
         </div>
       )}
 

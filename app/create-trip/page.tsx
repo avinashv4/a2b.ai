@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import GooglePlacesAutocomplete from '@/components/GooglePlacesAutocomplete';
+import LocationAutocomplete from '@/components/LocationAutocomplete';
 import { Plane, ArrowRight, Copy, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 export default function CreateTripPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [destination, setDestination] = useState('');
+  const [destinationDisplay, setDestinationDisplay] = useState('');
   const [isVisible, setIsVisible] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
@@ -35,7 +36,7 @@ export default function CreateTripPage() {
   }, [currentStep]);
 
   const createTravelGroup = useCallback(async () => {
-    if (!destination.trim()) return null;
+    if (!destination.trim() || !destinationDisplay.trim()) return null;
 
     setLoading(true);
     setError('');
@@ -52,7 +53,8 @@ export default function CreateTripPage() {
         .from('travel_groups')
         .insert({
           host_id: user.id,
-          destination: destination.trim()
+          destination: destination.trim(),
+          destination_display: destinationDisplay.trim(),
         })
         .select('group_id')
         .single();
@@ -80,11 +82,11 @@ export default function CreateTripPage() {
     } finally {
       setLoading(false);
     }
-  }, [destination]);
+  }, [destination, destinationDisplay]);
 
   const handleNext = async () => {
     if (currentStep === 0) {
-      if (!destination.trim()) return;
+      if (!destination.trim() || !destinationDisplay.trim()) return;
       
       // Create travel group when moving to invite step
       const createdGroupId = await createTravelGroup();
@@ -133,18 +135,20 @@ export default function CreateTripPage() {
     if (currentStep === 0) {
       return (
         <div className="space-y-6">
-          <GooglePlacesAutocomplete
-            value={destination}
-            onChange={setDestination}
+          <LocationAutocomplete
+            onSelect={(prediction) => {
+              const mainName = prediction.structured_formatting?.main_text || prediction.description;
+              setDestinationDisplay(mainName);
+              setDestination(prediction.description);
+            }}
             placeholder="Enter destination (e.g., Paris, Tokyo, New York, France, California)"
             className="h-16 text-lg rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-center"
-            types={['(cities)', '(regions)', '(countries)']}
           />
 
           <div className="flex justify-center">
             <Button
               onClick={handleNext}
-              disabled={!destination.trim()}
+              disabled={!destination.trim() || !destinationDisplay.trim()}
               className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
@@ -178,7 +182,7 @@ export default function CreateTripPage() {
           </div>
           
           <p className="text-center text-gray-600">
-            Share this link with your friends to invite them to your {destination} trip
+            Share this link with your friends to invite them to your {destinationDisplay} trip
           </p>
         </div>
 

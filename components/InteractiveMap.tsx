@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
+import { Loader } from '@googlemaps/js-api-loader';
 
 interface Location {
   id: string;
@@ -29,42 +30,25 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   className = ''
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const loadGoogleMaps = async () => {
-      if (window.google && window.google.maps) {
-        setIsLoaded(true);
-        return;
-      }
-
-      // Load Google Maps API with async loading
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&loading=async`;
-      script.async = true;
-      script.defer = true;
-      
-      script.onload = () => {
-        setIsLoaded(true);
-      };
-      
-      script.onerror = () => {
-        console.error('Failed to load Google Maps API');
-      };
-      
-      document.head.appendChild(script);
-    };
-    
-    loadGoogleMaps();
+    const loader = new Loader({
+      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+      version: 'weekly',
+    });
+    loader.load().then(() => {
+      setIsLoaded(true);
+    });
   }, []);
 
   useEffect(() => {
     if (isLoaded && mapRef.current && !mapInstanceRef.current) {
       mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
-        center: center,
-        zoom: zoom,
+        center,
+        zoom,
         styles: [
           {
             featureType: 'poi',

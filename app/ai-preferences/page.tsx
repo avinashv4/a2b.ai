@@ -31,6 +31,7 @@ export default function AIPreferencesPage() {
   const [groupMembers, setGroupMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [destination, setDestination] = useState<string>('');
+  const [destination_display, setDestinationDisplay] = useState<string>('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isHost, setIsHost] = useState(false);
@@ -60,7 +61,7 @@ export default function AIPreferencesPage() {
         // Load group details including destination
         const { data: groupData, error: groupError } = await supabase
           .from('travel_groups')
-          .select('destination, host_id')
+          .select('destination, host_id, destination_display')
           .eq('group_id', storedGroupId)
           .single();
 
@@ -70,6 +71,7 @@ export default function AIPreferencesPage() {
         }
 
         setDestination(groupData.destination);
+        setDestinationDisplay(groupData.destination_display);
         setIsHost(groupData.host_id === user.id);
 
         // Load group members
@@ -180,7 +182,7 @@ export default function AIPreferencesPage() {
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen px-8 relative">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Share Your Travel Preferences</h1>
-            <p className="text-xl text-gray-600">Tell our AI what you&apos;re looking for in this {destination} trip</p>
+            <p className="text-xl text-gray-600">Tell our AI what you&apos;re looking for in this {destination_display} trip</p>
           </div>
 
           {/* ElevenLabs Conversational AI Widget - only render after loading */}
@@ -209,7 +211,7 @@ export default function AIPreferencesPage() {
             {/* Instructions */}
             <div className="text-center max-w-md">
               <p className="text-gray-600 text-sm">
-                Use the AI assistant above to share your travel preferences for {destination}. 
+                Use the AI assistant above to share your travel preferences for {destination_display}. 
                 The AI will help create a personalized itinerary based on your interests.
               </p>
             </div>

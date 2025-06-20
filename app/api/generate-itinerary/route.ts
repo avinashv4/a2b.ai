@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     // Get group details and members with preferences
     const { data: groupData, error: groupError } = await supabase
       .from('travel_groups')
-      .select('destination, host_id')
+      .select('destination, host_id, destination_display')
       .eq('group_id', groupId)
       .single();
 
@@ -121,6 +121,7 @@ ${memberPreferences.map(member => `
 Please return the response in the following EXACT JSON format (no additional text, just the JSON):
 
 {
+  "arrivalIataCode": "CDG",
   "itinerary": [
     {
       "date": "15",
@@ -182,10 +183,11 @@ Requirements:
 - Provide detailed descriptions explaining why each place was chosen
 - Use appropriate Pexels image URLs for attractions
 - Include walking/transport times between locations
+- Additionally, return the IATA airport code for the arrival city (the main destination of the trip) in a top-level field called "arrivalIataCode". For example: "MAA" for Chennai, "JFK" for New York, "CDG" for Paris, etc.
 `;
 
     // Generate itinerary using Gemini
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemma-3-12b-it' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
@@ -219,6 +221,55 @@ Requirements:
       if (!hotel.image || hotel.image.includes('placeholder')) {
         hotel.image = await getLocationImage(`${hotel.name} hotel ${groupData.destination}`);
       }
+    }
+
+    // --- Fetch real flights from SerpAPI ---
+    try {
+      // Use Chennai (MAA) as departure, LLM-provided IATA code or group destination as arrival
+      const departureCode = 'MAA'; // Chennai
+      const arrivalIataCode = itineraryData.arrivalIataCode;
+      const arrivalId = arrivalIataCode || groupData.destination_display || groupData.destination;
+      // You may want to map arrivalId to an IATA code for better accuracy
+      const itineraryStartDate = itineraryData.itinerary?.[0]?.date; // e.g., '15'
+      const itineraryMonth = itineraryData.itinerary?.[0]?.day; // e.g., 'Jun'
+      // For demo, use a fixed year and parse month to number
+      const monthMap: Record<string, string> = {
+        Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+      };
+      const year = '2024';
+      const month = monthMap[itineraryMonth] || '01';
+      const day = itineraryStartDate?.padStart(2, '0') || '01';
+      const outboundDate = `${year}-${month}-${day}`;
+      const serpApiKey = process.env.SERPAPI_KEY!;
+      const serpApiUrl = `https://serpapi.com/search.json?engine=google_flights&departure_id=${departureCode}&arrival_id=${encodeURIComponent(arrivalId)}&outbound_date=${outboundDate}&api_key=${serpApiKey}`;
+      const serpRes = await fetch(serpApiUrl);
+      const serpData = await serpRes.json();
+      const realFlights = (serpData.flights_results || []).slice(0, 3).map((flight: any, idx: number) => ({
+        id: String(idx + 1),
+        airline: flight.airline || 'Unknown',
+        departure: flight.departure_time || '',
+        arrival: flight.arrival_time || '',
+        duration: flight.duration || '',
+        price: flight.price || '',
+        stops: flight.stops || '',
+      }));
+      if (realFlights.length > 0) {
+        itineraryData.flights = realFlights;
+      }
+    } catch (flightErr) {
+      console.error('Error fetching flights from SerpAPI:', flightErr);
+      // If error, keep LLM flights as fallback
+    }
+
+    // Save the final itinerary to the database
+    const { error: updateError } = await supabase
+      .from('travel_groups')
+      .update({ itinerary: itineraryData })
+      .eq('group_id', groupId);
+
+    if (updateError) {
+      console.error('Error saving itinerary to DB:', updateError);
+      // Optional: return an error if saving is critical, but for now we'll just log it
     }
 
     return NextResponse.json({

@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Input } from '@/components/ui/input';
+import React, { useEffect, useRef } from 'react';
 
 interface GooglePlacesAutocompleteProps {
-  value: string;
+  value: string; // Note: value cannot be controlled for PlaceAutocompleteElement
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
@@ -10,148 +9,80 @@ interface GooglePlacesAutocompleteProps {
   onPlaceSelect?: (place: any) => void;
 }
 
-declare global {
-  interface Window {
-    google: any;
-  }
-}
-
+/**
+ * Uses Google Maps PlaceAutocompleteElement web component.
+ * Note: The value cannot be controlled from React. Use onChange/onPlaceSelect to get the selected value.
+ */
 const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
-  value,
+  value, // not used for PlaceAutocompleteElement
   onChange,
   placeholder,
   className,
-  types = ['(cities)'],
+  types = ['(cities)'], // not used for PlaceAutocompleteElement
   onPlaceSelect
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<any>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [localValue, setLocalValue] = useState(value);
-
-  // Keep localValue in sync with parent value if it changes externally
-  useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const autocompleteElementRef = useRef<any>(null);
 
   useEffect(() => {
-    const loadGoogleMaps = async () => {
-      if (window.google && window.google.maps && window.google.maps.places) {
-        setIsLoaded(true);
-        return;
+    function createAutocompleteElement() {
+      if (
+        window.google &&
+        window.google.maps &&
+        window.google.maps.places &&
+        window.google.maps.places.PlaceAutocompleteElement &&
+        containerRef.current
+      ) {
+        // Remove any previous element
+        containerRef.current.innerHTML = '';
+        // Create the new element
+        const autocompleteElement = new window.google.maps.places.PlaceAutocompleteElement({
+          types: ['(regions)']
+        });
+        if (placeholder) autocompleteElement.setAttribute('placeholder', placeholder);
+        // Note: types attribute is not currently supported in the new element
+        containerRef.current.appendChild(autocompleteElement);
+
+        autocompleteElement.addEventListener('gmp-placeselect', (event: any) => {
+          const place = event?.place;
+          if (place) {
+            // Only proceed if the place is a city, state, country, or continent
+            const allowedTypes = ['locality', 'administrative_area_level_1', 'country', 'continent'];
+            if (place.types?.some((type: string) => allowedTypes.includes(type))) {
+              const valueToSet = place.displayName || place.name || '';
+              onChange(valueToSet);
+              if (onPlaceSelect) onPlaceSelect(place);
+            }
+          }
+        });
+
+        autocompleteElementRef.current = autocompleteElement;
       }
+    }
 
-      // Load Google Maps API with async loading
+    // Load Google Maps JS API if not already loaded
+    if (!window.google || !window.google.maps || !window.google.maps.places) {
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async`;
       script.async = true;
       script.defer = true;
-      
       script.onload = () => {
-        setIsLoaded(true);
+        createAutocompleteElement();
       };
-      
-      script.onerror = () => {
-        console.error('Failed to load Google Maps API');
-      };
-      
       document.head.appendChild(script);
-    };
-
-    loadGoogleMaps();
-  }, []);
-
-  useEffect(() => {
-    if (isLoaded && inputRef.current && !autocompleteRef.current) {
-      try {
-        // Use the new PlaceAutocompleteElement if available, fallback to legacy Autocomplete
-        if (window.google.maps.places.PlaceAutocompleteElement) {
-          // Create the new element
-          const autocompleteElement = new window.google.maps.places.PlaceAutocompleteElement({
-            types: types,
-            fields: ['place_id', 'formatted_address', 'name', 'geometry', 'address_components']
-          });
-          
-          // Replace the input with the autocomplete element
-          if (inputRef.current.parentNode) {
-            inputRef.current.parentNode.replaceChild(autocompleteElement, inputRef.current);
-          }
-          
-          autocompleteElement.addEventListener('gmp-placeselect', (event: any) => {
-            const place = event.place;
-            if (place) {
-              let valueToSet = '';
-              if (place.displayName) {
-                valueToSet = place.displayName;
-              } else if (place.name) {
-                valueToSet = place.name;
-              }
-              setLocalValue(valueToSet);
-              onChange(valueToSet);
-              if (onPlaceSelect) {
-                onPlaceSelect(place);
-              }
-            }
-          });
-          
-          autocompleteRef.current = autocompleteElement;
-        } else {
-          // Fallback to legacy Autocomplete
-          let options: any = {
-            types: types,
-            fields: ['place_id', 'formatted_address', 'name', 'geometry', 'address_components']
-          };
-          
-          autocompleteRef.current = new window.google.maps.places.Autocomplete(
-            inputRef.current,
-            options
-          );
-
-          autocompleteRef.current.addListener('place_changed', () => {
-            const place = autocompleteRef.current?.getPlace();
-            if (place) {
-              let valueToSet = '';
-              if (place.structured_formatting && place.structured_formatting.main_text) {
-                valueToSet = place.structured_formatting.main_text;
-              } else if (place.name) {
-                valueToSet = place.name;
-              }
-              setLocalValue(valueToSet);
-              onChange(valueToSet);
-              if (onPlaceSelect) {
-                onPlaceSelect(place);
-              }
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error setting up Google Places Autocomplete:', error);
-      }
+    } else {
+      createAutocompleteElement();
     }
 
     return () => {
-      if (autocompleteRef.current && window.google?.maps?.event) {
-        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
       }
     };
-  }, [isLoaded, onChange, onPlaceSelect, types]);
+  }, [onChange, onPlaceSelect, placeholder]);
 
-  // If using the new PlaceAutocompleteElement, we don't render the input
-  if (isLoaded && window.google?.maps?.places?.PlaceAutocompleteElement) {
-    return <div ref={inputRef} className={className} />;
-  }
-
-  return (
-    <Input
-      ref={inputRef}
-      type="text"
-      value={localValue}
-      onChange={(e) => setLocalValue(e.target.value)}
-      onBlur={() => onChange(localValue)}
-      placeholder={placeholder}
-      className={className}
-    />
-  );
+  // The new widget manages its own value, so you can't control it via React's value prop
+  return <div ref={containerRef} className={className} />;
 };
 
 export default GooglePlacesAutocomplete;

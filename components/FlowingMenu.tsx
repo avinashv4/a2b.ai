@@ -26,7 +26,7 @@ const getLocationImage = async (destination: string): Promise<string> => {
       `https://api.unsplash.com/search/photos?query=${encodeURIComponent(destination)}&per_page=1&orientation=landscape`,
       {
         headers: {
-          'Authorization': 'Client-ID YOUR_UNSPLASH_ACCESS_KEY' // Replace with your Unsplash access key
+          'Authorization': `Client-ID ${process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY}` // Replace with your Unsplash access key
         }
       }
     );
