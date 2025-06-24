@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button';
 import InteractiveMap from '@/components/InteractiveMap';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
+import { getLocationImage } from '@/lib/getLocationImage';
 
 interface Place {
   id: string;
@@ -112,6 +113,8 @@ export default function TravelPlanPage() {
   const [dayExpandedStates, setDayExpandedStates] = useState<Record<string, boolean>>({});
   const [sidebarFullyOpen, setSidebarFullyOpen] = useState(true);
   const [savingTitle, setSavingTitle] = useState(false);
+  const [tripImage, setTripImage] = useState<string>('https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=800&h=400&fit=crop');
+  const [destination, setDestination] = useState<string>('');
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileSettingsRef = useRef<HTMLDivElement>(null);
@@ -155,6 +158,7 @@ export default function TravelPlanPage() {
         
         setItineraryData(finalItineraryData);
         setTripTitle(groupData.trip_name || groupData.destination_display || 'Trip Plan');
+        setDestination(groupData.destination_display || groupData.destination || 'Paris');
 
         // Initialize expanded states for days
         if (finalItineraryData?.itinerary) {
@@ -179,6 +183,12 @@ export default function TravelPlanPage() {
             avatar: m.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
           }));
           setTripMembers(formattedMembers);
+        }
+
+        // Fetch trip image
+        if (groupData.destination_display || groupData.destination) {
+          const imageUrl = await getLocationImage(groupData.destination_display || groupData.destination);
+          setTripImage(imageUrl);
         }
 
       } catch (err: any) {
@@ -474,8 +484,8 @@ export default function TravelPlanPage() {
       {/* Trip Image */}
       <div className="w-full h-64 md:h-80 rounded-2xl overflow-hidden bg-gray-200">
         <img
-          src="https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=800&h=400&fit=crop"
-          alt="Paris"
+          src={tripImage}
+          alt={destination}
           className="w-full h-full object-cover"
         />
       </div>
@@ -546,14 +556,14 @@ export default function TravelPlanPage() {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
           <Plane className="w-6 h-6 text-blue-600 mx-auto mb-2" />
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Flight</h3>
-          <p className="text-xs text-gray-600">{flights[0]?.airline} • {flights[0]?.stops}</p>
-          <p className="text-xs text-gray-500">{flights[0]?.duration}</p>
+          <p className="text-xs text-gray-600">{flights?.[0]?.airline || 'Air India'} • {flights?.[0]?.stops || 'Direct'}</p>
+          <p className="text-xs text-gray-500">{flights?.[0]?.duration || '8h 15m'}</p>
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
           <Hotel className="w-6 h-6 text-green-600 mx-auto mb-2" />
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Hotel</h3>
-          <p className="text-xs text-gray-600">{hotels[0]?.name}</p>
-          <p className="text-xs text-gray-500">{hotels[0]?.rating}★ • {hotels[0]?.price}</p>
+          <p className="text-xs text-gray-600">{hotels?.[0]?.name || 'Hotel Name'}</p>
+          <p className="text-xs text-gray-500">{hotels?.[0]?.rating || 4.5}★ • {hotels?.[0]?.price || '$180/night'}</p>
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
           <MapPin className="w-6 h-6 text-purple-600 mx-auto mb-2" />
@@ -594,7 +604,7 @@ export default function TravelPlanPage() {
       </div>
       
       <div className="space-y-4">
-        {flights.map((flight) => (
+        {(flights || []).map((flight) => (
           <div key={flight.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div className="flex-1">
@@ -644,7 +654,7 @@ export default function TravelPlanPage() {
       </div>
       
       <div className="space-y-4">
-        {hotels.map((hotel) => (
+        {(hotels || []).map((hotel) => (
           <div key={hotel.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <div className="flex space-x-4">
               <div className="w-32 h-24 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">

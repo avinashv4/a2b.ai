@@ -236,6 +236,37 @@ Requirements:
     }
 
     // --- Fetch real flights from SerpAPI ---
+    // Initialize with fallback flights first
+    itineraryData.flights = [
+      {
+        id: "1",
+        airline: "Air India",
+        departure: "10:30 AM",
+        arrival: "2:45 PM",
+        duration: "8h 15m",
+        price: "$650",
+        stops: "Direct"
+      },
+      {
+        id: "2",
+        airline: "Emirates",
+        departure: "11:45 PM",
+        arrival: "6:30 AM+1",
+        duration: "9h 45m",
+        price: "$720",
+        stops: "1 stop"
+      },
+      {
+        id: "3",
+        airline: "Qatar Airways",
+        departure: "2:15 AM",
+        arrival: "8:00 AM",
+        duration: "10h 45m",
+        price: "$680",
+        stops: "1 stop"
+      }
+    ];
+
     try {
       // Use Chennai (MAA) as departure, LLM-provided IATA code or group destination as arrival
       const departureCode = 'MAA'; // Chennai
@@ -251,51 +282,25 @@ Requirements:
       const serpRes = await fetch(serpApiUrl);
       const serpData = await serpRes.json();
       
-      const realFlights = (serpData.best_flights || serpData.other_flights || []).slice(0, 3).map((flight: any, idx: number) => ({
-        id: String(idx + 1),
-        airline: flight.flights?.[0]?.airline || 'Unknown Airline',
-        departure: flight.flights?.[0]?.departure_airport?.time || '',
-        arrival: flight.flights?.[flight.flights.length - 1]?.arrival_airport?.time || '',
-        duration: flight.total_duration || '',
-        price: flight.price ? `$${flight.price}` : '',
-        stops: flight.flights?.length > 1 ? `${flight.flights.length - 1} stop${flight.flights.length > 2 ? 's' : ''}` : 'Direct',
-      }));
+      if (serpData && (serpData.best_flights || serpData.other_flights)) {
+        const allFlights = [...(serpData.best_flights || []), ...(serpData.other_flights || [])];
+        const realFlights = allFlights.slice(0, 3).map((flight: any, idx: number) => ({
+          id: String(idx + 1),
+          airline: flight.flights?.[0]?.airline || 'Unknown Airline',
+          departure: flight.flights?.[0]?.departure_airport?.time || '',
+          arrival: flight.flights?.[flight.flights.length - 1]?.arrival_airport?.time || '',
+          duration: flight.total_duration || '',
+          price: flight.price ? `$${flight.price}` : '',
+          stops: flight.flights?.length > 1 ? `${flight.flights.length - 1} stop${flight.flights.length > 2 ? 's' : ''}` : 'Direct',
+        }));
       
-      if (realFlights.length > 0) {
-        itineraryData.flights = realFlights;
+        if (realFlights.length > 0) {
+          itineraryData.flights = realFlights;
+        }
       }
     } catch (flightErr) {
       console.error('Error fetching flights from SerpAPI:', flightErr);
-      // Keep LLM flights as fallback
-      itineraryData.flights = [
-        {
-          id: "1",
-          airline: "Air India",
-          departure: "10:30 AM",
-          arrival: "2:45 PM",
-          duration: "8h 15m",
-          price: "$650",
-          stops: "Direct"
-        },
-        {
-          id: "2",
-          airline: "Emirates",
-          departure: "11:45 PM",
-          arrival: "6:30 AM+1",
-          duration: "9h 45m",
-          price: "$720",
-          stops: "1 stop"
-        },
-        {
-          id: "3",
-          airline: "Qatar Airways",
-          departure: "2:15 AM",
-          arrival: "8:00 AM",
-          duration: "10h 45m",
-          price: "$680",
-          stops: "1 stop"
-        }
-      ];
+      // Fallback flights are already set above
     }
 
     // Save the final itinerary to the database
