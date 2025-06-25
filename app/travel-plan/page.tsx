@@ -26,14 +26,13 @@ import {
   Edit3,
   Car,
   Train,
-  Ship,
-  FileText,
   BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import InteractiveMap from '@/components/InteractiveMap';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
+import DateIcon from '@/components/DateIcon';
 import { getLocationImage } from '@/lib/getLocationImage';
 
 interface Place {
@@ -105,7 +104,8 @@ export default function TravelPlanPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [regenerateVotes, setRegenerateVotes] = useState(3);
+  const [regenerateVotes, setRegenerateVotes] = useState(0);
+  const [totalMembers, setTotalMembers] = useState(0);
   const [hasVotedRegenerate, setHasVotedRegenerate] = useState(false);
   const [showMobileMap, setShowMobileMap] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -114,6 +114,7 @@ export default function TravelPlanPage() {
   const [dayExpandedStates, setDayExpandedStates] = useState<Record<string, boolean>>({});
   const [sidebarFullyOpen, setSidebarFullyOpen] = useState(true);
   const [savingTitle, setSavingTitle] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const [tripImage, setTripImage] = useState<string>('https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=800&h=400&fit=crop');
   const [destination, setDestination] = useState<string>('');
 
@@ -179,12 +180,26 @@ export default function TravelPlanPage() {
         // Fetch members
         const { data: membersData, error: membersError } = await supabase
           .from('group_members')
-          .select('profiles!group_members_user_id_fkey(first_name, last_name, profile_picture)')
+          .select(`
+            user_id,
+            regenerate_vote,
+            profiles!group_members_user_id_fkey(first_name, last_name, profile_picture)
+          `)
           .eq('group_id', groupId);
 
         if (membersError) {
           console.error('Error fetching members:', membersError);
         } else if (membersData) {
+          setTotalMembers(membersData.length);
+          
+          // Count regenerate votes
+          const votedCount = membersData.filter(m => m.regenerate_vote).length;
+          setRegenerateVotes(votedCount);
+          
+          // Check if current user has voted
+          const currentUserMember = membersData.find(m => m.user_id === user.id);
+          setHasVotedRegenerate(currentUserMember?.regenerate_vote || false);
+          
           const formattedMembers = membersData.map((m: any) => ({
             name: `${m.profiles.first_name} ${m.profiles.last_name}`,
             avatar: m.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
@@ -307,10 +322,38 @@ export default function TravelPlanPage() {
     }
   };
 
-  const handleRegenerateVote = () => {
-    if (!hasVotedRegenerate) {
-      setRegenerateVotes(prev => prev + 1);
-      setHasVotedRegenerate(true);
+  const handleRegenerateVote = async () => {
+    if (hasVotedRegenerate || regenerating) return;
+    
+    setRegenerating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const groupId = searchParams.get('groupId');
+      if (!groupId) return;
+      
+      const response = await fetch('/api/regenerate-itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, userId: user.id }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setHasVotedRegenerate(true);
+        setRegenerateVotes(result.votedMembers);
+        
+        if (result.regenerated) {
+          // Refresh the page to show new itinerary
+          window.location.reload();
+        }
+      }
+    } catch (error) {
+      console.error('Error voting for regeneration:', error);
+    } finally {
+      setRegenerating(false);
     }
   };
 
@@ -786,7 +829,7 @@ export default function TravelPlanPage() {
       
       <div className="space-y-6">
         {itinerary.map((day, dayIndex) => (
-          <div key={day.date}>
+          <div key={day.date} id={day.date}>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
               <button
                 onClick={() => toggleDayInMain(day.date)}
@@ -935,15 +978,17 @@ export default function TravelPlanPage() {
                     </button>
                     <button
                       onClick={handleRegenerateVote}
-                      disabled={hasVotedRegenerate}
+                      disabled={hasVotedRegenerate || regenerating}
                       className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors disabled:opacity-50"
                     >
                       <div className="h-8 flex items-center">
-                        <RefreshCw className="w-4 h-4" />
+                        <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
                       </div>
-                      <span className="text-sm text-gray-700">Regenerate Itinerary</span>
+                      <span className="text-sm text-gray-700">
+                        {regenerating ? 'Regenerating...' : 'Regenerate Itinerary'}
+                      </span>
                       <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full ml-auto">
-                        {regenerateVotes}
+                        {regenerateVotes}/{totalMembers}
                       </span>
                     </button>
                     <button
@@ -1085,6 +1130,7 @@ export default function TravelPlanPage() {
             })}
 
             {/* Divider */}
+            {/* Divider */}
             <div className="pt-2">
               <div className="border-t border-gray-200"></div>
             </div>
@@ -1127,10 +1173,7 @@ export default function TravelPlanPage() {
                       } transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                       style={{ transitionDelay: `${150 + idx * 80}ms` }}
                     >
-                      <div className="flex flex-col items-center text-xs min-w-[32px]">
-                        <span className="font-medium leading-none text-[10px] uppercase">{day.day}</span>
-                        <span className="font-bold text-sm leading-none">{day.date}</span>
-                      </div>
+                      <DateIcon month={day.day} date={day.date} className="w-8" />
                       <span className="font-medium text-sm">{day.month}</span>
                     </button>
                   ))}
@@ -1145,20 +1188,24 @@ export default function TravelPlanPage() {
           {/* Regenerate Itinerary */}
           <button
             onClick={handleRegenerateVote}
-            disabled={hasVotedRegenerate}
+            disabled={hasVotedRegenerate || regenerating}
             className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              hasVotedRegenerate ? 'bg-gray-100 text-gray-500' : 'hover:bg-gray-100 text-gray-700'
+              hasVotedRegenerate || regenerating ? 'bg-gray-100 text-gray-500' : 'hover:bg-gray-100 text-gray-700'
             }`}
             onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('regenerate', e)}
             onMouseLeave={handleMouseLeave}
           >
             <div className="h-8 flex items-center">
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
             </div>
             {!sidebarCollapsed && (
               <div className={`flex items-center justify-between w-full`}>
-                <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Regenerate</span>
-                <span className={`text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{regenerateVotes}</span>
+                <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                  {regenerating ? 'Regenerating...' : 'Regenerate'}
+                </span>
+                <span className={`text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                  {regenerateVotes}/{totalMembers}
+                </span>
               </div>
             )}
           </button>

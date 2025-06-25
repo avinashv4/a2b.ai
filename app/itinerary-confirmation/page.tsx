@@ -237,7 +237,7 @@ export default function ItineraryConfirmationPage() {
             <Check className="w-8 h-8 text-green-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Itinerary Confirmed!</h1>
-          <p className="text-xl text-gray-600">Ready to proceed with booking your Paris adventure</p>
+          <p className="text-xl text-gray-600">Ready to proceed with booking your {destination} adventure</p>
         </div>
 
         {/* Trip Summary */}
