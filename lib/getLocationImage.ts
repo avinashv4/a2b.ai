@@ -1,4 +1,4 @@
-const PEXELS_API_KEY = 'YOUR_PEXELS_API_KEY'; // This will be replaced with actual key
+const PEXELS_API_KEY = 'oLy24MqovqDuxZ56ScIq2qG8BdPppZ5lq65eOQR85IAIu88nXUU9U1OH'; // This will be replaced with actual key
 
 export async function getLocationImage(location: string): Promise<string> {
   try {
