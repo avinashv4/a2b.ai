@@ -7,6 +7,9 @@ import { Plane, ArrowLeft, Check, Clock, Navigation, Car, Train, Ship, MapPin, C
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 interface Place {
   id: string;
   name: string;
@@ -59,6 +62,7 @@ export default function ItineraryConfirmationPage() {
   const [tripTitle, setTripTitle] = useState('');
   const [destination, setDestination] = useState('');
   const searchParams = useSearchParams();
+  const [savingPDF, setSavingPDF] = useState(false);
 
   useEffect(() => {
     const loadItineraryData = async () => {
@@ -128,6 +132,47 @@ export default function ItineraryConfirmationPage() {
     }, 2000);
   };
 
+  const handleSavePDF = async () => {
+    setSavingPDF(true);
+    try {
+      const element = document.getElementById('itinerary-content');
+      if (!element) return;
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`${tripTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_itinerary.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setSavingPDF(false);
+    }
+  };
+
   const tripMembers = [
     { name: 'You', avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
     { name: 'Sarah', avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
@@ -185,7 +230,7 @@ export default function ItineraryConfirmationPage() {
       </nav>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8 pt-32">
+      <div id="itinerary-content" className="max-w-4xl mx-auto px-6 py-8 pt-32">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -329,29 +374,11 @@ export default function ItineraryConfirmationPage() {
                 <p className="text-sm text-gray-600">{hotels[0]?.name || 'Hotel'} (3 nights)</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <Calendar className="w-4 h-4 text-purple-600" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">Activities</p>
-                <p className="text-sm text-gray-600">All planned attractions</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
-                <Users className="w-4 h-4 text-yellow-600" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">Group Coordination</p>
-                <p className="text-sm text-gray-600">Shared itinerary & updates</p>
-              </div>
-            </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <Button
             onClick={handleProceedWithBooking}
             disabled={isProcessing}
@@ -377,6 +404,28 @@ export default function ItineraryConfirmationPage() {
               Make Changes
             </Button>
           </Link>
+        </div>
+        
+        {/* Save PDF Button */}
+        <div className="flex justify-center">
+          <Button
+            onClick={handleSavePDF}
+            disabled={savingPDF}
+            variant="outline"
+            className="px-6 py-3 rounded-xl font-semibold"
+          >
+            {savingPDF ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                <span>Generating PDF...</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <FileText className="w-4 h-4" />
+                <span>Save as PDF</span>
+              </div>
+            )}
+          </Button>
         </div>
 
         {/* Fine Print */}

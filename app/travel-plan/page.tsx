@@ -28,7 +28,6 @@ import {
   Train,
   Ship,
   FileText,
-  Save,
   BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -46,6 +45,8 @@ interface Place {
   walkTime?: string;
   distance?: string;
   travelMode?: 'walk' | 'car' | 'train' | 'metro' | 'ferry';
+  type?: string;
+  visitTime?: string;
   voted?: 'accept' | 'deny' | null;
 }
 
@@ -80,7 +81,7 @@ interface ItineraryData {
   itinerary: DayItinerary[];
   flights: Flight[];
   hotels: Hotel[];
-  mapLocations: any[]; // You can define a proper type for this
+  mapLocations: any[];
 }
 
 interface TripMember {
@@ -131,7 +132,7 @@ export default function TravelPlanPage() {
       try {
         const { data: groupData, error: groupError } = await supabase
           .from('travel_groups')
-          .select('itinerary, destination_display, trip_name')
+          .select('itinerary, destination_display, trip_name, destination')
           .eq('group_id', groupId)
           .single();
 
@@ -169,6 +170,12 @@ export default function TravelPlanPage() {
           setDayExpandedStates(initialExpanded);
         }
 
+        // Fetch trip image
+        if (groupData.destination_display || groupData.destination) {
+          const imageUrl = await getLocationImage(groupData.destination_display || groupData.destination);
+          setTripImage(imageUrl);
+        }
+
         // Fetch members
         const { data: membersData, error: membersError } = await supabase
           .from('group_members')
@@ -183,12 +190,6 @@ export default function TravelPlanPage() {
             avatar: m.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
           }));
           setTripMembers(formattedMembers);
-        }
-
-        // Fetch trip image
-        if (groupData.destination_display || groupData.destination) {
-          const imageUrl = await getLocationImage(groupData.destination_display || groupData.destination);
-          setTripImage(imageUrl);
         }
 
       } catch (err: any) {
@@ -318,7 +319,8 @@ export default function TravelPlanPage() {
   };
 
   const copyInviteLink = () => {
-    navigator.clipboard.writeText('a2b.ai/join/abc123');
+    const groupId = searchParams.get('groupId');
+    navigator.clipboard.writeText(`${window.location.origin}/join/${groupId}`);
   };
 
   const handleTitleEdit = () => {
@@ -356,10 +358,6 @@ export default function TravelPlanPage() {
   const handleConfirmItinerary = () => {
     const groupId = searchParams.get('groupId');
     window.location.href = `/itinerary-confirmation?groupId=${groupId}`;
-  };
-
-  const handleSavePDF = () => {
-    console.log('Generating PDF...');
   };
 
   const getTravelModeIcon = (mode: string) => {
@@ -476,9 +474,105 @@ export default function TravelPlanPage() {
         <div id="flights">{renderFlightsContent()}</div>
         <div id="hotels">{renderHotelsContent()}</div>
         <div id="itinerary">{renderItineraryContent()}</div>
+        {/* Add sections for each day */}
+        {itinerary.map((day) => (
+          <div key={day.date} id={day.date}>
+            {renderDayContent(day)}
+          </div>
+        ))}
       </div>
     );
   };
+
+  const renderDayContent = (day: DayItinerary) => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-900">{day.month}</h2>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-6 space-y-6">
+          {day.places.map((place, index) => (
+            <div key={place.id}>
+              <div className="bg-gray-50 rounded-xl p-6">
+                <div className="flex space-x-4">
+                  <div className="w-24 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                    <img
+                      src={place.image}
+                      alt={place.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg">{getTypeIcon(place.type || 'attraction')}</span>
+                        <div>
+                          <h4 className="text-base font-semibold text-gray-900">{place.name}</h4>
+                          <div className="flex items-center space-x-2 text-xs text-gray-500">
+                            <span className="bg-gray-200 px-2 py-1 rounded-full">{getTypeLabel(place.type || 'attraction')}</span>
+                            {place.visitTime && <span>Visit at {place.visitTime}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-1">
+                        <Button
+                          size="sm"
+                          onClick={() => handleVote(itinerary.findIndex(d => d.date === day.date), place.id, 'accept')}
+                          className={`w-6 h-6 rounded-full p-0 transition-colors ${
+                            place.voted === 'accept' 
+                              ? 'bg-green-600 text-white' 
+                              : 'bg-green-100 hover:bg-green-200 text-green-600'
+                          }`}
+                          onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          <Check className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleVote(itinerary.findIndex(d => d.date === day.date), place.id, 'deny')}
+                          className={`w-6 h-6 rounded-full p-0 transition-colors ${
+                            place.voted === 'deny' 
+                              ? 'bg-red-600 text-white' 
+                              : 'bg-red-100 hover:bg-red-200 text-red-600'
+                          }`}
+                          onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-600 mb-2">{place.description}</p>
+                    <div className="flex items-center space-x-3 text-xs text-gray-500">
+                      <div className="flex items-center space-x-1">
+                        <Clock className="w-3 h-3" />
+                        <span>{place.duration}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Connection line and travel info */}
+              {index < day.places.length - 1 && place.walkTime && (
+                <div className="flex items-center justify-center py-4">
+                  <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-full">
+                    <div className="w-1 h-4 border-l border-dashed border-gray-400"></div>
+                    <div className="flex items-center space-x-1 text-xs text-gray-600">
+                      {getTravelModeIcon(place.travelMode || 'walk')}
+                      <span>{place.walkTime}</span>
+                      <span>•</span>
+                      <span>{place.distance}</span>
+                    </div>
+                    <div className="w-1 h-4 border-l border-dashed border-gray-400"></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   const renderOverviewContent = () => (
     <div className="space-y-8">
@@ -582,14 +676,6 @@ export default function TravelPlanPage() {
         >
           <BookOpen className="w-4 h-4 mr-2" />
           Confirm Itinerary
-        </Button>
-        <Button
-          onClick={handleSavePDF}
-          variant="outline"
-          className="flex-1 py-3 rounded-xl font-semibold"
-        >
-          <Save className="w-4 h-4 mr-2" />
-          Save Travel Plan
         </Button>
       </div>
     </div>
@@ -1041,8 +1127,8 @@ export default function TravelPlanPage() {
                       } transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                       style={{ transitionDelay: `${150 + idx * 80}ms` }}
                     >
-                      <div className="flex flex-col items-center text-xs">
-                        <span className="font-medium leading-none text-xs">{day.day}</span>
+                      <div className="flex flex-col items-center text-xs min-w-[32px]">
+                        <span className="font-medium leading-none text-[10px] uppercase">{day.day}</span>
                         <span className="font-bold text-sm leading-none">{day.date}</span>
                       </div>
                       <span className="font-medium text-sm">{day.month}</span>
