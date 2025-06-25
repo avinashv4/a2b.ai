@@ -1,10 +1,38 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Proza_Libre } from 'next/font/google';
+import localFont from 'next/font/local';
 
-const prozaLibre = Proza_Libre({ 
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800']
+// Local font configuration - you can upload your font files to public/fonts/
+const customFont = localFont({
+  src: [
+    {
+      path: '../public/fonts/font-regular.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/font-medium.woff2',
+      weight: '500',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/font-semibold.woff2',
+      weight: '600',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/font-bold.woff2',
+      weight: '700',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/font-extrabold.woff2',
+      weight: '800',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-custom',
+  fallback: ['system-ui', 'arial'],
 });
 
 export const metadata: Metadata = {
@@ -19,7 +47,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={prozaLibre.className}>
+      <body className={`${customFont.variable} font-sans`}>
         {children}
       </body>
     </html>

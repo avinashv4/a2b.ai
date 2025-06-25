@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plane, ArrowLeft, Check, Clock, Navigation, Car, Train, Ship, MapPin, Calendar, Users, CreditCard } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabaseClient';
 
 interface Place {
   id: string;
@@ -14,6 +16,8 @@ interface Place {
   walkTime?: string;
   distance?: string;
   travelMode?: 'walk' | 'car' | 'train' | 'metro' | 'ferry';
+  type?: string;
+  visitTime?: string;
 }
 
 interface DayItinerary {
@@ -23,8 +27,72 @@ interface DayItinerary {
   places: Place[];
 }
 
+interface Flight {
+  id: string;
+  airline: string;
+  departure: string;
+  arrival: string;
+  duration: string;
+  price: string;
+  stops: string;
+}
+
+interface Hotel {
+  id: string;
+  name: string;
+  rating: number;
+  price: string;
+  image: string;
+  amenities: string[];
+}
+
+interface ItineraryData {
+  itinerary: DayItinerary[];
+  flights: Flight[];
+  hotels: Hotel[];
+}
+
 export default function ItineraryConfirmationPage() {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [itineraryData, setItineraryData] = useState<ItineraryData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tripTitle, setTripTitle] = useState('');
+  const [destination, setDestination] = useState('');
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const loadItineraryData = async () => {
+      try {
+        const groupId = searchParams.get('groupId');
+        if (!groupId) {
+          window.location.href = '/dashboard';
+          return;
+        }
+
+        const { data: groupData, error: groupError } = await supabase
+          .from('travel_groups')
+          .select('itinerary, trip_name, destination_display')
+          .eq('group_id', groupId)
+          .single();
+
+        if (groupError || !groupData?.itinerary) {
+          window.location.href = `/travel-plan?groupId=${groupId}`;
+          return;
+        }
+
+        setItineraryData(groupData.itinerary);
+        setTripTitle(groupData.trip_name || 'Trip Plan');
+        setDestination(groupData.destination_display || 'Destination');
+      } catch (error) {
+        console.error('Error loading itinerary:', error);
+        window.location.href = '/dashboard';
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadItineraryData();
+  }, [searchParams]);
 
   const getTravelModeIcon = (mode: string) => {
     switch (mode) {
@@ -32,6 +100,22 @@ export default function ItineraryConfirmationPage() {
       case 'train': return <Train className="w-3 h-3" />;
       case 'ferry': return <Ship className="w-3 h-3" />;
       default: return <Navigation className="w-3 h-3" />;
+    }
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'monument': return '🏛️';
+      case 'museum': return '🏛️';
+      case 'park': return '🌳';
+      case 'food': return '🍽️';
+      case 'shopping': return '🛍️';
+      case 'photo_spot': return '📸';
+      case 'historical': return '🏰';
+      case 'entertainment': return '🎭';
+      case 'cultural': return '🎨';
+      case 'nature': return '🌿';
+      default: return '📍';
     }
   };
 
@@ -51,100 +135,31 @@ export default function ItineraryConfirmationPage() {
     { name: 'Emma', avatar: 'https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' }
   ];
 
-  const itinerary: DayItinerary[] = [
-    {
-      date: '15',
-      day: 'Jun',
-      month: 'Day 1',
-      places: [
-        {
-          id: 'p1',
-          name: 'Eiffel Tower',
-          description: 'Iconic iron lattice tower and symbol of Paris.',
-          image: 'https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '2 hours'
-        },
-        {
-          id: 'p2',
-          name: 'Seine River Cruise',
-          description: 'Scenic boat ride along the historic Seine River.',
-          image: 'https://images.pexels.com/photos/1530259/pexels-photo-1530259.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '1.5 hours',
-          walkTime: '15 min',
-          distance: '1.2 km',
-          travelMode: 'walk'
-        },
-        {
-          id: 'p3',
-          name: 'Louvre Museum',
-          description: 'World\'s largest art museum and historic monument.',
-          image: 'https://images.pexels.com/photos/2675266/pexels-photo-2675266.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '3 hours',
-          walkTime: '20 min',
-          distance: '1.8 km',
-          travelMode: 'walk'
-        }
-      ]
-    },
-    {
-      date: '16',
-      day: 'Jun',
-      month: 'Day 2',
-      places: [
-        {
-          id: 'p4',
-          name: 'Notre-Dame Cathedral',
-          description: 'Medieval Catholic cathedral and architectural masterpiece.',
-          image: 'https://images.pexels.com/photos/1850619/pexels-photo-1850619.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '1.5 hours'
-        },
-        {
-          id: 'p5',
-          name: 'Sainte-Chapelle',
-          description: 'Gothic chapel famous for its stunning stained glass windows.',
-          image: 'https://images.pexels.com/photos/2901209/pexels-photo-2901209.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '1 hour',
-          walkTime: '5 min',
-          distance: '400 m',
-          travelMode: 'walk'
-        },
-        {
-          id: 'p6',
-          name: 'Latin Quarter',
-          description: 'Historic area known for its student life and bistros.',
-          image: 'https://images.pexels.com/photos/1461974/pexels-photo-1461974.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '2 hours',
-          walkTime: '10 min',
-          distance: '800 m',
-          travelMode: 'walk'
-        }
-      ]
-    },
-    {
-      date: '17',
-      day: 'Jun',
-      month: 'Day 3',
-      places: [
-        {
-          id: 'p7',
-          name: 'Montmartre & Sacré-Cœur',
-          description: 'Artistic district with stunning basilica views.',
-          image: 'https://images.pexels.com/photos/1308940/pexels-photo-1308940.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '3 hours'
-        },
-        {
-          id: 'p8',
-          name: 'Moulin Rouge',
-          description: 'Famous cabaret and birthplace of the can-can dance.',
-          image: 'https://images.pexels.com/photos/2901209/pexels-photo-2901209.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
-          duration: '2 hours',
-          walkTime: '8 min',
-          distance: '650 m',
-          travelMode: 'walk'
-        }
-      ]
-    }
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading confirmation details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!itineraryData) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600">No itinerary data found</p>
+          <Link href="/dashboard">
+            <Button className="mt-4">Back to Dashboard</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const { itinerary, flights = [], hotels = [] } = itineraryData;
 
   return (
     <div className="min-h-screen bg-white">
@@ -182,7 +197,7 @@ export default function ItineraryConfirmationPage() {
 
         {/* Trip Summary */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Paris Adventure</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{tripTitle}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-center space-x-3">
               <Calendar className="w-5 h-5 text-blue-600" />
@@ -219,7 +234,7 @@ export default function ItineraryConfirmationPage() {
               <CreditCard className="w-5 h-5 text-purple-600" />
               <div>
                 <p className="font-medium text-gray-900">Total Cost</p>
-                <p className="text-sm text-gray-600">$2,450 per person</p>
+                <p className="text-sm text-gray-600">{flights[0]?.price || '$650'} per person</p>
               </div>
             </div>
           </div>
@@ -250,7 +265,7 @@ export default function ItineraryConfirmationPage() {
                     <div className="flex space-x-4">
                       <div className="w-20 h-16 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
                         <img
-                          src={place.image}
+                          src={place.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=300&h=200&fit=crop'}
                           alt={place.name}
                           className="w-full h-full object-cover"
                         />
@@ -258,6 +273,9 @@ export default function ItineraryConfirmationPage() {
                       <div className="flex-1">
                         <h5 className="font-semibold text-gray-900 mb-1">{place.name}</h5>
                         <p className="text-sm text-gray-600 mb-2">{place.description}</p>
+                        {place.visitTime && (
+                          <p className="text-xs text-blue-600 mb-1">📅 Visit at {place.visitTime}</p>
+                        )}
                         <div className="flex items-center space-x-3 text-xs text-gray-500">
                           <div className="flex items-center space-x-1">
                             <Clock className="w-3 h-3" />
@@ -299,7 +317,7 @@ export default function ItineraryConfirmationPage() {
               </div>
               <div>
                 <p className="font-medium text-gray-900">Round-trip Flights</p>
-                <p className="text-sm text-gray-600">Air France Direct</p>
+                <p className="text-sm text-gray-600">{flights[0]?.airline || 'Air India'} {flights[0]?.stops || 'Direct'}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -308,7 +326,7 @@ export default function ItineraryConfirmationPage() {
               </div>
               <div>
                 <p className="font-medium text-gray-900">Accommodation</p>
-                <p className="text-sm text-gray-600">Hotel Le Marais (3 nights)</p>
+                <p className="text-sm text-gray-600">{hotels[0]?.name || 'Hotel'} (3 nights)</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -351,7 +369,7 @@ export default function ItineraryConfirmationPage() {
               </div>
             )}
           </Button>
-          <Link href="/travel-plan" className="flex-1">
+          <Link href={`/travel-plan?groupId=${searchParams.get('groupId')}`} className="flex-1">
             <Button
               variant="outline"
               className="w-full py-4 rounded-xl font-semibold text-lg"

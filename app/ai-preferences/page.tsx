@@ -39,12 +39,20 @@ export default function AIPreferencesPage() {
   useEffect(() => {
     const loadGroupData = async () => {
       try {
-        // Get group ID from localStorage or URL params
-        const storedGroupId = localStorage.getItem('currentGroupId');
+        // Get group ID from URL params first, then localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlGroupId = urlParams.get('groupId');
+        const storedGroupId = urlGroupId || localStorage.getItem('currentGroupId');
+        
         if (!storedGroupId) {
           // Redirect to dashboard if no group ID
           window.location.href = '/dashboard';
           return;
+        }
+
+        // Update localStorage if we got groupId from URL
+        if (urlGroupId) {
+          localStorage.setItem('currentGroupId', urlGroupId);
         }
 
         setGroupId(storedGroupId);

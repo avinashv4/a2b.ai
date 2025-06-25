@@ -354,7 +354,8 @@ export default function TravelPlanPage() {
   };
 
   const handleConfirmItinerary = () => {
-    window.location.href = '/itinerary-confirmation';
+    const groupId = searchParams.get('groupId');
+    window.location.href = `/itinerary-confirmation?groupId=${groupId}`;
   };
 
   const handleSavePDF = () => {

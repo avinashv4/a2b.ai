@@ -181,7 +181,7 @@ export default function DashboardPage() {
 
   // FlowingMenu items based on travel plans
   const flowingMenuItems = travelGroups.map(group => ({
-    link: `/travel-plan?groupId=${group.group_id}`,
+    link: `/ai-preferences?groupId=${group.group_id}`, // Will be updated by handleTripClick
     text: group.destination_display,
     groupId: group.group_id,
     members: group.members.slice(0, 3).map(member => ({
@@ -202,6 +202,35 @@ export default function DashboardPage() {
     }.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`,
     destination: group.destination
   }));
+
+  const handleTripClick = async (groupId: string) => {
+    try {
+      // Check if itinerary exists
+      const { data: groupData, error } = await supabase
+        .from('travel_groups')
+        .select('itinerary')
+        .eq('group_id', groupId)
+        .single();
+
+      if (error) {
+        console.error('Error checking itinerary:', error);
+        return;
+      }
+
+      // Store group ID for navigation
+      localStorage.setItem('currentGroupId', groupId);
+
+      if (groupData.itinerary) {
+        // Itinerary exists, go to travel plan
+        window.location.href = `/travel-plan?groupId=${groupId}`;
+      } else {
+        // No itinerary, go to AI preferences
+        window.location.href = `/ai-preferences?groupId=${groupId}`;
+      }
+    } catch (error) {
+      console.error('Error handling trip click:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -335,7 +364,13 @@ export default function DashboardPage() {
             /* FlowingMenu Section */
             <div className="mb-8">
               <div className="bg-gray-900 rounded-2xl overflow-hidden" style={{ minHeight: '400px', height: 'auto' }}>
-                <FlowingMenu items={flowingMenuItems.map(item => ({ ...item, onLeaveTrip: handleLeaveTrip }))} />
+                <FlowingMenu 
+                  items={flowingMenuItems.map(item => ({ 
+                    ...item, 
+                    onLeaveTrip: handleLeaveTrip,
+                    onClick: () => handleTripClick(item.groupId!)
+                  }))} 
+                />
               </div>
             </div>
           ) : (

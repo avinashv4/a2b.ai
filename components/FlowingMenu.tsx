@@ -13,6 +13,7 @@ interface MenuItemProps {
   additionalMembers?: number;
   groupId?: string;
   onLeaveTrip?: (groupId: string) => void;
+  onClick?: () => void;
 }
 
 interface FlowingMenuProps {
@@ -59,7 +60,7 @@ const FlowingMenu: React.FC<FlowingMenuProps> = ({ items = [] }) => {
   );
 };
 
-const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, destination, members = [], additionalMembers = 0, groupId, onLeaveTrip }) => {
+const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, destination, members = [], additionalMembers = 0, groupId, onLeaveTrip, onClick }) => {
   const itemRef = React.useRef<HTMLDivElement>(null);
   const marqueeRef = React.useRef<HTMLDivElement>(null);
   const marqueeInnerRef = React.useRef<HTMLDivElement>(null);
@@ -197,7 +198,8 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, destination, mem
     >
       <a
         className="flex items-center h-full relative cursor-pointer no-underline bg-[#1d4ed8] hover:bg-[#f8ff6c] transition-colors duration-300 px-8"
-        href={link}
+        href={onClick ? undefined : link}
+        onClick={onClick ? (e) => { e.preventDefault(); onClick(); } : undefined}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onContextMenu={handleContextMenu}

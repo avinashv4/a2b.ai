@@ -20,6 +20,9 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
+      fontFamily: {
+        'sans': ['var(--font-custom)', 'system-ui', 'arial'],
+      },
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
