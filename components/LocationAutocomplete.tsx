@@ -76,7 +76,7 @@ export default function LocationAutocomplete({
         onFocus={() => input && setShowDropdown(true)}
         onBlur={() => setTimeout(() => setShowDropdown(false), 100)}
         placeholder={placeholder}
-        className="w-full border p-2 rounded shadow"
+        className={`w-full border p-2 rounded shadow ${className}`}
         autoComplete="off"
       />
       {showDropdown && suggestions.length > 0 && (

@@ -401,6 +401,7 @@ export default function TravelPlanPage() {
   const handleConfirmItinerary = () => {
     const groupId = searchParams.get('groupId');
     window.location.href = `/itinerary-confirmation?groupId=${groupId}`;
+    window.location.href = `/itinerary-confirmation?groupId=${groupId}`;
   };
 
   const getTravelModeIcon = (mode: string) => {
