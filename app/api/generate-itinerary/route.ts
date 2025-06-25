@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '@/lib/supabaseClient';
-import { getPlaceImage, getHotelImage } from '@/lib/getLocationImage';
+import { getPlaceImage } from '@/lib/getLocationImage';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -212,7 +212,7 @@ Requirements:
     }
 
     for (const hotel of itineraryData.hotels) {
-      hotel.image = await getHotelImage(hotel.name, groupData.destination_display || groupData.destination);
+      hotel.image = await getPlaceImage(`${hotel.name} hotel`, groupData.destination_display || groupData.destination);
     }
 
     // --- Fetch real flights from SerpAPI ---

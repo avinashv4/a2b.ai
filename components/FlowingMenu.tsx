@@ -20,28 +20,26 @@ interface FlowingMenuProps {
   items?: MenuItemProps[];
 }
 
-// Function to get location image from Google Custom Search API
+// Function to get location image from Unsplash API
 const getLocationImage = async (destination: string): Promise<string> => {
   try {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_CUSTOM_SEARCH_API_KEY;
-    const cx = process.env.NEXT_PUBLIC_GOOGLE_CUSTOM_SEARCH_CX || '47e33f2e6e59d4e95';
-    
-    if (!apiKey) {
-      return `https://images.pexels.com/photos/1320684/pexels-photo-1320684.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`;
-    }
-
-    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(destination + ' travel destination')}&searchType=image&num=1`;
-    
-    const response = await fetch(searchUrl);
+    const response = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(destination)}&per_page=1&orientation=landscape`,
+      {
+        headers: {
+          'Authorization': `Client-ID ${process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY}` // Replace with your Unsplash access key
+        }
+      }
+    );
     
     if (response.ok) {
       const data = await response.json();
-      if (data.items && data.items.length > 0) {
-        return data.items[0].link;
+      if (data.results && data.results.length > 0) {
+        return data.results[0].urls.regular;
       }
     }
   } catch (error) {
-    console.error('Error fetching Google Custom Search image:', error);
+    console.error('Error fetching location image:', error);
   }
   
   // Fallback to default image
