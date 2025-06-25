@@ -3,7 +3,7 @@ const PEXELS_API_KEY = 'oLy24MqovqDuxZ56ScIq2qG8BdPppZ5lq65eOQR85IAIu88nXUU9U1OH
 export async function getLocationImage(location: string): Promise<string> {
   try {
     const response = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(location + ' historical monument')}&per_page=1&orientation=landscape`,
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(location + ' aerial view')}&per_page=1&orientation=landscape`,
       {
         headers: {
           'Authorization': process.env.NEXT_PUBLIC_PEXELS_API_KEY || PEXELS_API_KEY
