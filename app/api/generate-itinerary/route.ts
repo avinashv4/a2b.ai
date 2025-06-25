@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '@/lib/supabaseClient';
+import { getPlaceImage } from '@/lib/getLocationImage';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -20,30 +21,6 @@ interface GroupMember {
     first_name: string;
     last_name: string;
   };
-}
-
-async function getPexelsImage(query: string): Promise<string> {
-  try {
-    const response = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
-      {
-        headers: {
-          'Authorization': process.env.PEXELS_API_KEY!
-        }
-      }
-    );
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.photos && data.photos.length > 0) {
-        return data.photos[0].src.medium;
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching Pexels image:', error);
-  }
-  
-  return 'https://images.pexels.com/photos/1320684/pexels-photo-1320684.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop';
 }
 
 export async function POST(request: NextRequest) {
@@ -125,7 +102,7 @@ Please return the response in the following EXACT JSON format (no additional tex
   "itinerary": [
     {
       "date": "15",
-      "day": "Jun",
+      "day": "Jun", 
       "month": "Day 1",
       "places": [
         {
@@ -185,6 +162,11 @@ Please return the response in the following EXACT JSON format (no additional tex
   ]
 }
 
+CRITICAL DATE FORMAT REQUIREMENTS:
+- "date" must be a 2-digit day number (e.g., "15", "01", "31")
+- "day" must be a 3-letter month abbreviation (e.g., "Jun", "Dec", "Jan")
+- "month" must be "Day X" format where X is the day number (e.g., "Day 1", "Day 2", "Day 3")
+
 Requirements:
 - Create exactly 3 days of itinerary
 - Include 3-4 places per day including meals (brunch/lunch and dinner)
@@ -225,14 +207,12 @@ Requirements:
     // Enhance images with Pexels
     for (const day of itineraryData.itinerary) {
       for (const place of day.places) {
-        const searchQuery = `${place.name} ${groupData.destination}`;
-        place.image = await getPexelsImage(searchQuery);
+        place.image = await getPlaceImage(place.name, groupData.destination_display || groupData.destination);
       }
     }
 
     for (const hotel of itineraryData.hotels) {
-      const searchQuery = `${hotel.name} hotel ${groupData.destination}`;
-      hotel.image = await getPexelsImage(searchQuery);
+      hotel.image = await getPlaceImage(`${hotel.name} hotel`, groupData.destination_display || groupData.destination);
     }
 
     // --- Fetch real flights from SerpAPI ---
