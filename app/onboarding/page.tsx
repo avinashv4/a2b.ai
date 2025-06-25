@@ -39,7 +39,7 @@ const onboardingSteps: OnboardingStep[] = [
   { id: 'middleName', question: 'What\'s your middle name?', placeholder: 'Enter your middle name (optional)', type: 'text' },
   { id: 'lastName', question: 'What\'s your last name?', placeholder: 'Enter your last name', type: 'text' },
   { id: 'profilePicture', question: 'Add a profile picture', type: 'image' },
-  { id: 'dateOfBirth', question: 'When were you born?', placeholder: 'DD/MM/YYYY', type: 'date' },
+  { id: 'dateOfBirth', question: 'When were you born?', placeholder: 'MM/DD/YYYY', type: 'date' },
   { 
     id: 'mobileNumber', 
     question: 'What\'s your mobile number?', 
