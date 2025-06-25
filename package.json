@@ -78,7 +78,7 @@
   },
   "devDependencies": {
     "@types/google.maps": "^3.58.1",
-    "@types/jspdf": "^3.0.1"
+    "@types/jspdf": "^2.0.0"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.9",
