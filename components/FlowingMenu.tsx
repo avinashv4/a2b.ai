@@ -20,14 +20,14 @@ interface FlowingMenuProps {
   items?: MenuItemProps[];
 }
 
-// Function to get location image from Unsplash API
-const getLocationImage = async (destination: string): Promise<string> => {
+// Function to get location images from Unsplash API
+const getLocationImages = async (destination: string): Promise<string[]> => {
   try {
     const response = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(destination)}&per_page=1&orientation=landscape`,
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(destination)}&per_page=5&orientation=landscape`,
       {
         headers: {
-          'Authorization': `Client-ID ${process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY}` // Replace with your Unsplash access key
+          'Authorization': `Client-ID ${process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY}`
         }
       }
     );
@@ -35,15 +35,15 @@ const getLocationImage = async (destination: string): Promise<string> => {
     if (response.ok) {
       const data = await response.json();
       if (data.results && data.results.length > 0) {
-        return data.results[0].urls.regular;
+        return data.results.map((result: any) => result.urls.regular);
       }
     }
   } catch (error) {
-    console.error('Error fetching location image:', error);
+    console.error('Error fetching location images:', error);
   }
   
-  // Fallback to default image
-  return `https://images.pexels.com/photos/1320684/pexels-photo-1320684.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`;
+  // Fallback to default image repeated 5 times
+  return Array(5).fill(`https://images.pexels.com/photos/1320684/pexels-photo-1320684.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`);
 };
 
 const FlowingMenu: React.FC<FlowingMenuProps> = ({ items = [] }) => {
@@ -68,16 +68,23 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, destination, mem
   const [showContextMenu, setShowContextMenu] = React.useState(false);
   const [contextMenuPosition, setContextMenuPosition] = React.useState({ x: 0, y: 0 });
   const [showLeaveConfirm, setShowLeaveConfirm] = React.useState(false);
-  const [dynamicImage, setDynamicImage] = React.useState(image);
+  const [dynamicImages, setDynamicImages] = React.useState<string[]>([]);
 
   const animationDefaults = { duration: 0.6, ease: "expo" };
 
-  // Load dynamic image when component mounts or destination changes
+  // Load dynamic images when component mounts or destination changes
   React.useEffect(() => {
-    if (destination) {
-      getLocationImage(destination).then(setDynamicImage);
-    }
-  }, [destination]);
+    const loadImages = async () => {
+      if (destination) {
+        const images = await getLocationImages(destination);
+        setDynamicImages(images);
+      } else {
+        // If no destination, use the default image repeated 5 times
+        setDynamicImages(Array(5).fill(image));
+      }
+    };
+    loadImages();
+  }, [destination, image]);
 
   const findClosestEdge = (
     mouseX: number,
@@ -129,19 +136,26 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, destination, mem
     );
   };
 
+  // Don't render marquee content until we have images
   const repeatedMarqueeContent = React.useMemo(() => {
-    return Array.from({ length: 10 }).map((_, idx) => (
-      <React.Fragment key={idx}>
+    if (dynamicImages.length === 0) return null;
+
+    // Create a sequence of text and images that will be repeated
+    const sequence = dynamicImages.map((imageUrl, index) => (
+      <React.Fragment key={`original-${index}`}>
         <span className="text-[#000000] uppercase font-normal text-[4vh] leading-[1.2] p-[1vh_1vw_0]">
           {text}
         </span>
         <div
-          className="w-[200px] h-[8vh] my-[2em] mx-[2vw] p-[1em_0] rounded-[50px] bg-cover bg-center"
-          style={{ backgroundImage: `url(${dynamicImage})` }}
+          className="w-[400px] h-[8vh] my-[2em] mx-[2vw] p-[1em_0] rounded-[50px] bg-cover bg-center"
+          style={{ backgroundImage: `url(${imageUrl})` }}
         />
       </React.Fragment>
     ));
-  }, [text, dynamicImage]);
+
+    // Repeat the sequence multiple times to ensure smooth continuous scrolling
+    return [...sequence, ...sequence, ...sequence];
+  }, [text, dynamicImages]);
   
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
