@@ -39,7 +39,7 @@ const onboardingSteps: OnboardingStep[] = [
   { id: 'middleName', question: 'What\'s your middle name?', placeholder: 'Enter your middle name (optional)', type: 'text' },
   { id: 'lastName', question: 'What\'s your last name?', placeholder: 'Enter your last name', type: 'text' },
   { id: 'profilePicture', question: 'Add a profile picture', type: 'image' },
-  { id: 'dateOfBirth', question: 'When were you born?', placeholder: 'MM/DD/YYYY', type: 'date' },
+  { id: 'dateOfBirth', question: 'When were you born?', placeholder: 'YYYY/MM/DD', type: 'date' },
   { 
     id: 'mobileNumber', 
     question: 'What\'s your mobile number?', 
@@ -166,17 +166,25 @@ export default function OnboardingPage() {
   const validateDate = (dateStr: string): boolean => {
     if (dateStr.length !== 10) return false;
     
-    const [day, month, year] = dateStr.split('/').map(Number);
-    if (!day || !month || !year) return false;
+    const [year, month, day] = dateStr.split('/').map(Number);
+    if (!year || !month || !day) return false;
+    
+    // Check if year is valid (e.g., not in future and reasonable past)
+    const currentYear = new Date().getFullYear();
+    if (year > currentYear || year < 1900) return false;
+    
+    // Check if month is valid (1-12)
+    if (month < 1 || month > 12) return false;
+    
+    // Check if day is valid for the given month and year
+    const daysInMonth = new Date(year, month, 0).getDate();
+    if (day < 1 || day > daysInMonth) return false;
     
     const inputDate = new Date(year, month - 1, day);
     const today = new Date();
     
-    // Check if date is valid and in the past
-    return inputDate.getTime() < today.getTime() && 
-           inputDate.getFullYear() === year &&
-           inputDate.getMonth() === month - 1 &&
-           inputDate.getDate() === day;
+    // Check if date is in the past
+    return inputDate.getTime() < today.getTime();
   };
 
   const handleNext = async () => {
@@ -227,6 +235,19 @@ export default function OnboardingPage() {
     }, 300);
   };
 
+  const handleBack = () => {
+    if (currentStep === 0) return;
+    
+    // Transition to previous step
+    setIsVisible(false);
+    setTimeout(() => {
+      setCurrentStep(prev => prev - 1);
+      setTimeout(() => {
+        setIsVisible(true);
+      }, 50);
+    }, 300);
+  };
+
   // Helper to save profile
   const saveProfile = async (profileAnswers: Record<string, string>) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -267,18 +288,20 @@ export default function OnboardingPage() {
   const formatDateInput = (value: string) => {
     const digits = value.replace(/\D/g, '');
     
-    if (digits.length <= 2) {
+    if (digits.length <= 4) {
       return digits;
-    } else if (digits.length <= 4) {
-      return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    } else if (digits.length <= 6) {
+      return `${digits.slice(0, 4)}/${digits.slice(4)}`;
     } else {
-      return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
+      return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6, 8)}`;
     }
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatDateInput(e.target.value);
-    setCurrentAnswer(formatted);
+    if (formatted.length <= 10) {
+      setCurrentAnswer(formatted);
+    }
   };
 
   const handleCountrySelect = (countryCode: string) => {
@@ -300,16 +323,27 @@ export default function OnboardingPage() {
   const renderInput = () => {
     if (currentStepData.type === 'image') {
       return (
-        <div className="space-y-6">
+        <div className="space-y-6 flex flex-col items-center">
           {/* Profile Picture Preview */}
-          <div className="flex justify-center">
+          <div className="relative">
             <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100 border-4 border-gray-200">
               {profileImage ? (
-                <img 
-                  src={profileImage} 
-                  alt="Profile preview" 
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  <img 
+                    src={profileImage} 
+                    alt="Profile preview" 
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    onClick={() => setProfileImage(null)}
+                    className="absolute -top-1 -right-1 w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center shadow-md transition-colors"
+                    title="Remove photo"
+                  >
+                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <User className="w-12 h-12 text-gray-400" />
@@ -318,12 +352,12 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Upload Area */}
+          {/* Upload Area - Fixed height to prevent layout shift */}
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+            className={`w-full h-[200px] border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 flex flex-col items-center justify-center ${
               isDragging 
                 ? 'border-blue-500 bg-blue-50' 
                 : 'border-gray-300 hover:border-gray-400'
@@ -356,17 +390,19 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Skip Button */}
-          <div className="flex justify-center pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="px-8 py-2 rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200"
-              onClick={handleNext}
-            >
-              Skip
-            </Button>
-          </div>
+          {/* Skip Button - Only show when no profile picture */}
+          {!profileImage && (
+            <div className="pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="px-8 py-2 rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200"
+                onClick={handleNext}
+              >
+                Skip
+              </Button>
+            </div>
+          )}
         </div>
       );
     }
@@ -480,74 +516,87 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
-      <div className="w-full max-w-2xl">
-        {/* Logo */}
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center space-x-3 mb-4">
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Logo - Fixed position at the top */}
+      <div className="w-full pt-8 pb-12">
+        <div className="text-center">
+          <div className="flex items-center justify-center space-x-3">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
               <Plane className="w-7 h-7 text-white" />
             </div>
             <span className="text-3xl font-bold text-gray-900">a2b.ai</span>
           </div>
         </div>
+      </div>
 
-        {/* Progress Bar */}
-        <div className="mb-12">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-500">Step {currentStep + 1} of {onboardingSteps.length}</span>
-            <span className="text-sm text-gray-500">{Math.round(((currentStep + 1) / onboardingSteps.length) * 100)}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${((currentStep + 1) / onboardingSteps.length) * 100}%` }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Question Card */}
-        <div className={`transition-all duration-300 ease-in-out transform ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}>
-          <div className="bg-white rounded-3xl card-shadow p-8 md:p-12">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                {currentStepData?.question}
-              </h1>
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto px-4">
+        <div className="max-w-2xl mx-auto pb-8">
+          {/* Progress Bar */}
+          <div className="mb-12">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-500">Step {currentStep + 1} of {onboardingSteps.length}</span>
+              <span className="text-sm text-gray-500">{Math.round(((currentStep + 1) / onboardingSteps.length) * 100)}%</span>
             </div>
-            <div className="space-y-6">
-              {renderInput()}
-              <div className="flex justify-center">
-                <Button
-                  onClick={handleNext}
-                  disabled={!canProceed()}
-                  className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLastStep ? (
-                    <>
-                      <Check className="w-5 h-5 mr-2" />
-                      Complete
-                    </>
-                  ) : (
-                    <>
-                      Next
-                      <ArrowRight className="w-5 h-5 ml-2" />
-                    </>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${((currentStep + 1) / onboardingSteps.length) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Question Card */}
+          <div className={`transition-all duration-300 ease-in-out ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          }`}>
+            <div className="bg-white rounded-3xl card-shadow p-8 md:p-12">
+              <div className="text-center mb-8">
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                  {currentStepData?.question}
+                </h1>
+              </div>
+              <div className="space-y-6">
+                {renderInput()}
+                <div className="flex justify-center space-x-4">
+                  {currentStep > 0 && (
+                    <Button
+                      onClick={handleBack}
+                      className="h-14 px-8 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200 hover:scale-105"
+                    >
+                      Back
+                    </Button>
                   )}
-                </Button>
+                  <Button
+                    onClick={handleNext}
+                    disabled={!canProceed()}
+                    className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLastStep ? (
+                      <>
+                        <Check className="w-5 h-5 mr-2" />
+                        Complete
+                      </>
+                    ) : (
+                      <>
+                        Next
+                        <ArrowRight className="w-5 h-5 ml-2" />
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Privacy Notice */}
-        <div className={`text-center mt-6 transition-all duration-300 ease-in-out ${
-          isVisible ? 'opacity-100' : 'opacity-0'
-        }`}>
-          <p className="text-sm text-gray-500">
-            This information will be used for travel booking purposes if you decide to proceed further.
-          </p>
+          {/* Privacy Notice */}
+          <div className={`text-center mt-6 transition-all duration-300 ease-in-out ${
+            isVisible ? 'opacity-100' : 'opacity-0'
+          }`}>
+            <p className="text-sm text-red-500">
+              *This information will be used for travel booking purposes if you decide to proceed further.
+            </p>
+          </div>
         </div>
       </div>
     </div>

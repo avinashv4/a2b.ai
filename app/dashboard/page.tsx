@@ -253,10 +253,12 @@ export default function DashboardPage() {
                   onClick={() => setShowNotifications(!showNotifications)}
                   className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <Bell className="w-6 h-6" />
-                  {notifications.some(n => n.unread) && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-                  )}
+                  <div className="relative">
+                    <Bell className="w-6 h-6" />
+                    {notifications.some(n => n.unread) && (
+                      <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white"></span>
+                    )}
+                  </div>
                 </button>
                 
                 {showNotifications && (
