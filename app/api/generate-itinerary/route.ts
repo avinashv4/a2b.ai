@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '@/lib/supabaseClient';
 import { getPlaceImage } from '@/lib/getLocationImage';
+import { getPlaceCoordinates } from '@/lib/utils';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -21,6 +22,29 @@ interface GroupMember {
     first_name: string;
     last_name: string;
   };
+}
+
+interface Place {
+  id: string;
+  name: string;
+  description: string;
+  duration: string;
+  walkTime?: string;
+  distance?: string;
+  travelMode?: string;
+  type?: string;
+  visitTime?: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
+interface DayItinerary {
+  date: string;
+  day: string;
+  month: string;
+  places: Place[];
 }
 
 export async function POST(request: NextRequest) {
@@ -114,11 +138,7 @@ Please return the response in the following EXACT JSON format (no additional tex
           "distance": "1.2 km",
           "travelMode": "walk",
           "type": "monument",
-          "visitTime": "10:00 AM",
-          "coordinates": {
-            "lat": 48.8584,
-            "lng": 2.2945
-          }
+          "visitTime": "10:00 AM"
         },
         {
           "id": "p2",
@@ -129,11 +149,7 @@ Please return the response in the following EXACT JSON format (no additional tex
           "distance": "800 m",
           "travelMode": "walk",
           "type": "food",
-          "visitTime": "1:00 PM",
-          "coordinates": {
-            "lat": 48.8566,
-            "lng": 2.3522
-          }
+          "visitTime": "1:00 PM"
         }
       ]
     }
@@ -146,34 +162,20 @@ Please return the response in the following EXACT JSON format (no additional tex
       "price": "$180/night",
       "amenities": ["Free WiFi", "Breakfast", "Gym", "Spa"]
     }
-  ],
-  "mapLocations": [
-    {
-      "id": "p1",
-      "name": "Attraction Name",
-      "lat": 48.8584,
-      "lng": 2.2945,
-      "day": "Day 1",
-      "type": "monument",
-      "visitTime": "10:00 AM",
-      "duration": "2 hours",
-      "walkTimeFromPrevious": "15 min"
-    }
   ]
 }
 
 CRITICAL DATE FORMAT REQUIREMENTS:
 - "date" must be a 2-digit day number (e.g., "15", "01", "31")
-- "day" must be a 3-letter month abbreviation (e.g., "Jun", "Dec", "Jan")
-- "month" must be "Day X" format where X is the day number (e.g., "Day 1", "Day 2", "Day 3")
+- "day" must be the full day name (e.g., "Monday", "Tuesday", "Wednesday")
+- "month" must be a 3-letter month abbreviation (e.g., "Jun", "Dec", "Jan")
 
 Requirements:
 - Create exactly 3 days of itinerary
 - Include 3-4 places per day including meals (brunch/lunch and dinner)
 - For each place, specify the type: "monument", "museum", "park", "food", "shopping", "photo_spot", "historical", "entertainment", "cultural", "nature"
 - Include specific visit times (e.g., "10:00 AM", "2:30 PM")
-- Add realistic coordinates for each location
-- Include walking/transport times between locations
+- Add walking/transport times between locations
 - Add meal suggestions for brunch/lunch and dinner each day
 - Hotels should have breakfast included, so focus on brunch/lunch and dinner
 - Provide detailed descriptions explaining why each place was chosen
@@ -204,12 +206,35 @@ Requirements:
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
     }
 
-    // Enhance images with Pexels
+    // Enhance images and coordinates with Pexels and Google Places
     for (const day of itineraryData.itinerary) {
       for (const place of day.places) {
+        // Get image
         place.image = await getPlaceImage(place.name, groupData.destination_display || groupData.destination);
+        
+        // Get accurate coordinates
+        const coordinates = await getPlaceCoordinates(place.name, groupData.destination_display || groupData.destination);
+        if (coordinates) {
+          place.coordinates = coordinates;
+        }
+        console.log('Place:', place.name, 'Coordinates:', place.coordinates);
       }
     }
+
+    // Format map locations from the itinerary
+    itineraryData.mapLocations = itineraryData.itinerary.flatMap((day: DayItinerary) =>
+      day.places.map((place: Place) => ({
+        id: place.id,
+        name: place.name,
+        lat: place.coordinates?.lat || 0,
+        lng: place.coordinates?.lng || 0,
+        day: day.month,
+        type: place.type,
+        visitTime: place.visitTime,
+        duration: place.duration,
+        walkTimeFromPrevious: place.walkTime
+      }))
+    );
 
     for (const hotel of itineraryData.hotels) {
       hotel.image = await getPlaceImage(`${hotel.name} hotel`, groupData.destination_display || groupData.destination);

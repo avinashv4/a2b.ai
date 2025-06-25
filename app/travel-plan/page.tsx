@@ -26,6 +26,7 @@ import {
   Edit3,
   Car,
   Train,
+  Ship,
   BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,10 @@ interface Place {
   type?: string;
   visitTime?: string;
   voted?: 'accept' | 'deny' | null;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
 }
 
 interface DayItinerary {
@@ -120,6 +125,7 @@ export default function TravelPlanPage() {
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileSettingsRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<{ centerMapAt: (lat: number, lng: number) => void }>(null);
 
   useEffect(() => {
     const groupId = searchParams.get('groupId');
@@ -182,7 +188,7 @@ export default function TravelPlanPage() {
           .from('group_members')
           .select(`
             user_id,
-            regenerate_vote,
+            regenerate,
             profiles!group_members_user_id_fkey(first_name, last_name, profile_picture)
           `)
           .eq('group_id', groupId);
@@ -193,12 +199,13 @@ export default function TravelPlanPage() {
           setTotalMembers(membersData.length);
           
           // Count regenerate votes
-          const votedCount = membersData.filter(m => m.regenerate_vote).length;
+          const votedCount = membersData.filter(m => m.regenerate).length;
           setRegenerateVotes(votedCount);
           
           // Check if current user has voted
-          const currentUserMember = membersData.find(m => m.user_id === user.id);
-          setHasVotedRegenerate(currentUserMember?.regenerate_vote || false);
+          const { data } = await supabase.auth.getUser();
+          const currentUserMember = membersData.find(m => m.user_id === data.user?.id);
+          setHasVotedRegenerate(currentUserMember?.regenerate || false);
           
           const formattedMembers = membersData.map((m: any) => ({
             name: `${m.profiles.first_name} ${m.profiles.last_name}`,
@@ -327,8 +334,8 @@ export default function TravelPlanPage() {
     
     setRegenerating(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return;
       
       const groupId = searchParams.get('groupId');
       if (!groupId) return;
@@ -336,7 +343,7 @@ export default function TravelPlanPage() {
       const response = await fetch('/api/regenerate-itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, userId: user.id }),
+        body: JSON.stringify({ groupId, userId: data.user.id }),
       });
       
       const result = await response.json();
@@ -346,8 +353,21 @@ export default function TravelPlanPage() {
         setRegenerateVotes(result.votedMembers);
         
         if (result.regenerated) {
-          // Refresh the page to show new itinerary
-          window.location.reload();
+          // If all members voted and itinerary was regenerated, fetch the new itinerary
+          const { data: groupData, error: groupError } = await supabase
+            .from('travel_groups')
+            .select('itinerary')
+            .eq('group_id', groupId)
+            .single();
+
+          if (!groupError && groupData?.itinerary) {
+            setItineraryData(groupData.itinerary);
+            setHasVotedRegenerate(false);
+            setRegenerateVotes(0);
+          } else {
+            // If there was an error fetching the new itinerary, reload the page
+            window.location.reload();
+          }
         }
       }
     } catch (error) {
@@ -473,6 +493,24 @@ export default function TravelPlanPage() {
 
   const { itinerary, flights, hotels, mapLocations } = itineraryData;
 
+  // Fallback: reconstruct mapLocations from itinerary if missing or empty
+  const computedMapLocations =
+    mapLocations && mapLocations.length > 0
+      ? mapLocations
+      : itinerary.flatMap((day) =>
+          day.places.map((place) => ({
+            id: place.id,
+            name: place.name,
+            lat: place.coordinates?.lat || 0,
+            lng: place.coordinates?.lng || 0,
+            day: day.month,
+            type: place.type,
+            visitTime: place.visitTime,
+            duration: place.duration,
+            walkTimeFromPrevious: place.walkTime,
+          }))
+        );
+
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, isExternal: true, href: '/dashboard' },
     { id: 'overview', label: 'Trip Overview', icon: MapPin },
@@ -518,105 +556,9 @@ export default function TravelPlanPage() {
         <div id="flights">{renderFlightsContent()}</div>
         <div id="hotels">{renderHotelsContent()}</div>
         <div id="itinerary">{renderItineraryContent()}</div>
-        {/* Add sections for each day */}
-        {itinerary.map((day) => (
-          <div key={day.date} id={day.date}>
-            {renderDayContent(day)}
-          </div>
-        ))}
       </div>
     );
   };
-
-  const renderDayContent = (day: DayItinerary) => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">{day.month}</h2>
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 space-y-6">
-          {day.places.map((place, index) => (
-            <div key={place.id}>
-              <div className="bg-gray-50 rounded-xl p-6">
-                <div className="flex space-x-4">
-                  <div className="w-24 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                    <img
-                      src={place.image}
-                      alt={place.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg">{getTypeIcon(place.type || 'attraction')}</span>
-                        <div>
-                          <h4 className="text-base font-semibold text-gray-900">{place.name}</h4>
-                          <div className="flex items-center space-x-2 text-xs text-gray-500">
-                            <span className="bg-gray-200 px-2 py-1 rounded-full">{getTypeLabel(place.type || 'attraction')}</span>
-                            {place.visitTime && <span>Visit at {place.visitTime}</span>}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex space-x-1">
-                        <Button
-                          size="sm"
-                          onClick={() => handleVote(itinerary.findIndex(d => d.date === day.date), place.id, 'accept')}
-                          className={`w-6 h-6 rounded-full p-0 transition-colors ${
-                            place.voted === 'accept' 
-                              ? 'bg-green-600 text-white' 
-                              : 'bg-green-100 hover:bg-green-200 text-green-600'
-                          }`}
-                          onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
-                          onMouseLeave={handleMouseLeave}
-                        >
-                          <Check className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleVote(itinerary.findIndex(d => d.date === day.date), place.id, 'deny')}
-                          className={`w-6 h-6 rounded-full p-0 transition-colors ${
-                            place.voted === 'deny' 
-                              ? 'bg-red-600 text-white' 
-                              : 'bg-red-100 hover:bg-red-200 text-red-600'
-                          }`}
-                          onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
-                          onMouseLeave={handleMouseLeave}
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-600 mb-2">{place.description}</p>
-                    <div className="flex items-center space-x-3 text-xs text-gray-500">
-                      <div className="flex items-center space-x-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{place.duration}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Connection line and travel info */}
-              {index < day.places.length - 1 && place.walkTime && (
-                <div className="flex items-center justify-center py-4">
-                  <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-full">
-                    <div className="w-1 h-4 border-l border-dashed border-gray-400"></div>
-                    <div className="flex items-center space-x-1 text-xs text-gray-600">
-                      {getTravelModeIcon(place.travelMode || 'walk')}
-                      <span>{place.walkTime}</span>
-                      <span>•</span>
-                      <span>{place.distance}</span>
-                    </div>
-                    <div className="w-1 h-4 border-l border-dashed border-gray-400"></div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 
   const renderOverviewContent = () => (
     <div className="space-y-8">
@@ -660,10 +602,14 @@ export default function TravelPlanPage() {
                 </button>
               </div>
             )}
-            <p className="text-lg text-gray-600 mt-1">June 15-17, 2024 • 3 Days</p>
+            <p className="text-lg text-gray-600 mt-1">
+              {itinerary[0]?.month} {itinerary[0]?.date}-{itinerary[itinerary.length - 1]?.date}, 2024 • {itinerary.length} Days
+            </p>
           </div>
           <div className="text-right">
-            <p className="text-xl md:text-2xl font-bold text-blue-600">$2,450</p>
+            <p className="text-xl md:text-2xl font-bold text-blue-600">
+              {flights?.[0]?.price ? `${flights[0].price} - ${flights[flights.length - 1]?.price}` : 'Price varies'}
+            </p>
             <p className="text-sm text-gray-600">estimated budget per person</p>
           </div>
         </div>
@@ -788,7 +734,7 @@ export default function TravelPlanPage() {
         {(hotels || []).map((hotel) => (
           <div key={hotel.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <div className="flex space-x-4">
-              <div className="w-32 h-24 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
+              <div className="w-40 h-34 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
                 <img
                   src={hotel.image}
                   alt={hotel.name}
@@ -837,8 +783,8 @@ export default function TravelPlanPage() {
                 className="w-full p-6 text-left hover:bg-gray-50 transition-colors flex items-center justify-between"
               >
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{day.month}</h3>
-                  <p className="text-sm text-gray-600">{day.day} {day.date}, 2024</p>
+                  <h3 className="text-lg font-semibold text-gray-900">Day {dayIndex + 1}</h3>
+                  <p className="text-sm text-gray-600">{day.day}, {day.month} {day.date} 2024</p>
                 </div>
                 {dayExpandedStates[day.date] ? (
                   <ChevronUp className="w-5 h-5 text-gray-400" />
@@ -852,10 +798,16 @@ export default function TravelPlanPage() {
               }`}>
                 <div className="p-6 pt-0 space-y-6">
                   {day.places.map((place, index) => (
-                    <div key={place.id}>
-                      <div className="bg-gray-50 rounded-xl p-6">
+                    <div key={place.id}
+                      onMouseEnter={() => {
+                        if (place.coordinates?.lat && place.coordinates?.lng) {
+                          mapRef.current?.centerMapAt(place.coordinates.lat, place.coordinates.lng);
+                        }
+                      }}
+                    >
+                      <div className="bg-gray-50 rounded-xl p-4">
                         <div className="flex space-x-4">
-                          <div className="w-24 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                          <div className="w-40 h-32 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
                             <img
                               src={place.image}
                               alt={place.name}
@@ -1022,10 +974,11 @@ export default function TravelPlanPage() {
               </div>
               <div className="flex-1">
                 <InteractiveMap
-                  locations={mapLocations}
-                  center={{ lat: 48.8566, lng: 2.3522 }}
+                  locations={computedMapLocations}
+                  center={computedMapLocations[0] ? { lat: computedMapLocations[0].lat, lng: computedMapLocations[0].lng } : { lat: 48.8566, lng: 2.3522 }}
                   zoom={12}
                   className="w-full h-full"
+                  ref={mapRef}
                 />
               </div>
             </div>
@@ -1174,8 +1127,8 @@ export default function TravelPlanPage() {
                       } transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                       style={{ transitionDelay: `${150 + idx * 80}ms` }}
                     >
-                      <DateIcon month={day.day} date={day.date} className="w-8" />
-                      <span className="font-medium text-sm">{day.month}</span>
+                      <DateIcon month={day.month} date={day.date} className="w-8" />
+                      <span className="font-medium text-sm">Day {idx + 1}</span>
                     </button>
                   ))}
                 </div>
@@ -1260,10 +1213,11 @@ export default function TravelPlanPage() {
       {/* Map Section */}
       <div className="hidden md:block flex-1 bg-gray-100 border-l border-gray-200 sticky top-0 h-screen">
         <InteractiveMap
-          locations={mapLocations}
-          center={mapLocations[0] ? { lat: mapLocations[0].lat, lng: mapLocations[0].lng } : { lat: 48.8566, lng: 2.3522 }}
+          locations={computedMapLocations}
+          center={computedMapLocations[0] ? { lat: computedMapLocations[0].lat, lng: computedMapLocations[0].lng } : { lat: 48.8566, lng: 2.3522 }}
           zoom={12}
           className="w-full h-full"
+          ref={mapRef}
         />
       </div>
 
@@ -1301,7 +1255,7 @@ export default function TravelPlanPage() {
             top: tooltipPosition.y - 10,
           }}
         >
-          {sidebarItems.find(item => item.id === hoveredTooltip)?.label || 
+          sidebarItems.find(item => item.id === hoveredTooltip)?.label || 
            itinerary.find(day => day.date === hoveredTooltip)?.month ||
            hoveredTooltip.charAt(0).toUpperCase() + hoveredTooltip.slice(1)}
         </div>

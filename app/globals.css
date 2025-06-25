@@ -129,3 +129,8 @@
   font-weight: 700 !important;
   color: #111827 !important; /* Tailwind text-gray-900 */
 }
+
+/* Hide the close button in Google Maps InfoWindows */
+.gm-ui-hover-effect {
+  display: none !important;
+}

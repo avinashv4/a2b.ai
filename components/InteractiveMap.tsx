@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import { MapPin } from 'lucide-react';
 import { Loader } from '@googlemaps/js-api-loader';
 
@@ -27,16 +27,28 @@ declare global {
   }
 }
 
-const InteractiveMap: React.FC<InteractiveMapProps> = ({
-  locations,
-  center = { lat: 48.8566, lng: 2.3522 }, // Default to Paris
-  zoom = 12,
-  className = ''
-}) => {
+const InteractiveMap = forwardRef(function InteractiveMap(
+  {
+    locations,
+    center = { lat: 48.8566, lng: 2.3522 },
+    zoom = 12,
+    className = ''
+  }: InteractiveMapProps,
+  ref
+) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    centerMapAt: (lat: number, lng: number) => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.setCenter({ lat, lng });
+        mapInstanceRef.current.setZoom(15);
+      }
+    }
+  }));
 
   useEffect(() => {
     const loader = new Loader({
@@ -70,6 +82,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   }, [isLoaded, center, zoom]);
 
   useEffect(() => {
+    console.log('isLoaded:', isLoaded, 'mapInstanceRef.current:', !!mapInstanceRef.current, 'locations:', locations);
     if (mapInstanceRef.current && locations.length > 0) {
       // Clear existing markers
       markersRef.current.forEach(marker => marker.setMap(null));
@@ -77,19 +90,20 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
       // Add new markers
       locations.forEach((location, index) => {
+        console.log('Creating marker at', location.lat, location.lng, location.name);
         const marker = new window.google.maps.Marker({
           position: { lat: location.lat, lng: location.lng },
           map: mapInstanceRef.current,
           title: location.name,
           label: {
             text: (index + 1).toString(),
-            color: 'white',
+            color: '#1E40AF',
             fontWeight: 'bold'
           },
           icon: {
             path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 20,
-            fillColor: '#3B82F6',
+            scale: 15,
+            fillColor: '#f6f5f5',
             fillOpacity: 1,
             strokeColor: '#1E40AF',
             strokeWeight: 2
@@ -111,26 +125,30 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
           `
         });
 
-        marker.addListener('click', () => {
+        marker.addListener('mouseover', () => {
           infoWindow.open(mapInstanceRef.current, marker);
+        });
+
+        marker.addListener('mouseout', () => {
+          infoWindow.close();
         });
 
         markersRef.current.push(marker);
       });
 
-      // Fit map to show all markers
-      if (locations.length > 1) {
-        const bounds = new window.google.maps.LatLngBounds();
-        locations.forEach(location => {
-          bounds.extend({ lat: location.lat, lng: location.lng });
-        });
-        mapInstanceRef.current.fitBounds(bounds);
-      } else if (locations.length === 1) {
-        mapInstanceRef.current.setCenter({ lat: locations[0].lat, lng: locations[0].lng });
-        mapInstanceRef.current.setZoom(15);
-      }
+      // Commented out to allow manual centering to persist
+      // if (locations.length > 1) {
+      //   const bounds = new window.google.maps.LatLngBounds();
+      //   locations.forEach(location => {
+      //     bounds.extend({ lat: location.lat, lng: location.lng });
+      //   });
+      //   mapInstanceRef.current.fitBounds(bounds);
+      // } else if (locations.length === 1) {
+      //   mapInstanceRef.current.setCenter({ lat: locations[0].lat, lng: locations[0].lng });
+      //   mapInstanceRef.current.setZoom(15);
+      // }
     }
-  }, [locations]);
+  }, [locations, isLoaded]);
 
   if (!isLoaded) {
     return (
@@ -157,7 +175,8 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       )}
     </div>
   );
-};
+});
+
 // Helper function to get type icon (same as in travel-plan page)
 function getTypeIcon(type: string): string {
   switch (type) {

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     // Update user's regenerate vote
     const { error: voteError } = await supabase
       .from('group_members')
-      .update({ regenerate_vote: true })
+      .update({ regenerate: true })
       .eq('group_id', groupId)
       .eq('user_id', userId);
 
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     // Check if all members have voted
     const { data: allMembers, error: membersError } = await supabase
       .from('group_members')
-      .select('user_id, regenerate_vote')
+      .select('user_id, regenerate')
       .eq('group_id', groupId);
 
     if (membersError) {
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     const totalMembers = allMembers.length;
-    const votedMembers = allMembers.filter(member => member.regenerate_vote).length;
+    const votedMembers = allMembers.filter(member => member.regenerate).length;
 
     // If all members have voted, regenerate the itinerary
     if (votedMembers === totalMembers) {
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       // Reset all regenerate votes
       const { error: resetError } = await supabase
         .from('group_members')
-        .update({ regenerate_vote: false })
+        .update({ regenerate: false })
         .eq('group_id', groupId);
 
       if (resetError) {
