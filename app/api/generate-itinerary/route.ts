@@ -217,6 +217,14 @@ General:
     const response = await result.response;
     const text = response.text();
 
+    // Store the raw API response
+    const rawApiResponse = {
+      prompt: prompt,
+      response: text,
+      timestamp: new Date().toISOString(),
+      model: 'gemini-2.5-flash'
+    };
+
     // Parse the JSON response
     let itineraryData;
     try {
@@ -347,7 +355,10 @@ General:
     // Save the final itinerary to the database
     const { error: updateError } = await supabase
       .from('travel_groups')
-      .update({ itinerary: itineraryData })
+      .update({ 
+        itinerary: itineraryData,
+        most_recent_api_call: rawApiResponse
+      })
       .eq('group_id', groupId);
 
     if (updateError) {

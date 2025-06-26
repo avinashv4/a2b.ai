@@ -123,8 +123,12 @@ export default function TravelPlanPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [placeVotes, setPlaceVotes] = useState<Record<string, string>>({});
+  const [allPlacesVoted, setAllPlacesVoted] = useState(false);
+  const [canVoteRegenerate, setCanVoteRegenerate] = useState(false);
   const [regenerateVotes, setRegenerateVotes] = useState(0);
   const [totalMembers, setTotalMembers] = useState(0);
+  const [allMembersVotedOnPlaces, setAllMembersVotedOnPlaces] = useState(0);
   const [hasVotedRegenerate, setHasVotedRegenerate] = useState(false);
   const [showMobileMap, setShowMobileMap] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -220,6 +224,20 @@ export default function TravelPlanPage() {
           const { data } = await supabase.auth.getUser();
           const currentUserMember = membersData.find(m => m.user_id === data.user?.id);
           setHasVotedRegenerate(currentUserMember?.regenerate || false);
+          
+          // Check current user's voting status
+          if (currentUserMember) {
+            setPlaceVotes(currentUserMember.place_votes || {});
+            setAllPlacesVoted(currentUserMember.all_places_voted || false);
+            setCanVoteRegenerate(currentUserMember.all_places_voted || false);
+            setHasVotedRegenerate(currentUserMember.regenerate_vote || false);
+          }
+          
+          // Count regenerate votes and members who voted on all places
+          const regenerateCount = membersData.filter(m => m.regenerate_vote).length;
+          const allPlacesVotedCount = membersData.filter(m => m.all_places_voted).length;
+          setRegenerateVotes(regenerateCount);
+          setAllMembersVotedOnPlaces(allPlacesVotedCount);
           
           const formattedMembers = membersData.map((m: any) => ({
             name: `${m.profiles.first_name} ${m.profiles.last_name}`,
@@ -343,6 +361,34 @@ export default function TravelPlanPage() {
     }
   };
 
+  const handlePlaceVote = async (placeId: string, vote: 'accept' | 'reject') => {
+    const groupId = searchParams.get('groupId');
+    const { data } = await supabase.auth.getUser();
+    if (!data.user?.id || !groupId) return;
+    
+    try {
+      const response = await fetch('/api/vote-place', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId,
+          userId: data.user.id,
+          placeId,
+          vote
+        })
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        setPlaceVotes(prev => ({ ...prev, [placeId]: vote }));
+        setAllPlacesVoted(result.allPlacesVoted);
+        setCanVoteRegenerate(result.allPlacesVoted);
+      }
+    } catch (error) {
+      console.error('Error voting on place:', error);
+    }
+  };
+
   const handleRegenerateVote = async () => {
     if (hasVotedRegenerate || regenerating) return;
     
@@ -364,7 +410,8 @@ export default function TravelPlanPage() {
       
       if (result.success) {
         setHasVotedRegenerate(true);
-        setRegenerateVotes(result.votedMembers);
+        setRegenerateVotes(result.regenerateVotes);
+        setAllMembersVotedOnPlaces(result.allPlacesVotedMembers);
         
         if (result.regenerated) {
           // If all members voted and itinerary was regenerated, fetch the new itinerary
@@ -666,6 +713,43 @@ export default function TravelPlanPage() {
           <BookOpen className="w-4 h-4 mr-2" />
           Confirm Itinerary
         </Button>
+        <Button
+          onClick={handleRegenerateVote}
+          disabled={!canVoteRegenerate || hasVotedRegenerate}
+          className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 ${
+            !canVoteRegenerate
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : hasVotedRegenerate
+              ? 'bg-green-600 hover:bg-green-700 text-white' 
+              : 'bg-orange-600 hover:bg-orange-700 text-white'
+          }`}
+          title={!canVoteRegenerate ? "Vote on all places first" : ""}
+        >
+          {hasVotedRegenerate ? (
+            <div className="flex items-center space-x-2">
+              <Check className="w-5 h-5" />
+              <span>Voted to Regenerate</span>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <span>Vote to Regenerate Itinerary</span>
+              {regenerateVotes > 0 && (
+                <span className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-xs">
+                  {regenerateVotes}/{totalMembers}
+                </span>
+              )}
+            </div>
+          )}
+        </Button>
+      </div>
+
+      {/* Voting Progress */}
+      <div className="text-center text-sm text-gray-600 space-y-1">
+        <p>Places voted: {Object.keys(placeVotes).length}/{itineraryData?.itinerary?.reduce((total: number, day: any) => total + day.places.length, 0) || 0}</p>
+        <p>Members ready: {allMembersVotedOnPlaces}/{totalMembers}</p>
+        {regenerateVotes > 0 && (
+          <p>Regenerate votes: {regenerateVotes}/{totalMembers}</p>
+        )}
       </div>
     </div>
   );
@@ -826,33 +910,28 @@ export default function TravelPlanPage() {
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex space-x-1">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleVote(dayIndex, place.id, 'accept')}
-                                    className={`w-6 h-6 rounded-full p-0 transition-colors ${
-                                      place.voted === 'accept' 
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs text-gray-500">Vote:</span>
+                                  <button 
+                                    onClick={() => handlePlaceVote(place.id, 'accept')}
+                                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                                      placeVotes[place.id] === 'accept' 
                                         ? 'bg-green-600 text-white' 
-                                        : 'bg-green-100 hover:bg-green-200 text-green-600'
+                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
                                     }`}
-                                    onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
-                                    onMouseLeave={handleMouseLeave}
                                   >
-                                    <Check className="w-3 h-3" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleVote(dayIndex, place.id, 'deny')}
-                                    className={`w-6 h-6 rounded-full p-0 transition-colors ${
-                                      place.voted === 'deny' 
+                                    Accept
+                                  </button>
+                                  <button 
+                                    onClick={() => handlePlaceVote(place.id, 'reject')}
+                                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                                      placeVotes[place.id] === 'reject' 
                                         ? 'bg-red-600 text-white' 
-                                        : 'bg-red-100 hover:bg-red-200 text-red-600'
+                                        : 'bg-red-100 text-red-700 hover:bg-red-200'
                                     }`}
-                                    onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
-                                    onMouseLeave={handleMouseLeave}
                                   >
-                                    <RotateCcw className="w-3 h-3" />
-                                  </Button>
+                                    Reject
+                                  </button>
                                 </div>
                               </div>
                               <p className="text-xs text-gray-600 mb-2">{place.description}</p>
