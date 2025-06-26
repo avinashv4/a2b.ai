@@ -35,7 +35,10 @@ const getLocationImages = async (destination: string): Promise<string[]> => {
     if (response.ok) {
       const data = await response.json();
       if (data.results && data.results.length > 0) {
-        return data.results.map((result: any) => result.urls.regular);
+        // Request specific dimensions and crop mode from Unsplash
+        return data.results.map((result: any) => 
+          `${result.urls.regular}&w=800&h=200&fit=crop&crop=edges`
+        );
       }
     }
   } catch (error) {
@@ -43,7 +46,7 @@ const getLocationImages = async (destination: string): Promise<string[]> => {
   }
   
   // Fallback to default image repeated 5 times
-  return Array(5).fill(`https://images.pexels.com/photos/1320684/pexels-photo-1320684.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`);
+  return Array(5).fill(`https://images.pexels.com/photos/1320684/pexels-photo-1320684.jpeg?auto=compress&cs=tinysrgb&w=800&h=200&fit=crop`);
 };
 
 const FlowingMenu: React.FC<FlowingMenuProps> = ({ items = [] }) => {
@@ -147,8 +150,15 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, destination, mem
           {text}
         </span>
         <div
-          className="w-[400px] h-[8vh] my-[2em] mx-[2vw] p-[1em_0] rounded-[50px] bg-cover bg-center"
-          style={{ backgroundImage: `url(${imageUrl})` }}
+          className="w-[400px] h-[8vh] my-[2em] mx-[2vw] p-[1em_0] rounded-[50px] bg-cover bg-center overflow-hidden"
+          style={{ 
+            backgroundImage: `url(${imageUrl})`,
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            minWidth: '150px',
+            maxWidth: '150px'
+          }}
         />
       </React.Fragment>
     ));
