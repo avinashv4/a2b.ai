@@ -153,8 +153,18 @@ const MenuItem: React.FC<MenuItemProps> = ({ link, text, image, destination, mem
       </React.Fragment>
     ));
 
-    // Repeat the sequence multiple times to ensure smooth continuous scrolling
-    return [...sequence, ...sequence, ...sequence];
+    // Repeat the sequence multiple times with unique keys
+    return [
+      ...sequence.map((item, i) => (
+        <React.Fragment key={`sequence1-${i}`}>{item}</React.Fragment>
+      )),
+      ...sequence.map((item, i) => (
+        <React.Fragment key={`sequence2-${i}`}>{item}</React.Fragment>
+      )),
+      ...sequence.map((item, i) => (
+        <React.Fragment key={`sequence3-${i}`}>{item}</React.Fragment>
+      ))
+    ];
   }, [text, dynamicImages]);
   
   const handleContextMenu = (e: React.MouseEvent) => {
