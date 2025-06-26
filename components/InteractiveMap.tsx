@@ -117,7 +117,6 @@ const InteractiveMap = forwardRef(function InteractiveMap(
                 <span class="text-lg">${getTypeIcon(location.type || 'attraction')}</span>
                 <h3 class="font-semibold text-gray-900 text-sm">${location.name}</h3>
               </div>
-              ${location.day ? `<p class="text-xs text-gray-600 mb-1">${location.day}</p>` : ''}
               ${location.visitTime ? `<p class="text-xs text-blue-600 mb-1">📅 Visit at ${location.visitTime}</p>` : ''}
               ${location.duration ? `<p class="text-xs text-green-600 mb-1">⏱️ Duration: ${location.duration}</p>` : ''}
               ${location.walkTimeFromPrevious ? `<p class="text-xs text-orange-600">🚶 ${location.walkTimeFromPrevious} from previous</p>` : ''}

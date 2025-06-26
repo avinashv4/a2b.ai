@@ -52,6 +52,7 @@ interface Place {
     lat: number;
     lng: number;
   };
+  travelModes?: Record<string, { duration: string; distance: string }>;
 }
 
 interface DayItinerary {
@@ -86,11 +87,24 @@ interface ItineraryData {
   flights: Flight[];
   hotels: Hotel[];
   mapLocations: any[];
+  budgetRange?: string;
 }
 
 interface TripMember {
   name: string;
   avatar: string;
+}
+
+// Helper to get the correct year for a given month and day
+function getClosestYear(month: string, day: string): number {
+  const now = new Date();
+  const monthIndex = new Date(`${month} 1, 2000`).getMonth();
+  const targetDate = new Date(now.getFullYear(), monthIndex, Number(day));
+  if (targetDate < now) {
+    // If the date has already passed this year, use next year
+    return now.getFullYear() + 1;
+  }
+  return now.getFullYear();
 }
 
 export default function TravelPlanPage() {
@@ -426,26 +440,11 @@ export default function TravelPlanPage() {
 
   const getTravelModeIcon = (mode: string) => {
     switch (mode) {
-      case 'car': return <Car className="w-3 h-3" />;
-      case 'train': return <Train className="w-3 h-3" />;
-      case 'ferry': return <Ship className="w-3 h-3" />;
-      default: return <Navigation className="w-3 h-3" />;
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'monument': return '🏛️';
-      case 'museum': return '🏛️';
-      case 'park': return '🌳';
-      case 'food': return '🍽️';
-      case 'shopping': return '🛍️';
-      case 'photo_spot': return '📸';
-      case 'historical': return '🏰';
-      case 'entertainment': return '🎭';
-      case 'cultural': return '🎨';
-      case 'nature': return '🌿';
-      default: return '📍';
+      case 'walking': return <span title="Walk">🚶</span>;
+      case 'bicycling': return <span title="Bike">🏍️</span>;
+      case 'driving': return <span title="Car">🚗</span>;
+      case 'transit': return <span title="Transit">🚆</span>;
+      default: return <span title="Travel">🚗</span>;
     }
   };
 
@@ -603,12 +602,12 @@ export default function TravelPlanPage() {
               </div>
             )}
             <p className="text-lg text-gray-600 mt-1">
-              {itinerary[0]?.month} {itinerary[0]?.date}-{itinerary[itinerary.length - 1]?.date}, 2024 • {itinerary.length} Days
+              {itinerary[0]?.month} {itinerary[0]?.date}-{itinerary[itinerary.length - 1]?.date}, {itinerary[0] ? getClosestYear(itinerary[0].month, itinerary[0].date) : ''} • {itinerary.length} Days
             </p>
           </div>
           <div className="text-right">
             <p className="text-xl md:text-2xl font-bold text-blue-600">
-              {flights?.[0]?.price ? `${flights[0].price} - ${flights[flights.length - 1]?.price}` : 'Price varies'}
+              {itineraryData.budgetRange ? itineraryData.budgetRange : 'Price varies'}
             </p>
             <p className="text-sm text-gray-600">estimated budget per person</p>
           </div>
@@ -784,7 +783,7 @@ export default function TravelPlanPage() {
               >
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Day {dayIndex + 1}</h3>
-                  <p className="text-sm text-gray-600">{day.day}, {day.month} {day.date} 2024</p>
+                  <p className="text-sm text-gray-600">{day.day}, {day.month} {day.date} {getClosestYear(day.month, day.date)}</p>
                 </div>
                 {dayExpandedStates[day.date] ? (
                   <ChevronUp className="w-5 h-5 text-gray-400" />
@@ -798,84 +797,91 @@ export default function TravelPlanPage() {
               }`}>
                 <div className="p-6 pt-0 space-y-6">
                   {day.places.map((place, index) => (
-                    <div key={place.id}
-                      onMouseEnter={() => {
-                        if (place.coordinates?.lat && place.coordinates?.lng) {
-                          mapRef.current?.centerMapAt(place.coordinates.lat, place.coordinates.lng);
-                        }
-                      }}
-                    >
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="flex space-x-4">
-                          <div className="w-40 h-32 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                            <img
-                              src={place.image}
-                              alt={place.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center space-x-2">
-                                <span className="text-lg">{getTypeIcon(place.type || 'attraction')}</span>
-                                <div>
-                                  <h4 className="text-base font-semibold text-gray-900">{place.name}</h4>
-                                  <div className="flex items-center space-x-2 text-xs text-gray-500">
-                                    <span className="bg-gray-200 px-2 py-1 rounded-full">{getTypeLabel(place.type || 'attraction')}</span>
-                                    {place.visitTime && <span>Visit at {place.visitTime}</span>}
+                    <div key={place.id}>
+                      {/* Place card */}
+                      <div
+                        onMouseEnter={() => {
+                          if (place.coordinates?.lat && place.coordinates?.lng) {
+                            mapRef.current?.centerMapAt(place.coordinates.lat, place.coordinates.lng);
+                          }
+                        }}
+                      >
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <div className="flex space-x-4">
+                            <div className="w-40 h-32 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                              <img
+                                src={place.image}
+                                alt={place.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <div>
+                                    <h4 className="text-base font-semibold text-gray-900">{place.name}</h4>
+                                    <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                      <span className="bg-gray-200 px-2 py-1 rounded-full">{getTypeLabel(place.type || 'attraction')}</span>
+                                      {place.visitTime && <span>Visit at {place.visitTime}</span>}
+                                    </div>
                                   </div>
                                 </div>
+                                <div className="flex space-x-1">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleVote(dayIndex, place.id, 'accept')}
+                                    className={`w-6 h-6 rounded-full p-0 transition-colors ${
+                                      place.voted === 'accept' 
+                                        ? 'bg-green-600 text-white' 
+                                        : 'bg-green-100 hover:bg-green-200 text-green-600'
+                                    }`}
+                                    onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
+                                    onMouseLeave={handleMouseLeave}
+                                  >
+                                    <Check className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleVote(dayIndex, place.id, 'deny')}
+                                    className={`w-6 h-6 rounded-full p-0 transition-colors ${
+                                      place.voted === 'deny' 
+                                        ? 'bg-red-600 text-white' 
+                                        : 'bg-red-100 hover:bg-red-200 text-red-600'
+                                    }`}
+                                    onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
+                                    onMouseLeave={handleMouseLeave}
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex space-x-1">
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleVote(dayIndex, place.id, 'accept')}
-                                  className={`w-6 h-6 rounded-full p-0 transition-colors ${
-                                    place.voted === 'accept' 
-                                      ? 'bg-green-600 text-white' 
-                                      : 'bg-green-100 hover:bg-green-200 text-green-600'
-                                  }`}
-                                  onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
-                                  onMouseLeave={handleMouseLeave}
-                                >
-                                  <Check className="w-3 h-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleVote(dayIndex, place.id, 'deny')}
-                                  className={`w-6 h-6 rounded-full p-0 transition-colors ${
-                                    place.voted === 'deny' 
-                                      ? 'bg-red-600 text-white' 
-                                      : 'bg-red-100 hover:bg-red-200 text-red-600'
-                                  }`}
-                                  onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
-                                  onMouseLeave={handleMouseLeave}
-                                >
-                                  <RotateCcw className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            </div>
-                            <p className="text-xs text-gray-600 mb-2">{place.description}</p>
-                            <div className="flex items-center space-x-3 text-xs text-gray-500">
-                              <div className="flex items-center space-x-1">
-                                <Clock className="w-3 h-3" />
-                                <span>{place.duration}</span>
+                              <p className="text-xs text-gray-600 mb-2">{place.description}</p>
+                              <div className="flex items-center space-x-3 text-xs text-gray-500">
+                                <div className="flex items-center space-x-1">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{place.duration}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                      
-                      {/* Connection line and travel info */}
-                      {index < day.places.length - 1 && place.walkTime && (
-                        <div className="flex items-center justify-center py-4">
-                          <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-full">
+                      {/* Travel info between cards */}
+                      {index < day.places.length - 1 && (
+                        <div className="flex items-center justify-center py-2">
+                          <div className="flex flex-wrap items-center gap-2 bg-gray-100 px-3 py-1 rounded-full">
                             <div className="w-1 h-4 border-l border-dashed border-gray-400"></div>
                             <div className="flex items-center space-x-1 text-xs text-gray-600">
-                              {getTravelModeIcon(place.travelMode || 'walk')}
-                              <span>{place.walkTime}</span>
-                              <span>•</span>
-                              <span>{place.distance}</span>
+                              {Object.entries(day.places[index + 1].travelModes ?? {}).map(([mode, info]) =>
+                                info ? (
+                                  <span key={mode} className="flex items-center gap-1">
+                                    {getTravelModeIcon(mode)}
+                                    <span>{info.duration}</span>
+                                    <span>•</span>
+                                    <span>{info.distance}</span>
+                                  </span>
+                                ) : null
+                              )}
                             </div>
                             <div className="w-1 h-4 border-l border-dashed border-gray-400"></div>
                           </div>
@@ -1255,9 +1261,11 @@ export default function TravelPlanPage() {
             top: tooltipPosition.y - 10,
           }}
         >
-          sidebarItems.find(item => item.id === hoveredTooltip)?.label || 
-           itinerary.find(day => day.date === hoveredTooltip)?.month ||
-           hoveredTooltip.charAt(0).toUpperCase() + hoveredTooltip.slice(1)}
+          {
+            sidebarItems.find(item => item.id === hoveredTooltip)?.label ||
+            itinerary.find(day => day.date === hoveredTooltip)?.month ||
+            (hoveredTooltip.charAt(0).toUpperCase() + hoveredTooltip.slice(1))
+          }
         </div>
       )}
 

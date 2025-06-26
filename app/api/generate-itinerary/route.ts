@@ -3,6 +3,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '@/lib/supabaseClient';
 import { getPlaceImage } from '@/lib/getLocationImage';
 import { getPlaceCoordinates } from '@/lib/utils';
+import { getOptimalRoute, getAllTravelModes } from '@/lib/getRoute';
+import { getGooglePlacePhotoUrl } from '@/lib/getPlacePhoto';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -104,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     // Create prompt for Gemini
     const prompt = `
-You are a professional travel planner. Create a detailed 3-day itinerary for ${groupData.destination} based on the following group preferences:
+You are a professional travel planner. Create a detailed group itinerary for ${groupData.destination} based on the group member preferences below:
 
 ${memberPreferences.map(member => `
 **${member.name}:**
@@ -122,21 +124,19 @@ ${memberPreferences.map(member => `
 Please return the response in the following EXACT JSON format (no additional text, just the JSON):
 
 {
+  "budgetRange": "",
   "arrivalIataCode": "CDG",
   "itinerary": [
     {
       "date": "15",
-      "day": "Jun", 
-      "month": "Day 1",
+      "day": "Monday",
+      "month": "Jun",
       "places": [
         {
           "id": "p1",
           "name": "Attraction Name",
           "description": "Detailed description of the place and why it's included",
           "duration": "2 hours",
-          "walkTime": "15 min",
-          "distance": "1.2 km",
-          "travelMode": "walk",
           "type": "monument",
           "visitTime": "10:00 AM"
         },
@@ -145,9 +145,6 @@ Please return the response in the following EXACT JSON format (no additional tex
           "name": "Restaurant Name",
           "description": "Great place for lunch with local cuisine",
           "duration": "1.5 hours",
-          "walkTime": "10 min",
-          "distance": "800 m",
-          "travelMode": "walk",
           "type": "food",
           "visitTime": "1:00 PM"
         }
@@ -164,28 +161,58 @@ Please return the response in the following EXACT JSON format (no additional tex
     }
   ]
 }
+REQUIREMENTS:
+
+Budget Estimate:
+- Calculate a rough estimated budget range for the entire itinerary, including travel (flights), local transportation, lodging, entry fees for places, food (all meals), and any other relevant costs.
+- Include a field in the JSON: "budgetRange": "$1200-$1800" (or similar, as a string).
+- The range should reflect the minimum and maximum likely spend for the group per person, based on the planned itinerary and group preferences.
 
 CRITICAL DATE FORMAT REQUIREMENTS:
 - "date" must be a 2-digit day number (e.g., "15", "01", "31")
 - "day" must be the full day name (e.g., "Monday", "Tuesday", "Wednesday")
 - "month" must be a 3-letter month abbreviation (e.g., "Jun", "Dec", "Jan")
 
-Requirements:
-- Create exactly 3 days of itinerary
-- Include 3-4 places per day including meals (brunch/lunch and dinner)
-- For each place, specify the type: "monument", "museum", "park", "food", "shopping", "photo_spot", "historical", "entertainment", "cultural", "nature"
-- Include specific visit times (e.g., "10:00 AM", "2:30 PM")
-- Add walking/transport times between locations
-- Add meal suggestions for brunch/lunch and dinner each day
-- Hotels should have breakfast included, so focus on brunch/lunch and dinner
-- Provide detailed descriptions explaining why each place was chosen
-- Include 3 hotel options
-- Consider all group member preferences
-- Return the IATA airport code for the arrival city in "arrivalIataCode"
+Days in Itinerary:
+- If group members mention availability (schedule), find common free dates. Use only dates when all members who have mentioned a schedule are free.
+- If no dates are mentioned or availability is unclear, default to creating an itinerary for exactly 3 full days.
+
+Daily Structure:
+- Include items per day depending on group travel style:
+  - If relaxed/spontaneous → 4-5 key places (max), include leisure time.
+  - If active/adventurous/sightseeing-focused → Cover more key attractions per day.
+  - Make sure all the places in a single day of the itinerary are within 10kms of each other.
+
+Include:
+  - Brunch/lunch
+  - Dinner
+  - Attractions/activities that align with group interests and must-dos.
+
+Place Fields:
+  - "type" must be one of:
+     "monument", "museum", "park", "food", "shopping", "photo_spot", "historical", "entertainment", "cultural", "nature"
+  - Include "visitTime" (specific time like "10:00 AM").
+  - Include "duration" (time people usually spend at the place).
+
+Descriptions:
+  - Each "description" should explain why the place is selected (based on preferences, location significance, food culture, etc.).
+
+Meals:
+- Suggest specific restaurants or food experiences for brunch/lunch and dinner daily.
+- Mention why each meal spot is chosen (e.g., regional specialty, ambiance, group dietary preferences, etc.).
+
+Hotels:
+- Suggest 3 hotel options:
+  - Breakfast must be included.
+  - Include "rating" (out of 5), "price" per night, and a list of "amenities" (if available).
+
+General:
+- The JSON must be syntactically correct and parseable.
+- Ensure all suggestions reflect a balance of group budgets, styles, and must-dos.
 `;
 
     // Generate itinerary using Gemini
-    const model = genAI.getGenerativeModel({ model: 'gemma-3-12b-it' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
@@ -197,6 +224,7 @@ Requirements:
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         itineraryData = JSON.parse(jsonMatch[0]);
+        console.log('LLM itineraryData:', JSON.stringify(itineraryData, null, 2));
       } else {
         throw new Error('No JSON found in response');
       }
@@ -209,15 +237,23 @@ Requirements:
     // Enhance images and coordinates with Pexels and Google Places
     for (const day of itineraryData.itinerary) {
       for (const place of day.places) {
-        // Get image
-        place.image = await getPlaceImage(place.name, groupData.destination_display || groupData.destination);
-        
+        // Get image from Google Places
+        place.image = await getGooglePlacePhotoUrl(`${place.name} ${groupData.destination_display || groupData.destination}`)
+          || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=300&h=200&fit=crop';
         // Get accurate coordinates
         const coordinates = await getPlaceCoordinates(place.name, groupData.destination_display || groupData.destination);
         if (coordinates) {
           place.coordinates = coordinates;
         }
-        console.log('Place:', place.name, 'Coordinates:', place.coordinates);
+      }
+      // After all coordinates are set, get all travel modes between consecutive places
+      for (let i = 1; i < day.places.length; i++) {
+        const prev = day.places[i - 1];
+        const curr = day.places[i];
+        if (prev.coordinates && curr.coordinates) {
+          const allModes = await getAllTravelModes(prev.coordinates, curr.coordinates);
+          curr.travelModes = allModes; // { walking: {...}, bicycling: {...}, driving: {...}, transit: {...} }
+        }
       }
     }
 
@@ -231,13 +267,13 @@ Requirements:
         day: day.month,
         type: place.type,
         visitTime: place.visitTime,
-        duration: place.duration,
-        walkTimeFromPrevious: place.walkTime
+        duration: place.duration
       }))
     );
 
     for (const hotel of itineraryData.hotels) {
-      hotel.image = await getPlaceImage(`${hotel.name} hotel`, groupData.destination_display || groupData.destination);
+      hotel.image = await getGooglePlacePhotoUrl(`${hotel.name} hotel ${groupData.destination_display || groupData.destination}`)
+        || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=300&h=200&fit=crop';
     }
 
     // --- Fetch real flights from SerpAPI ---

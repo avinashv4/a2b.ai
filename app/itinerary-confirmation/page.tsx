@@ -55,6 +55,18 @@ interface ItineraryData {
   hotels: Hotel[];
 }
 
+// Helper to get the correct year for a given month and day
+function getClosestYear(month: string, day: string): number {
+  const now = new Date();
+  const monthIndex = new Date(`${month} 1, 2000`).getMonth();
+  const targetDate = new Date(now.getFullYear(), monthIndex, Number(day));
+  if (targetDate < now) {
+    // If the date has already passed this year, use next year
+    return now.getFullYear() + 1;
+  }
+  return now.getFullYear();
+}
+
 export default function ItineraryConfirmationPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [itineraryData, setItineraryData] = useState<ItineraryData | null>(null);
@@ -300,7 +312,7 @@ export default function ItineraryConfirmationPage() {
                 </div>
                 <div>
                   <h4 className="text-lg font-semibold text-gray-900">{day.month}</h4>
-                  <p className="text-sm text-gray-600">{day.day} {day.date}, 2024</p>
+                  <p className="text-sm text-gray-600">{day.day} {day.date}, {getClosestYear(day.month, day.date)}</p>
                 </div>
               </div>
 
