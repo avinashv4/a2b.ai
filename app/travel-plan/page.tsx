@@ -123,12 +123,8 @@ export default function TravelPlanPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [placeVotes, setPlaceVotes] = useState<Record<string, string>>({});
-  const [allPlacesVoted, setAllPlacesVoted] = useState(false);
-  const [canVoteRegenerate, setCanVoteRegenerate] = useState(false);
   const [regenerateVotes, setRegenerateVotes] = useState(0);
   const [totalMembers, setTotalMembers] = useState(0);
-  const [allMembersVotedOnPlaces, setAllMembersVotedOnPlaces] = useState(0);
   const [hasVotedRegenerate, setHasVotedRegenerate] = useState(false);
   const [showMobileMap, setShowMobileMap] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -145,115 +141,136 @@ export default function TravelPlanPage() {
   const mobileSettingsRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<{ centerMapAt: (lat: number, lng: number) => void }>(null);
 
+  // Compute if all places have been voted by the user
+  const allPlacesVoted = itineraryData?.itinerary?.every(day => day.places.every(place => place.voted)) ?? false;
+
+  // Move fetchOrGenerateItinerary to top-level so it can be called from anywhere
+  const fetchOrGenerateItinerary = async () => {
+    try {
+      const groupId = searchParams.get('groupId');
+      if (!groupId) {
+        setError('Group ID not found.');
+        setLoading(false);
+        return;
+      }
+
+      const { data: groupData, error: groupError } = await supabase
+        .from('travel_groups')
+        .select('itinerary, destination_display, trip_name, destination')
+        .eq('group_id', groupId)
+        .single();
+
+      if (groupError) throw groupError;
+
+      let finalItineraryData: ItineraryData | null = null;
+      if (groupData?.itinerary) {
+        finalItineraryData = groupData.itinerary as ItineraryData;
+      } else {
+        const response = await fetch('/api/generate-itinerary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ groupId }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || 'Failed to generate itinerary.');
+        }
+
+        const result = await response.json();
+        finalItineraryData = result.data;
+      }
+      
+      setItineraryData(finalItineraryData);
+      setTripTitle(groupData.trip_name || groupData.destination_display || 'Trip Plan');
+      setDestination(groupData.destination_display || groupData.destination || 'Paris');
+
+      // Initialize expanded states for days
+      if (finalItineraryData?.itinerary) {
+        const initialExpanded: Record<string, boolean> = {};
+        finalItineraryData.itinerary.forEach((day, index) => {
+          initialExpanded[day.date] = index === 0; // Expand first day by default
+        });
+        setDayExpandedStates(initialExpanded);
+      }
+
+      // Fetch trip image
+      if (groupData.destination_display || groupData.destination) {
+        const imageUrl = await getLocationImage(groupData.destination_display || groupData.destination);
+        setTripImage(imageUrl);
+      }
+
+      // Fetch members
+      const { data: membersData, error: membersError } = await supabase
+        .from('group_members')
+        .select(`
+          user_id,
+          regenerate_vote,
+          profiles!group_members_user_id_fkey(first_name, last_name, profile_picture)
+        `)
+        .eq('group_id', groupId);
+
+      if (membersError) {
+        console.error('Error fetching members:', membersError);
+      } else if (membersData) {
+        setTotalMembers(membersData.length);
+        
+        // Count regenerate votes
+        const votedCount = membersData.filter(m => m.regenerate_vote).length;
+        setRegenerateVotes(votedCount);
+        
+        // Check if current user has voted
+        const { data } = await supabase.auth.getUser();
+        const currentUserMember = membersData.find(m => m.user_id === data.user?.id);
+        setHasVotedRegenerate(currentUserMember?.regenerate_vote || false);
+
+        const formattedMembers = membersData.map((m: any) => ({
+          name: `${m.profiles.first_name} ${m.profiles.last_name}`,
+          avatar: m.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
+        }));
+        setTripMembers(formattedMembers);
+
+        console.log('Fetched group_members:', membersData);
+        console.log('regenerateVotes:', votedCount, 'totalMembers:', membersData.length);
+      }
+
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrGenerateItinerary();
+  }, [searchParams]);
+
   useEffect(() => {
     const groupId = searchParams.get('groupId');
-    if (!groupId) {
-      setError('Group ID not found.');
-      setLoading(false);
-      return;
-    }
+    if (!groupId) return;
 
-    const fetchOrGenerateItinerary = async () => {
-      try {
-        const { data: groupData, error: groupError } = await supabase
-          .from('travel_groups')
-          .select('itinerary, destination_display, trip_name, destination')
-          .eq('group_id', groupId)
-          .single();
-
-        if (groupError) throw groupError;
-
-        let finalItineraryData: ItineraryData | null = null;
-        if (groupData?.itinerary) {
-          finalItineraryData = groupData.itinerary as ItineraryData;
-        } else {
-          const response = await fetch('/api/generate-itinerary', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ groupId }),
-          });
-
-          if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || 'Failed to generate itinerary.');
-          }
-
-          const result = await response.json();
-          finalItineraryData = result.data;
+    // Subscribe to group_members changes for this group
+    const channel = supabase
+      .channel('group-members-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'group_members',
+          filter: `group_id=eq.${groupId}`,
+        },
+        (payload) => {
+          // Re-fetch members when a change occurs
+          fetchOrGenerateItinerary();
         }
-        
-        setItineraryData(finalItineraryData);
-        setTripTitle(groupData.trip_name || groupData.destination_display || 'Trip Plan');
-        setDestination(groupData.destination_display || groupData.destination || 'Paris');
+      )
+      .subscribe();
 
-        // Initialize expanded states for days
-        if (finalItineraryData?.itinerary) {
-          const initialExpanded: Record<string, boolean> = {};
-          finalItineraryData.itinerary.forEach((day, index) => {
-            initialExpanded[day.date] = index === 0; // Expand first day by default
-          });
-          setDayExpandedStates(initialExpanded);
-        }
-
-        // Fetch trip image
-        if (groupData.destination_display || groupData.destination) {
-          const imageUrl = await getLocationImage(groupData.destination_display || groupData.destination);
-          setTripImage(imageUrl);
-        }
-
-        // Fetch members
-        const { data: membersData, error: membersError } = await supabase
-          .from('group_members')
-          .select(`
-            user_id,
-            regenerate,
-            profiles!group_members_user_id_fkey(first_name, last_name, profile_picture)
-          `)
-          .eq('group_id', groupId);
-
-        if (membersError) {
-          console.error('Error fetching members:', membersError);
-        } else if (membersData) {
-          setTotalMembers(membersData.length);
-          
-          // Count regenerate votes
-          const votedCount = membersData.filter(m => m.regenerate).length;
-          setRegenerateVotes(votedCount);
-          
-          // Check if current user has voted
-          const { data } = await supabase.auth.getUser();
-          const currentUserMember = membersData.find(m => m.user_id === data.user?.id);
-          setHasVotedRegenerate(currentUserMember?.regenerate || false);
-          
-          // Check current user's voting status
-          if (currentUserMember) {
-            setPlaceVotes(currentUserMember.place_votes || {});
-            setAllPlacesVoted(currentUserMember.all_places_voted || false);
-            setCanVoteRegenerate(currentUserMember.all_places_voted || false);
-            setHasVotedRegenerate(currentUserMember.regenerate_vote || false);
-          }
-          
-          // Count regenerate votes and members who voted on all places
-          const regenerateCount = membersData.filter(m => m.regenerate_vote).length;
-          const allPlacesVotedCount = membersData.filter(m => m.all_places_voted).length;
-          setRegenerateVotes(regenerateCount);
-          setAllMembersVotedOnPlaces(allPlacesVotedCount);
-          
-          const formattedMembers = membersData.map((m: any) => ({
-            name: `${m.profiles.first_name} ${m.profiles.last_name}`,
-            avatar: m.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
-          }));
-          setTripMembers(formattedMembers);
-        }
-
-      } catch (err: any) {
-        setError(err.message || 'An unexpected error occurred.');
-      } finally {
-        setLoading(false);
-      }
+    return () => {
+      supabase.removeChannel(channel);
     };
-
-    fetchOrGenerateItinerary();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
@@ -380,9 +397,7 @@ export default function TravelPlanPage() {
       
       const result = await response.json();
       if (result.success) {
-        setPlaceVotes(prev => ({ ...prev, [placeId]: vote }));
-        setAllPlacesVoted(result.allPlacesVoted);
-        setCanVoteRegenerate(result.allPlacesVoted);
+        setRegenerateVotes(result.regenerateVotes);
       }
     } catch (error) {
       console.error('Error voting on place:', error);
@@ -391,28 +406,37 @@ export default function TravelPlanPage() {
 
   const handleRegenerateVote = async () => {
     if (hasVotedRegenerate || regenerating) return;
-    
+
     setRegenerating(true);
     try {
       const { data } = await supabase.auth.getUser();
       if (!data.user) return;
-      
+
       const groupId = searchParams.get('groupId');
       if (!groupId) return;
-      
+
+      // Collect place votes from itinerary
+      const placeVotes: Record<string, 'accept' | 'deny'> = {};
+      itineraryData?.itinerary.forEach(day => {
+        day.places.forEach(place => {
+          if (place.voted) {
+            placeVotes[place.id] = place.voted;
+          }
+        });
+      });
+
       const response = await fetch('/api/regenerate-itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, userId: data.user.id }),
+        body: JSON.stringify({ groupId, userId: data.user.id, placeVotes }),
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         setHasVotedRegenerate(true);
         setRegenerateVotes(result.regenerateVotes);
-        setAllMembersVotedOnPlaces(result.allPlacesVotedMembers);
-        
+
         if (result.regenerated) {
           // If all members voted and itinerary was regenerated, fetch the new itinerary
           const { data: groupData, error: groupError } = await supabase
@@ -713,40 +737,10 @@ export default function TravelPlanPage() {
           <BookOpen className="w-4 h-4 mr-2" />
           Confirm Itinerary
         </Button>
-        <Button
-          onClick={handleRegenerateVote}
-          disabled={!canVoteRegenerate || hasVotedRegenerate}
-          className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 ${
-            !canVoteRegenerate
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : hasVotedRegenerate
-              ? 'bg-green-600 hover:bg-green-700 text-white' 
-              : 'bg-orange-600 hover:bg-orange-700 text-white'
-          }`}
-          title={!canVoteRegenerate ? "Vote on all places first" : ""}
-        >
-          {hasVotedRegenerate ? (
-            <div className="flex items-center space-x-2">
-              <Check className="w-5 h-5" />
-              <span>Voted to Regenerate</span>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-2">
-              <span>Vote to Regenerate Itinerary</span>
-              {regenerateVotes > 0 && (
-                <span className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-xs">
-                  {regenerateVotes}/{totalMembers}
-                </span>
-              )}
-            </div>
-          )}
-        </Button>
       </div>
 
       {/* Voting Progress */}
       <div className="text-center text-sm text-gray-600 space-y-1">
-        <p>Places voted: {Object.keys(placeVotes).length}/{itineraryData?.itinerary?.reduce((total: number, day: any) => total + day.places.length, 0) || 0}</p>
-        <p>Members ready: {allMembersVotedOnPlaces}/{totalMembers}</p>
         {regenerateVotes > 0 && (
           <p>Regenerate votes: {regenerateVotes}/{totalMembers}</p>
         )}
@@ -806,45 +800,37 @@ export default function TravelPlanPage() {
 
   const renderHotelsContent = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Hotel Options</h2>
-        <Button variant="outline" className="px-4 py-2 rounded-xl text-sm">
-          See More Hotels
-        </Button>
-      </div>
-      
-      <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-gray-900 mb-4">Recommended Hotels</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {(hotels || []).map((hotel) => (
-          <div key={hotel.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="flex space-x-4">
-              <div className="w-40 h-34 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
-                <img
-                  src={hotel.image}
-                  alt={hotel.name}
-                  className="w-full h-full object-cover"
-                />
+          <div key={hotel.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow flex flex-col">
+            <div className="h-48 w-full rounded-t-2xl overflow-hidden bg-gray-200">
+              <img
+                src={hotel.image}
+                alt={hotel.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="flex-1 flex flex-col p-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 leading-tight">{hotel.name}</h3>
+                <span className="flex items-center text-yellow-500 font-semibold text-base">
+                  <Star className="w-4 h-4 mr-1 fill-yellow-400" />
+                  {hotel.rating?.toFixed(1)}
+                </span>
               </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900">{hotel.name}</h3>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-green-600">{hotel.price}</p>
-                  </div>
-                </div>
-                {renderStarRating(hotel.rating)}
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {hotel.amenities.slice(0, 3).map((amenity, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                    >
-                      {amenity}
-                    </span>
-                  ))}
-                </div>
-                <Button className="mt-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-xl text-sm">
-                  Select Hotel
-                </Button>
+              <div className="text-blue-700 font-bold text-lg mb-3">{hotel.price}</div>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {hotel.amenities.slice(0, 3).map((amenity, idx) => (
+                  <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                    {amenity}
+                  </span>
+                ))}
+                {hotel.amenities.length > 3 && (
+                  <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                    +{hotel.amenities.length - 3} more
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -910,27 +896,24 @@ export default function TravelPlanPage() {
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-xs text-gray-500">Vote:</span>
-                                  <button 
-                                    onClick={() => handlePlaceVote(place.id, 'accept')}
-                                    className={`px-2 py-1 text-xs rounded transition-colors ${
-                                      placeVotes[place.id] === 'accept' 
-                                        ? 'bg-green-600 text-white' 
-                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                    }`}
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => handleVote(dayIndex, place.id, 'accept')}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${place.voted === 'accept' ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-gray-300 text-green-600 hover:bg-green-50'}`}
+                                    onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
+                                    onMouseLeave={handleMouseLeave}
+                                    title="Vote to Accept"
                                   >
-                                    Accept
+                                    <Check className="w-4 h-4" />
                                   </button>
-                                  <button 
-                                    onClick={() => handlePlaceVote(place.id, 'reject')}
-                                    className={`px-2 py-1 text-xs rounded transition-colors ${
-                                      placeVotes[place.id] === 'reject' 
-                                        ? 'bg-red-600 text-white' 
-                                        : 'bg-red-100 text-red-700 hover:bg-red-200'
-                                    }`}
+                                  <button
+                                    onClick={() => handleVote(dayIndex, place.id, 'deny')}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${place.voted === 'deny' ? 'bg-red-600 border-red-600 text-white' : 'bg-white border-gray-300 text-red-600 hover:bg-red-50'}`}
+                                    onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
+                                    onMouseLeave={handleMouseLeave}
+                                    title="Vote to Reject"
                                   >
-                                    Reject
+                                    <RotateCcw className="w-4 h-4" />
                                   </button>
                                 </div>
                               </div>
@@ -1016,17 +999,15 @@ export default function TravelPlanPage() {
                     </button>
                     <button
                       onClick={handleRegenerateVote}
-                      disabled={hasVotedRegenerate || regenerating}
-                      className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors disabled:opacity-50"
+                      disabled={hasVotedRegenerate || regenerating || !allPlacesVoted}
+                      className={`w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors cursor-not-allowed`}
+                      title={!allPlacesVoted ? 'Vote on all places before regenerating' : ''}
                     >
                       <div className="h-8 flex items-center">
                         <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
                       </div>
                       <span className="text-sm text-gray-700">
-                        {regenerating ? 'Regenerating...' : 'Regenerate Itinerary'}
-                      </span>
-                      <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full ml-auto">
-                        {regenerateVotes}/{totalMembers}
+                        {regenerating ? 'Regenerating...' : hasVotedRegenerate ? 'Waiting for others...' : 'Regenerate'}
                       </span>
                     </button>
                     <button
@@ -1227,11 +1208,12 @@ export default function TravelPlanPage() {
           {/* Regenerate Itinerary */}
           <button
             onClick={handleRegenerateVote}
-            disabled={hasVotedRegenerate || regenerating}
+            disabled={hasVotedRegenerate || regenerating || !allPlacesVoted}
             className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              hasVotedRegenerate || regenerating ? 'bg-gray-100 text-gray-500' : 'hover:bg-gray-100 text-gray-700'
+              hasVotedRegenerate || regenerating || !allPlacesVoted ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'hover:bg-gray-100 text-gray-700'
             }`}
-            onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('regenerate', e)}
+            title={!allPlacesVoted ? 'Vote on all places before regenerating' : ''}
+            onMouseEnter={(e: React.MouseEvent) => sidebarCollapsed && handleMouseEnter('regenerate', e)}
             onMouseLeave={handleMouseLeave}
           >
             <div className="h-8 flex items-center">
@@ -1239,13 +1221,16 @@ export default function TravelPlanPage() {
             </div>
             {!sidebarCollapsed && (
               <div className={`flex items-center justify-between w-full`}>
-                <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                  {regenerating ? 'Regenerating...' : 'Regenerate'}
+                <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}> 
+                  {regenerating ? 'Regenerating...' : hasVotedRegenerate ? 'Waiting for others...' : 'Regenerate'}
                 </span>
-                <span className={`text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                <span className={`text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}> 
                   {regenerateVotes}/{totalMembers}
                 </span>
               </div>
+            )}
+            {totalMembers === 0 && (
+              <div className="text-xs text-red-600 mt-1">No group members found for this trip. Voting will not work.</div>
             )}
           </button>
 
@@ -1343,7 +1328,7 @@ export default function TravelPlanPage() {
           {
             sidebarItems.find(item => item.id === hoveredTooltip)?.label ||
             itinerary.find(day => day.date === hoveredTooltip)?.month ||
-            (hoveredTooltip.charAt(0).toUpperCase() + hoveredTooltip.slice(1))
+            (hoveredTooltip ? hoveredTooltip.charAt(0).toUpperCase() + hoveredTooltip.slice(1) : '')
           }
         </div>
       )}
@@ -1368,7 +1353,7 @@ export default function TravelPlanPage() {
             top: tooltipPosition.y - 10,
           }}
         >
-          Vote to Deny
+          Vote to Reject
         </div>
       )}
     </div>

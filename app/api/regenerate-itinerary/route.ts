@@ -11,16 +11,16 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(request: NextRequest) {
   try {
-    const { groupId, userId } = await request.json();
+    const { groupId, userId, placeVotes } = await request.json();
 
     if (!groupId || !userId) {
       return NextResponse.json({ error: 'Group ID and User ID are required' }, { status: 400 });
     }
 
-    // Update user's regenerate vote  
+    // Update user's regenerate vote and place_votes
     const { error: voteError } = await supabase
       .from('group_members')
-      .update({ regenerate_vote: true })
+      .update({ regenerate_vote: true, place_votes: placeVotes || {} })
       .eq('group_id', groupId)
       .eq('user_id', userId);
 
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // Check if all members have voted
     const { data: allMembers, error: membersError } = await supabase
       .from('group_members')
-      .select('user_id, regenerate_vote, all_places_voted')
+      .select('user_id, regenerate_vote')
       .eq('group_id', groupId);
 
     if (membersError) {
@@ -40,10 +40,9 @@ export async function POST(request: NextRequest) {
 
     const totalMembers = allMembers.length;
     const regenerateVotes = allMembers.filter(member => member.regenerate_vote).length;
-    const allPlacesVotedMembers = allMembers.filter(member => member.all_places_voted).length;
 
     // Check if all members have voted on all places AND voted to regenerate
-    if (regenerateVotes === totalMembers && allPlacesVotedMembers === totalMembers) {
+    if (regenerateVotes === totalMembers) {
       // Get group data including original API response and member preferences
       const { data: groupData, error: groupError } = await supabase
         .from('travel_groups')
@@ -78,16 +77,23 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to get member votes' }, { status: 500 });
       }
 
-      // Aggregate voting results
-      const votingResults = {};
+      // Aggregate voting results and summarize
+      const votingResults: Record<string, { accept: number; reject: number }> = {};
       membersWithVotes.forEach(member => {
         const votes = member.place_votes || {};
         Object.entries(votes).forEach(([placeId, vote]) => {
           if (!votingResults[placeId]) {
             votingResults[placeId] = { accept: 0, reject: 0 };
           }
-          votingResults[placeId][vote as string]++;
+          votingResults[placeId][vote as 'accept' | 'reject']++;
         });
+      });
+      // Summarize results: accept, reject, draw
+      const votingSummary: Record<string, 'accept' | 'reject' | 'draw'> = {};
+      Object.entries(votingResults).forEach(([placeId, counts]) => {
+        if (counts.accept > counts.reject) votingSummary[placeId] = 'accept';
+        else if (counts.reject > counts.accept) votingSummary[placeId] = 'reject';
+        else votingSummary[placeId] = 'draw';
       });
 
       // Format member preferences for Gemini
@@ -108,8 +114,6 @@ export async function POST(request: NextRequest) {
       const regenerationPrompt = `
 You are a professional travel planner. I need you to update an existing itinerary based on group voting feedback.
 
-ORIGINAL ITINERARY RESPONSE:
-${groupData.most_recent_api_call.response}
 
 GROUP MEMBER PREFERENCES:
 ${memberPreferences.map(member => `
@@ -125,19 +129,20 @@ ${memberPreferences.map(member => `
 - Travel Style: ${member.travelStyle || 'None specified'}
 `).join('\n')}
 
-VOTING RESULTS:
-${Object.entries(votingResults).map(([placeId, votes]: [string, any]) => 
-  `Place ${placeId}: ${votes.accept} accept, ${votes.reject} reject`
-).join('\n')}
+ORIGINAL ITINERARY RESPONSE:
+${groupData.most_recent_api_call.response}
+
+VOTING RESULTS (summary):
+${Object.entries(votingSummary).map(([placeId, summary]) => `Place ${placeId}: ${summary}`).join('\n')}
 
 INSTRUCTIONS:
-1. Keep places that received more "accept" votes than "reject" votes
-2. Replace places that received more "reject" votes with better alternatives
-3. For tied votes, use your judgment based on group preferences
-4. Maintain the same JSON structure as the original response
-5. Keep the same budget range, arrival IATA code, hotels, and flights
-6. Only modify the itinerary section with place replacements
-7. Ensure new places align with group preferences and are in the same location/day
+1. Keep places with a summary of 'accept'.
+2. Replace places with a summary of 'reject' with better alternatives.
+3. For places with a summary of 'draw', use your judgment based on group preferences.
+4. Maintain the same JSON structure as the original response.
+5. Keep the same budget range, arrival IATA code, hotels, and flights.
+6. Only modify the itinerary section with place replacements.
+7. Ensure new places align with group preferences and are in the same location/day.
 
 Return the updated itinerary in the EXACT same JSON format as the original response.
 `;
@@ -147,6 +152,10 @@ Return the updated itinerary in the EXACT same JSON format as the original respo
       const result = await model.generateContent(regenerationPrompt);
       const response = await result.response;
       const text = response.text();
+
+      // Log the full LLM API call (prompt and response)
+      console.log('LLM Regeneration Prompt:', regenerationPrompt);
+      console.log('LLM Regeneration Response:', text);
 
       // Store the new API response
       const newApiResponse = {
@@ -194,6 +203,12 @@ Return the updated itinerary in the EXACT same JSON format as the original respo
         }
       }
 
+      // Enhance images for hotels
+      for (const hotel of updatedItineraryData.hotels) {
+        hotel.image = await getGooglePlacePhotoUrl(`${hotel.name} hotel ${groupData.destination_display || groupData.destination}`)
+          || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=300&h=200&fit=crop';
+      }
+
       // Format map locations
       updatedItineraryData.mapLocations = updatedItineraryData.itinerary.flatMap((day: any) =>
         day.places.map((place: any) => ({
@@ -222,18 +237,13 @@ Return the updated itinerary in the EXACT same JSON format as the original respo
         return NextResponse.json({ error: 'Failed to save regenerated itinerary' }, { status: 500 });
       }
 
-      // Reset all regenerate votes
-      const { error: resetError } = await supabase
+      // Reset all regenerate_vote to false for all group members in the group
+      const { error: resetVotesError } = await supabase
         .from('group_members')
-        .update({ 
-          regenerate_vote: false,
-          place_votes: {},
-          all_places_voted: false
-        })
+        .update({ regenerate_vote: false })
         .eq('group_id', groupId);
-
-      if (resetError) {
-        console.error('Failed to reset votes and place votes:', resetError);
+      if (resetVotesError) {
+        console.error('Failed to reset regenerate_vote:', resetVotesError);
       }
 
       return NextResponse.json({
@@ -248,7 +258,6 @@ Return the updated itinerary in the EXACT same JSON format as the original respo
       success: true,
       regenerated: false,
       regenerateVotes,
-      allPlacesVotedMembers,
       totalMembers
     });
 

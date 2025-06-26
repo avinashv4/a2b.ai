@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       .from('group_members')
       .update({
         place_votes: currentVotes,
-        all_places_voted: allPlacesVoted
+        regenerate_vote: allPlacesVoted
       })
       .eq('group_id', groupId)
       .eq('user_id', userId);

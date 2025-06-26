@@ -69,7 +69,9 @@ export default function CreateTripPage() {
         .from('group_members')
         .insert({
           group_id: groupData.group_id,
-          user_id: user.id
+          user_id: user.id,
+          regenerate_vote: false,
+          place_votes: {}
         });
 
       if (memberError) {
