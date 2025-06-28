@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Plane, ArrowLeft, Check, Clock, Navigation, Car, Train, Ship, MapPin, Calendar, Users, CreditCard, FileText } from 'lucide-react';
+import { Plane, ArrowLeft, Check, Clock, Navigation, Car, Train, Ship, MapPin, Calendar, Users, CreditCard, FileText, Star } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
+import DateIcon from '@/components/DateIcon';
 
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -19,6 +20,7 @@ interface Place {
   walkTime?: string;
   distance?: string;
   travelMode?: 'walk' | 'car' | 'train' | 'metro' | 'ferry';
+  travelModes?: Record<string, { duration: string; distance: string }>;
   type?: string;
   visitTime?: string;
 }
@@ -53,6 +55,7 @@ interface ItineraryData {
   itinerary: DayItinerary[];
   flights: Flight[];
   hotels: Hotel[];
+  budgetRange?: string;
 }
 
 // Helper to get the correct year for a given month and day
@@ -73,18 +76,32 @@ export default function ItineraryConfirmationPage() {
   const [loading, setLoading] = useState(true);
   const [tripTitle, setTripTitle] = useState('');
   const [destination, setDestination] = useState('');
+  const [tripMembers, setTripMembers] = useState<any[]>([]);
   const searchParams = useSearchParams();
   const [savingPDF, setSavingPDF] = useState(false);
+  const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadItineraryData = async () => {
-      try {
         const groupId = searchParams.get('groupId');
+    const selectedHotelParam = searchParams.get('selectedHotel');
+    
+    if (selectedHotelParam) {
+      try {
+        setSelectedHotel(JSON.parse(selectedHotelParam));
+      } catch (e) {
+        console.error('Error parsing selected hotel:', e);
+      }
+    }
+
         if (!groupId) {
-          window.location.href = '/dashboard';
+      setError('Group ID not found.');
+      setLoading(false);
           return;
         }
 
+    const loadItineraryData = async () => {
+      try {
         const { data: groupData, error: groupError } = await supabase
           .from('travel_groups')
           .select('itinerary, trip_name, destination_display')
@@ -99,6 +116,36 @@ export default function ItineraryConfirmationPage() {
         setItineraryData(groupData.itinerary);
         setTripTitle(groupData.trip_name || 'Trip Plan');
         setDestination(groupData.destination_display || 'Destination');
+
+        // Fetch real trip members
+        const { data: membersData, error: membersError } = await supabase
+          .from('group_members')
+          .select(`
+            profiles!group_members_user_id_fkey(first_name, last_name, profile_picture)
+          `)
+          .eq('group_id', groupId);
+
+        if (!membersError && membersData) {
+          const formattedMembers = membersData.map((m: any) => ({
+            name: `${m.profiles.first_name} ${m.profiles.last_name}`,
+            avatar: m.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
+          }));
+          setTripMembers(formattedMembers);
+        }
+
+        // Fetch winning hotel from backend
+        if (groupData.itinerary?.hotels?.length) {
+          const res = await fetch('/api/generate-itinerary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupId, action: 'aggregate_selected_hotel' })
+          });
+          const { winner } = await res.json();
+          if (winner) {
+            const hotel = groupData.itinerary.hotels.find((h: any) => h.id === winner);
+            if (hotel) setSelectedHotel(hotel);
+          }
+        }
       } catch (error) {
         console.error('Error loading itinerary:', error);
         window.location.href = '/dashboard';
@@ -112,6 +159,10 @@ export default function ItineraryConfirmationPage() {
 
   const getTravelModeIcon = (mode: string) => {
     switch (mode) {
+      case 'walking': return <span title="Walk">🚶</span>;
+      case 'bicycling': return <span title="Bike">🚴</span>;
+      case 'driving': return <span title="Car">🚗</span>;
+      case 'transit': return <span title="Transit">🚆</span>;
       case 'car': return <Car className="w-3 h-3" />;
       case 'train': return <Train className="w-3 h-3" />;
       case 'ferry': return <Ship className="w-3 h-3" />;
@@ -185,13 +236,6 @@ export default function ItineraryConfirmationPage() {
     }
   };
 
-  const tripMembers = [
-    { name: 'You', avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
-    { name: 'Sarah', avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
-    { name: 'Mike', avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
-    { name: 'Emma', avatar: 'https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' }
-  ];
-
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -216,7 +260,7 @@ export default function ItineraryConfirmationPage() {
     );
   }
 
-  const { itinerary, flights = [], hotels = [] } = itineraryData;
+  const { itinerary, flights = [], hotels = [], budgetRange } = itineraryData;
 
   return (
     <div className="min-h-screen bg-white">
@@ -260,7 +304,9 @@ export default function ItineraryConfirmationPage() {
               <Calendar className="w-5 h-5 text-blue-600" />
               <div>
                 <p className="font-medium text-gray-900">Duration</p>
-                <p className="text-sm text-gray-600">June 15-17, 2024 • 3 Days</p>
+                <p className="text-sm text-gray-600">
+                  {itinerary?.[0]?.month} {itinerary?.[0]?.date}-{itinerary?.[itinerary.length - 1]?.date}, {itinerary?.[0] ? getClosestYear(itinerary[0].month, itinerary[0].date) : ''} • {itinerary?.length || 0} Days
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -291,27 +337,138 @@ export default function ItineraryConfirmationPage() {
               <CreditCard className="w-5 h-5 text-purple-600" />
               <div>
                 <p className="font-medium text-gray-900">Total Cost</p>
-                <p className="text-sm text-gray-600">{flights[0]?.price || '$650'} per person</p>
+                <p className="text-sm text-gray-600">{budgetRange || `${flights[0]?.price || '$650'} per person`}</p>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Flight Details */}
+        {flights && flights.length > 0 && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Flight Options</h3>
+            <div className="space-y-4">
+              {flights.map((flight) => (
+                <div key={flight.id} className="border border-gray-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4 mb-2">
+                        <h4 className="text-lg font-semibold text-gray-900">{flight.airline}</h4>
+                      </div>
+                      <div className="flex items-center space-x-6 text-gray-600 text-sm">
+                        <div>
+                          <p className="font-medium">{flight.departure}</p>
+                          <p className="text-xs">Departure</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-px bg-gray-300"></div>
+                          <Plane className="w-3 h-3" />
+                          <div className="w-6 h-px bg-gray-300"></div>
+                        </div>
+                        <div>
+                          <p className="font-medium">{flight.arrival}</p>
+                          <p className="text-xs">Arrival</p>
+                        </div>
+                        <div className="text-xs">
+                          <p>{flight.duration}</p>
+                          <p>{flight.stops}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-blue-600">{flight.price}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Hotel Options */}
+        {hotels && hotels.length > 0 && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Hotel Options</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {hotels.map((hotel) => (
+                <div key={hotel.id} className="border border-gray-200 rounded-xl p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                      <img
+                        src={hotel.image}
+                        alt={hotel.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900">{hotel.name}</h4>
+                      <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
+                        <div className="flex items-center">
+                          <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                          <span>{hotel.rating}</span>
+                        </div>
+                        <span>•</span>
+                        <span className="text-blue-600 font-semibold">{hotel.price}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {hotel.amenities.slice(0, 2).map((amenity, idx) => (
+                          <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                            {amenity}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Selected Hotel */}
+        {selectedHotel && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Selected Hotel</h2>
+            <div className="flex items-center space-x-4">
+              <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                <img
+                  src={selectedHotel.image}
+                  alt={selectedHotel.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">{selectedHotel.name}</h3>
+                <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
+                  <div className="flex items-center">
+                    <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                    <span>{selectedHotel.rating}</span>
+                  </div>
+                  <span>•</span>
+                  <span className="text-blue-600 font-semibold">{selectedHotel.price}</span>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedHotel.amenities.slice(0, 3).map((amenity, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Confirmed Itinerary */}
         <div className="space-y-6 mb-8">
           <h3 className="text-xl font-bold text-gray-900">Confirmed Itinerary</h3>
           
-          {itinerary.map((day) => (
+          {itinerary?.map((day, idx) => (
             <div key={day.date} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
               <div className="flex items-center space-x-3 mb-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-xs font-medium text-blue-600">{day.day}</div>
-                    <div className="text-sm font-bold text-blue-600">{day.date}</div>
-                  </div>
-                </div>
+                <DateIcon month={day.month} date={day.date} className="w-12 h-12 bg-blue-600 rounded-lg text-white" />
                 <div>
-                  <h4 className="text-lg font-semibold text-gray-900">{day.month}</h4>
+                  <h4 className="text-lg font-semibold text-gray-900">Day {idx+1}</h4>
                   <p className="text-sm text-gray-600">{day.day} {day.date}, {getClosestYear(day.month, day.date)}</p>
                 </div>
               </div>
@@ -343,15 +500,21 @@ export default function ItineraryConfirmationPage() {
                     </div>
                     
                     {/* Connection line and travel info */}
-                    {index < day.places.length - 1 && place.walkTime && (
+                    {index < day.places.length - 1 && place.travelModes && (
                       <div className="flex items-center justify-center py-2 ml-24">
-                        <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-full">
+                        <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full">
                           <div className="w-1 h-4 border-l border-dashed border-gray-400"></div>
                           <div className="flex items-center space-x-1 text-xs text-gray-600">
-                            {getTravelModeIcon(place.travelMode || 'walk')}
-                            <span>{place.walkTime}</span>
+                            {Object.entries(place.travelModes).map(([mode, info]) =>
+                              info ? (
+                                <span key={mode} className="flex items-center gap-1">
+                                  {getTravelModeIcon(mode)}
+                                  <span>{info.duration}</span>
                             <span>•</span>
-                            <span>{place.distance}</span>
+                                  <span>{info.distance}</span>
+                                </span>
+                              ) : null
+                            )}
                           </div>
                           <div className="w-1 h-4 border-l border-dashed border-gray-400"></div>
                         </div>
@@ -366,7 +529,7 @@ export default function ItineraryConfirmationPage() {
 
         {/* Booking Summary */}
         <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-6 mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">What's Included</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-4">What&apos;s Included</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -383,7 +546,7 @@ export default function ItineraryConfirmationPage() {
               </div>
               <div>
                 <p className="font-medium text-gray-900">Accommodation</p>
-                <p className="text-sm text-gray-600">{hotels[0]?.name || 'Hotel'} (3 nights)</p>
+                <p className="text-sm text-gray-600">{selectedHotel?.name || hotels[0]?.name || 'Hotel'} (3 nights)</p>
               </div>
             </div>
           </div>
@@ -402,34 +565,19 @@ export default function ItineraryConfirmationPage() {
                 <span>Processing...</span>
               </div>
             ) : (
-              <div className="flex items-center space-x-2">
-                <CreditCard className="w-5 h-5" />
                 <span>Proceed with Booking</span>
-              </div>
             )}
           </Button>
-          <Link href={`/travel-plan?groupId=${searchParams.get('groupId')}`} className="flex-1">
-            <Button
-              variant="outline"
-              className="w-full py-4 rounded-xl font-semibold text-lg"
-            >
-              Make Changes
-            </Button>
-          </Link>
-        </div>
-        
-        {/* Save PDF Button */}
-        <div className="flex justify-center">
           <Button
             onClick={handleSavePDF}
             disabled={savingPDF}
             variant="outline"
-            className="px-6 py-3 rounded-xl font-semibold"
+            className="px-6 py-4 rounded-xl font-semibold"
           >
             {savingPDF ? (
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
-                <span>Generating PDF...</span>
+                <span>Saving...</span>
               </div>
             ) : (
               <div className="flex items-center space-x-2">
@@ -438,14 +586,6 @@ export default function ItineraryConfirmationPage() {
               </div>
             )}
           </Button>
-        </div>
-
-        {/* Fine Print */}
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-500">
-            By proceeding with booking, you agree to our terms and conditions. 
-            Cancellation policies apply based on individual service providers.
-          </p>
         </div>
       </div>
     </div>

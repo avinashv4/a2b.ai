@@ -148,7 +148,7 @@ Return the updated itinerary in the EXACT same JSON format as the original respo
 `;
 
       // Generate updated itinerary using Gemini
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite-preview-06-17' });
       const result = await model.generateContent(regenerationPrompt);
       const response = await result.response;
       const text = response.text();
@@ -162,7 +162,7 @@ Return the updated itinerary in the EXACT same JSON format as the original respo
         prompt: regenerationPrompt,
         response: text,
         timestamp: new Date().toISOString(),
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-flash-lite-preview-06-17',
         type: 'regeneration'
       };
 

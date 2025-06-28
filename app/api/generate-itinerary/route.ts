@@ -5,6 +5,7 @@ import { getPlaceImage } from '@/lib/getLocationImage';
 import { getPlaceCoordinates } from '@/lib/utils';
 import { getOptimalRoute, getAllTravelModes } from '@/lib/getRoute';
 import { getGooglePlacePhotoUrl } from '@/lib/getPlacePhoto';
+import { randomUUID } from 'crypto';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -49,12 +50,97 @@ interface DayItinerary {
   places: Place[];
 }
 
+// Ranked-choice voting aggregation for hotel rankings
+function getRankedChoiceWinner(rankings: string[][]): string | null {
+  if (rankings.length === 0) return null;
+  // Get all unique hotel IDs
+  const allHotelIds = Array.from(new Set(rankings.flat()));
+  let candidates = [...allHotelIds];
+  let round = 0;
+  while (candidates.length > 1) {
+    // Count first-choice votes for each candidate
+    const counts: Record<string, number> = {};
+    for (const candidate of candidates) counts[candidate] = 0;
+    for (const ballot of rankings) {
+      const first = ballot.find(id => candidates.includes(id));
+      if (first) counts[first]++;
+    }
+    // Find the candidate(s) with the fewest votes
+    const minVotes = Math.min(...Object.values(counts));
+    const toEliminate = candidates.filter(id => counts[id] === minVotes);
+    // If all remaining have the same votes (draw), pick randomly
+    if (toEliminate.length === candidates.length) {
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+    // Eliminate the lowest
+    candidates = candidates.filter(id => !toEliminate.includes(id));
+    round++;
+  }
+  return candidates[0];
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { groupId } = await request.json();
+    const { groupId, action } = await request.json();
 
     if (!groupId) {
       return NextResponse.json({ error: 'Group ID is required' }, { status: 400 });
+    }
+
+    if (action === 'aggregate_hotel_ranking') {
+      // Fetch all hotel_rankings for the group
+      const { data: members, error } = await supabase
+        .from('group_members')
+        .select('hotel_rankings')
+        .eq('group_id', groupId);
+      if (error) return NextResponse.json({ error: 'Failed to fetch rankings' }, { status: 500 });
+      const rankings = (members || [])
+        .map((m: any) => Array.isArray(m.hotel_rankings) ? m.hotel_rankings : [])
+        .filter(r => r.length > 0);
+      const winner = getRankedChoiceWinner(rankings);
+      return NextResponse.json({ winner });
+    }
+
+    if (action === 'aggregate_selected_hotel') {
+      // Fetch all selected_hotel for the group
+      const { data: members, error } = await supabase
+        .from('group_members')
+        .select('selected_hotel')
+        .eq('group_id', groupId);
+      if (error) return NextResponse.json({ error: 'Failed to fetch selections' }, { status: 500 });
+      const counts: Record<string, number> = {};
+      (members || []).forEach((m: any) => {
+        if (m.selected_hotel) counts[m.selected_hotel] = (counts[m.selected_hotel] || 0) + 1;
+      });
+      // Find the hotel(s) with the max count
+      const max = Math.max(...Object.values(counts));
+      const topHotels = Object.entries(counts).filter(([_, v]) => v === max).map(([k]) => k);
+      // If tie, pick the cheaper one
+      if (topHotels.length > 1) {
+        // Fetch hotel prices from the itinerary
+        const { data: groupData } = await supabase
+          .from('travel_groups')
+          .select('itinerary')
+          .eq('group_id', groupId)
+          .single();
+        const hotels = groupData?.itinerary?.hotels || [];
+        let minPrice = Infinity;
+        let winner = topHotels[0];
+        for (const hotelId of topHotels) {
+          const hotel = hotels.find((h: any) => h.id === hotelId);
+          if (hotel) {
+            // Extract numeric price
+            const priceNum = parseFloat((hotel.price || '').replace(/[^\d.]/g, ''));
+            if (!isNaN(priceNum) && priceNum < minPrice) {
+              minPrice = priceNum;
+              winner = hotelId;
+            }
+          }
+        }
+        return NextResponse.json({ winner });
+      }
+      // Otherwise, return the single winner
+      return NextResponse.json({ winner: topHotels[0] });
     }
 
     // Get group details and members with preferences
@@ -165,7 +251,7 @@ REQUIREMENTS:
 
 Budget Estimate:
 - Calculate a rough estimated budget range for the entire itinerary, including travel (flights), local transportation, lodging, entry fees for places, food (all meals), and any other relevant costs.
-- Include a field in the JSON: "budgetRange": "$1200-$1800" (or similar, as a string).
+- Include a field in the JSON: "budgetRange": "$1200-$1800" and nothing else (or similar, as a string).
 - The range should reflect the minimum and maximum likely spend for the group per person, based on the planned itinerary and group preferences.
 
 CRITICAL DATE FORMAT REQUIREMENTS:
@@ -212,7 +298,7 @@ General:
 `;
 
     // Generate itinerary using Gemini
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite-preview-06-17' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
@@ -222,7 +308,7 @@ General:
       prompt: prompt,
       response: text,
       timestamp: new Date().toISOString(),
-      model: 'gemini-2.5-flash'
+      model: 'gemini-2.5-flash-lite-preview-06-17'
     };
 
     // Parse the JSON response
@@ -252,8 +338,8 @@ General:
         const coordinates = await getPlaceCoordinates(place.name, groupData.destination_display || groupData.destination);
         if (coordinates) {
           place.coordinates = coordinates;
-        }
       }
+    }
       // After all coordinates are set, get all travel modes between consecutive places
       for (let i = 1; i < day.places.length; i++) {
         const prev = day.places[i - 1];

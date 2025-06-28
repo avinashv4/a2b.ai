@@ -136,6 +136,13 @@ export default function TravelPlanPage() {
   const [regenerating, setRegenerating] = useState(false);
   const [tripImage, setTripImage] = useState<string>('https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=800&h=400&fit=crop');
   const [destination, setDestination] = useState<string>('');
+  const [selectedHotel, setSelectedHotel] = useState<string | null>(null);
+  const [hasConfirmedItinerary, setHasConfirmedItinerary] = useState(false);
+  const [allConfirmed, setAllConfirmed] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [toasts, setToasts] = useState<{ id: number; message: string }[]>([]);
+  const toastId = useRef(0);
+  const [showRegenTooltip, setShowRegenTooltip] = useState(false);
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileSettingsRef = useRef<HTMLDivElement>(null);
@@ -147,99 +154,99 @@ export default function TravelPlanPage() {
   // Move fetchOrGenerateItinerary to top-level so it can be called from anywhere
   const fetchOrGenerateItinerary = async () => {
     try {
-      const groupId = searchParams.get('groupId');
-      if (!groupId) {
-        setError('Group ID not found.');
-        setLoading(false);
-        return;
-      }
+    const groupId = searchParams.get('groupId');
+    if (!groupId) {
+      setError('Group ID not found.');
+      setLoading(false);
+      return;
+    }
 
-      const { data: groupData, error: groupError } = await supabase
-        .from('travel_groups')
-        .select('itinerary, destination_display, trip_name, destination')
-        .eq('group_id', groupId)
-        .single();
+        const { data: groupData, error: groupError } = await supabase
+          .from('travel_groups')
+          .select('itinerary, destination_display, trip_name, destination')
+          .eq('group_id', groupId)
+          .single();
 
-      if (groupError) throw groupError;
+        if (groupError) throw groupError;
 
-      let finalItineraryData: ItineraryData | null = null;
-      if (groupData?.itinerary) {
-        finalItineraryData = groupData.itinerary as ItineraryData;
-      } else {
-        const response = await fetch('/api/generate-itinerary', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ groupId }),
-        });
+        let finalItineraryData: ItineraryData | null = null;
+        if (groupData?.itinerary) {
+          finalItineraryData = groupData.itinerary as ItineraryData;
+        } else {
+          const response = await fetch('/api/generate-itinerary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupId }),
+          });
 
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || 'Failed to generate itinerary.');
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || 'Failed to generate itinerary.');
+          }
+
+          const result = await response.json();
+          finalItineraryData = result.data;
+        }
+        
+        setItineraryData(finalItineraryData);
+        setTripTitle(groupData.trip_name || groupData.destination_display || 'Trip Plan');
+        setDestination(groupData.destination_display || groupData.destination || 'Paris');
+
+        // Initialize expanded states for days
+        if (finalItineraryData?.itinerary) {
+          const initialExpanded: Record<string, boolean> = {};
+          finalItineraryData.itinerary.forEach((day, index) => {
+            initialExpanded[day.date] = index === 0; // Expand first day by default
+          });
+          setDayExpandedStates(initialExpanded);
         }
 
-        const result = await response.json();
-        finalItineraryData = result.data;
-      }
-      
-      setItineraryData(finalItineraryData);
-      setTripTitle(groupData.trip_name || groupData.destination_display || 'Trip Plan');
-      setDestination(groupData.destination_display || groupData.destination || 'Paris');
+        // Fetch trip image
+        if (groupData.destination_display || groupData.destination) {
+          const imageUrl = await getLocationImage(groupData.destination_display || groupData.destination);
+          setTripImage(imageUrl);
+        }
 
-      // Initialize expanded states for days
-      if (finalItineraryData?.itinerary) {
-        const initialExpanded: Record<string, boolean> = {};
-        finalItineraryData.itinerary.forEach((day, index) => {
-          initialExpanded[day.date] = index === 0; // Expand first day by default
-        });
-        setDayExpandedStates(initialExpanded);
-      }
+        // Fetch members
+        const { data: membersData, error: membersError } = await supabase
+          .from('group_members')
+          .select(`
+            user_id,
+            regenerate_vote,
+            profiles!group_members_user_id_fkey(first_name, last_name, profile_picture)
+          `)
+          .eq('group_id', groupId);
 
-      // Fetch trip image
-      if (groupData.destination_display || groupData.destination) {
-        const imageUrl = await getLocationImage(groupData.destination_display || groupData.destination);
-        setTripImage(imageUrl);
-      }
-
-      // Fetch members
-      const { data: membersData, error: membersError } = await supabase
-        .from('group_members')
-        .select(`
-          user_id,
-          regenerate_vote,
-          profiles!group_members_user_id_fkey(first_name, last_name, profile_picture)
-        `)
-        .eq('group_id', groupId);
-
-      if (membersError) {
-        console.error('Error fetching members:', membersError);
-      } else if (membersData) {
-        setTotalMembers(membersData.length);
-        
-        // Count regenerate votes
-        const votedCount = membersData.filter(m => m.regenerate_vote).length;
-        setRegenerateVotes(votedCount);
-        
-        // Check if current user has voted
+        if (membersError) {
+          console.error('Error fetching members:', membersError);
+        } else if (membersData) {
+          setTotalMembers(membersData.length);
+          
+          // Count regenerate votes
+          const votedCount = membersData.filter(m => m.regenerate_vote).length;
+          setRegenerateVotes(votedCount);
+          
+          // Check if current user has voted
         const { data } = await supabase.auth.getUser();
         const currentUserMember = membersData.find(m => m.user_id === data.user?.id);
-        setHasVotedRegenerate(currentUserMember?.regenerate_vote || false);
-
-        const formattedMembers = membersData.map((m: any) => ({
-          name: `${m.profiles.first_name} ${m.profiles.last_name}`,
-          avatar: m.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
-        }));
-        setTripMembers(formattedMembers);
+          setHasVotedRegenerate(currentUserMember?.regenerate_vote || false);
+          
+          const formattedMembers = membersData.map((m: any) => ({
+            name: `${m.profiles.first_name} ${m.profiles.last_name}`,
+            avatar: m.profiles.profile_picture || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
+          }));
+          setTripMembers(formattedMembers);
 
         console.log('Fetched group_members:', membersData);
         console.log('regenerateVotes:', votedCount, 'totalMembers:', membersData.length);
-      }
+        }
 
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
-    } finally {
-      setLoading(false);
-    }
-  };
+      } catch (err: any) {
+        setError(err.message || 'An unexpected error occurred.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
   useEffect(() => {
     fetchOrGenerateItinerary();
@@ -406,12 +413,12 @@ export default function TravelPlanPage() {
 
   const handleRegenerateVote = async () => {
     if (hasVotedRegenerate || regenerating) return;
-
+    
     setRegenerating(true);
     try {
       const { data } = await supabase.auth.getUser();
       if (!data.user) return;
-
+      
       const groupId = searchParams.get('groupId');
       if (!groupId) return;
 
@@ -424,19 +431,19 @@ export default function TravelPlanPage() {
           }
         });
       });
-
+      
       const response = await fetch('/api/regenerate-itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId, userId: data.user.id, placeVotes }),
       });
-
+      
       const result = await response.json();
-
+      
       if (result.success) {
         setHasVotedRegenerate(true);
         setRegenerateVotes(result.regenerateVotes);
-
+        
         if (result.regenerated) {
           // If all members voted and itinerary was regenerated, fetch the new itinerary
           const { data: groupData, error: groupError } = await supabase
@@ -451,7 +458,7 @@ export default function TravelPlanPage() {
             setRegenerateVotes(0);
           } else {
             // If there was an error fetching the new itinerary, reload the page
-            window.location.reload();
+          window.location.reload();
           }
         }
       }
@@ -503,10 +510,25 @@ export default function TravelPlanPage() {
     }
   };
 
-  const handleConfirmItinerary = () => {
+  const handleConfirmItinerary = async () => {
+    setConfirming(true);
     const groupId = searchParams.get('groupId');
-    window.location.href = `/itinerary-confirmation?groupId=${groupId}`;
-    window.location.href = `/itinerary-confirmation?groupId=${groupId}`;
+    const { data } = await supabase.auth.getUser();
+    if (!data.user?.id || !groupId) return;
+    if (selectedHotel) {
+      await supabase
+        .from('group_members')
+        .update({ selected_hotel: selectedHotel })
+        .eq('group_id', groupId)
+        .eq('user_id', data.user.id);
+    }
+    await supabase
+      .from('group_members')
+      .update({ confirm_itinerary_vote: true })
+      .eq('group_id', groupId)
+      .eq('user_id', data.user.id);
+    setHasConfirmedItinerary(true);
+    setConfirming(false);
   };
 
   const getTravelModeIcon = (mode: string) => {
@@ -534,6 +556,64 @@ export default function TravelPlanPage() {
       default: return 'Attraction';
     }
   };
+
+  const showToast = (message: string) => {
+    const id = ++toastId.current;
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  };
+
+  // Subscribe to group_members changes for hotel voting and regenerate voting
+  useEffect(() => {
+    const groupId = searchParams.get('groupId');
+    if (!groupId) return;
+    let currentUserId: string | null = null;
+    supabase.auth.getUser().then(({ data }) => {
+      currentUserId = data.user?.id || null;
+    });
+    const channel = supabase
+      .channel('group-members-toast')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'group_members',
+          filter: `group_id=eq.${groupId}`,
+        },
+        async (payload) => {
+          const newRow = payload.new as any;
+          const oldRow = payload.old as any;
+          if (!currentUserId || newRow.user_id === currentUserId) return;
+          // Fetch user profile for first name
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('first_name')
+            .eq('id', newRow.user_id)
+            .single();
+          const firstName = profileData?.first_name || 'A user';
+          // Hotel vote notification
+          if (newRow.selected_hotel && newRow.selected_hotel !== oldRow.selected_hotel) {
+            // Get hotel name from itineraryData
+            const hotel = itineraryData?.hotels?.find(h => h.id === newRow.selected_hotel);
+            if (hotel) {
+              showToast(`${firstName} has voted for ${hotel.name}`);
+            }
+          }
+          // Regenerate vote notification
+          if (newRow.regenerate_vote && !oldRow.regenerate_vote) {
+            showToast(`${firstName} has requested to regenerate the itinerary`);
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, itineraryData]);
 
   if (loading) {
     return (
@@ -729,15 +809,29 @@ export default function TravelPlanPage() {
       </div>
 
       {/* Action Buttons */}
+      {!allConfirmed ? (
       <div className="flex flex-col sm:flex-row gap-3">
         <Button
           onClick={handleConfirmItinerary}
           className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold"
+            disabled={hasConfirmedItinerary || confirming}
         >
-          <BookOpen className="w-4 h-4 mr-2" />
-          Confirm Itinerary
+            {hasConfirmedItinerary ? 'Waiting for others to confirm...' : confirming ? 'Confirming...' : 'Confirm Itinerary'}
         </Button>
-      </div>
+        </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            onClick={() => {
+              const groupId = searchParams.get('groupId');
+              window.location.href = `/itinerary-confirmation?groupId=${groupId}`;
+            }}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold"
+          >
+            Go to Confirmation
+          </Button>
+        </div>
+      )}
 
       {/* Voting Progress */}
       <div className="text-center text-sm text-gray-600 space-y-1">
@@ -801,41 +895,60 @@ export default function TravelPlanPage() {
   const renderHotelsContent = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900 mb-4">Recommended Hotels</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {(hotels || []).map((hotel) => (
-          <div key={hotel.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow flex flex-col">
-            <div className="h-48 w-full rounded-t-2xl overflow-hidden bg-gray-200">
-              <img
-                src={hotel.image}
-                alt={hotel.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex-1 flex flex-col p-5">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-gray-900 leading-tight">{hotel.name}</h3>
-                <span className="flex items-center text-yellow-500 font-semibold text-base">
-                  <Star className="w-4 h-4 mr-1 fill-yellow-400" />
-                  {hotel.rating?.toFixed(1)}
-                </span>
+      {hotels && hotels.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-lg font-bold mb-2">Select Your Preferred Hotel</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {hotels.map((hotel) => (
+              <div
+                key={hotel.id}
+                className={`bg-white rounded-2xl shadow-sm border-2 transition-all duration-200 flex flex-col cursor-pointer ${
+                  selectedHotel === hotel.id ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100' : 'border-gray-200 hover:shadow-md hover:border-gray-300'
+                }`}
+                onClick={() => setSelectedHotel(hotel.id)}
+              >
+                <div className="h-48 w-full rounded-t-2xl overflow-hidden bg-gray-200">
+                <img
+                  src={hotel.image}
+                  alt={hotel.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <div className="text-blue-700 font-bold text-lg mb-3">{hotel.price}</div>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {hotel.amenities.slice(0, 3).map((amenity, idx) => (
-                  <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                    {amenity}
-                  </span>
-                ))}
-                {hotel.amenities.length > 3 && (
-                  <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                    +{hotel.amenities.length - 3} more
-                  </span>
-                )}
+                <div className="flex-1 flex flex-col p-5">
+                <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900 leading-tight">{hotel.name}</h3>
+                    <span className="flex items-center text-yellow-500 font-semibold text-base">
+                      <Star className="w-4 h-4 mr-1 fill-yellow-400" />
+                      {hotel.rating?.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="text-blue-700 font-bold text-lg mb-3">{hotel.price}</div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {hotel.amenities.slice(0, 3).map((amenity, idx) => (
+                      <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                      {amenity}
+                    </span>
+                  ))}
+                    {hotel.amenities.length > 3 && (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                        +{hotel.amenities.length - 3} more
+                      </span>
+                    )}
+                </div>
+                  {selectedHotel === hotel.id && (
+                    <div className="mt-auto pt-2">
+                      <div className="flex items-center text-green-600 text-sm font-medium">
+                        <Check className="w-4 h-4 mr-1" />
+                        Selected
               </div>
+                    </div>
+                  )}
             </div>
           </div>
         ))}
       </div>
+        </div>
+      )}
     </div>
   );
 
@@ -877,56 +990,56 @@ export default function TravelPlanPage() {
                         }}
                       >
                         <div className="bg-gray-50 rounded-xl p-4">
-                          <div className="flex space-x-4">
+                        <div className="flex space-x-4">
                             <div className="w-40 h-32 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                              <img
-                                src={place.image}
-                                alt={place.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center space-x-2">
-                                  <div>
-                                    <h4 className="text-base font-semibold text-gray-900">{place.name}</h4>
-                                    <div className="flex items-center space-x-2 text-xs text-gray-500">
-                                      <span className="bg-gray-200 px-2 py-1 rounded-full">{getTypeLabel(place.type || 'attraction')}</span>
-                                      {place.visitTime && <span>Visit at {place.visitTime}</span>}
-                                    </div>
+                            <img
+                              src={place.image}
+                              alt={place.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                <div>
+                                  <h4 className="text-base font-semibold text-gray-900">{place.name}</h4>
+                                  <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                    <span className="bg-gray-200 px-2 py-1 rounded-full">{getTypeLabel(place.type || 'attraction')}</span>
+                                    {place.visitTime && <span>Visit at {place.visitTime}</span>}
                                   </div>
                                 </div>
+                              </div>
                                 <div className="flex space-x-2">
                                   <button
-                                    onClick={() => handleVote(dayIndex, place.id, 'accept')}
+                                  onClick={() => handleVote(dayIndex, place.id, 'accept')}
                                     className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${place.voted === 'accept' ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-gray-300 text-green-600 hover:bg-green-50'}`}
-                                    onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
-                                    onMouseLeave={handleMouseLeave}
+                                  onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
+                                  onMouseLeave={handleMouseLeave}
                                     title="Vote to Accept"
-                                  >
+                                >
                                     <Check className="w-4 h-4" />
                                   </button>
                                   <button
-                                    onClick={() => handleVote(dayIndex, place.id, 'deny')}
+                                  onClick={() => handleVote(dayIndex, place.id, 'deny')}
                                     className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${place.voted === 'deny' ? 'bg-red-600 border-red-600 text-white' : 'bg-white border-gray-300 text-red-600 hover:bg-red-50'}`}
-                                    onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
-                                    onMouseLeave={handleMouseLeave}
+                                  onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
+                                  onMouseLeave={handleMouseLeave}
                                     title="Vote to Reject"
-                                  >
+                                >
                                     <RotateCcw className="w-4 h-4" />
                                   </button>
-                                </div>
                               </div>
-                              <p className="text-xs text-gray-600 mb-2">{place.description}</p>
-                              <div className="flex items-center space-x-3 text-xs text-gray-500">
-                                <div className="flex items-center space-x-1">
-                                  <Clock className="w-3 h-3" />
-                                  <span>{place.duration}</span>
-                                </div>
+                            </div>
+                            <p className="text-xs text-gray-600 mb-2">{place.description}</p>
+                            <div className="flex items-center space-x-3 text-xs text-gray-500">
+                              <div className="flex items-center space-x-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{place.duration}</span>
                               </div>
                             </div>
                           </div>
                         </div>
+                      </div>
                       </div>
                       {/* Travel info between cards */}
                       {index < day.places.length - 1 && (
@@ -939,7 +1052,7 @@ export default function TravelPlanPage() {
                                   <span key={mode} className="flex items-center gap-1">
                                     {getTravelModeIcon(mode)}
                                     <span>{info.duration}</span>
-                                    <span>•</span>
+                              <span>•</span>
                                     <span>{info.distance}</span>
                                   </span>
                                 ) : null
@@ -1213,20 +1326,31 @@ export default function TravelPlanPage() {
               hasVotedRegenerate || regenerating || !allPlacesVoted ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'hover:bg-gray-100 text-gray-700'
             }`}
             title={!allPlacesVoted ? 'Vote on all places before regenerating' : ''}
-            onMouseEnter={(e: React.MouseEvent) => sidebarCollapsed && handleMouseEnter('regenerate', e)}
-            onMouseLeave={handleMouseLeave}
+            onMouseEnter={(e: React.MouseEvent) => {
+              if (!allPlacesVoted) setShowRegenTooltip(true);
+              if (sidebarCollapsed) handleMouseEnter('regenerate', e);
+            }}
+            onMouseLeave={() => {
+              setShowRegenTooltip(false);
+              handleMouseLeave();
+            }}
           >
             <div className="h-8 flex items-center">
               <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
             </div>
             {!sidebarCollapsed && (
               <div className={`flex items-center justify-between w-full`}>
-                <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}> 
+                <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                   {regenerating ? 'Regenerating...' : hasVotedRegenerate ? 'Waiting for others...' : 'Regenerate'}
                 </span>
-                <span className={`text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}> 
+                <span className={`text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                   {regenerateVotes}/{totalMembers}
                 </span>
+              </div>
+            )}
+            {showRegenTooltip && !allPlacesVoted && (
+              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-black text-white px-3 py-2 rounded shadow text-xs z-50">
+                You have not finished voting yet
               </div>
             )}
             {totalMembers === 0 && (
@@ -1327,7 +1451,7 @@ export default function TravelPlanPage() {
         >
           {
             sidebarItems.find(item => item.id === hoveredTooltip)?.label ||
-            itinerary.find(day => day.date === hoveredTooltip)?.month ||
+           itinerary.find(day => day.date === hoveredTooltip)?.month ||
             (hoveredTooltip ? hoveredTooltip.charAt(0).toUpperCase() + hoveredTooltip.slice(1) : '')
           }
         </div>
@@ -1356,6 +1480,15 @@ export default function TravelPlanPage() {
           Vote to Reject
         </div>
       )}
+
+      {/* Render toasts */}
+      <div className="fixed top-6 right-6 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div key={toast.id} className="bg-blue-600 text-white px-4 py-2 rounded shadow-lg animate-fade-in">
+            {toast.message}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
