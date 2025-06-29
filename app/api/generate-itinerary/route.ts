@@ -6,7 +6,6 @@ import { getPlaceCoordinates } from '@/lib/utils';
 import { getOptimalRoute, getAllTravelModes } from '@/lib/getRoute';
 import { getGooglePlacePhotoUrl } from '@/lib/getPlacePhoto';
 import { randomUUID } from 'crypto';
-import { parseFlightOptions } from '@/lib/flightParser';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -195,9 +194,10 @@ export async function POST(request: NextRequest) {
     }));
 
     // Fetch real flight data from Booking.com
-    let selectedFlight = null;
+    let selectedFlightData = null;
     let flightArrivalInfo = '';
     let flightDepartureInfo = '';
+    let availableFlights = '';
     
     try {
       // Get the booking URL from the travel group
@@ -223,55 +223,14 @@ export async function POST(request: NextRequest) {
         if (flightResponse.ok) {
           const flightData = await flightResponse.json();
           if (flightData.success && flightData.flight_options?.length > 0) {
-            // Parse flight options
-            const parsedFlights = parseFlightOptions(flightData.flight_options);
-            
-            // Let LLM choose the best flight
-            const flightSelectionPrompt = `
-Choose the best flight option from the following list for a group trip to ${groupData.destination_display}:
-
-AVAILABLE FLIGHTS:
-${parsedFlights.map((flight, idx) => `
-Flight ${idx + 1}:
-- Airline: ${flight.airline}
-- Price: ${flight.currency} ${flight.price}
-- Outbound: ${flight.outbound.departure_time} ${flight.outbound.departure_airport} → ${flight.outbound.arrival_time} ${flight.outbound.arrival_airport} (${flight.outbound.duration}, ${flight.outbound.stops})
-- Return: ${flight.return.departure_time} ${flight.return.departure_airport} → ${flight.return.arrival_time} ${flight.return.arrival_airport} (${flight.return.duration}, ${flight.return.stops})
-${flight.ticket_type ? `- Ticket Type: ${flight.ticket_type}` : ''}
+            // Format flight options for LLM
+            availableFlights = `
+AVAILABLE FLIGHT OPTIONS:
+${flightData.flight_options.map((flight: any) => `
+Index: ${flight.index}
+Flight Details: ${flight.text_content}
 `).join('\n')}
-
-Return only the flight number (1, 2, 3, etc.) of the best option considering:
-- Best value for money
-- Reasonable flight times
-- Minimal layovers
-- Good arrival times for starting the trip
 `;
-
-            const flightModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite-preview-06-17' });
-            const flightResult = await flightModel.generateContent(flightSelectionPrompt);
-            const flightChoice = await flightResult.response;
-            const choiceText = flightChoice.text().trim();
-            
-            const flightIndex = parseInt(choiceText) - 1;
-            if (flightIndex >= 0 && flightIndex < parsedFlights.length) {
-              selectedFlight = parsedFlights[flightIndex];
-              
-              // Format flight info for itinerary planning
-              flightArrivalInfo = `
-FLIGHT ARRIVAL INFORMATION:
-- Arrival Date: ${selectedFlight.outbound.arrival_date}
-- Arrival Time: ${selectedFlight.outbound.arrival_time}
-- Airport: ${selectedFlight.outbound.arrival_airport}
-`;
-
-              flightDepartureInfo = `
-FLIGHT DEPARTURE INFORMATION:
-- Departure Date: ${selectedFlight.return.departure_date}
-- Departure Time: ${selectedFlight.return.departure_time}
-- Airport: ${selectedFlight.return.departure_airport}
-- IMPORTANT: Ensure travelers reach airport 3 hours before departure time (${selectedFlight.return.departure_time})
-`;
-            }
           }
         }
       }
@@ -300,12 +259,17 @@ ${memberPreferences.map(member => `
 
 ${flightArrivalInfo}
 ${flightDepartureInfo}
+${availableFlights}
 
 Please return the response in the following EXACT JSON format (no additional text, just the JSON):
 
 {
   "budgetRange": "",
   "arrivalIataCode": "CDG",
+  "selectedFlight": {
+    "index": 0,
+    "text_content": "Flight details text from the available options"
+  },
   "itinerary": [
     {
       "date": "15",
@@ -356,9 +320,13 @@ CRITICAL DATE FORMAT REQUIREMENTS:
 Days in Itinerary:
 - If group members mention availability (schedule), find common free dates. Use only dates when all members who have mentioned a schedule are free.
 - If no dates are mentioned or availability is unclear, default to creating an itinerary for exactly 3 full days.
-${selectedFlight ? `
-- CRITICAL: Plan activities considering flight arrival time (${selectedFlight.outbound.arrival_time} on ${selectedFlight.outbound.arrival_date})
-- CRITICAL: On departure day (${selectedFlight.return.departure_date}), ensure all activities end at least 4 hours before flight departure time (${selectedFlight.return.departure_time}) to allow for travel to airport and check-in
+${availableFlights ? `
+Flight Selection:
+- CRITICAL: Choose the BEST flight option from the available flights list above
+- Consider: price, timing, convenience, minimal layovers
+- Return the selected flight's index and text_content in the "selectedFlight" field
+- CRITICAL: Plan activities considering the selected flight's arrival time
+- CRITICAL: On departure day, ensure all activities end at least 4 hours before flight departure time
 - Do not schedule any activities after the time needed to reach airport 3 hours before departure
 ` : ''}
 
@@ -471,22 +439,20 @@ General:
 
     // --- Fetch real flights from SerpAPI ---
     // Initialize with fallback flights first
-    if (selectedFlight) {
-      // Use the selected real flight data
+    if (itineraryData.selectedFlight) {
+      // Store the selected flight data
       itineraryData.flights = [
         {
           id: "1",
-          airline: selectedFlight.airline,
-          departure: selectedFlight.outbound.departure_time,
-          arrival: selectedFlight.outbound.arrival_time,
-          duration: selectedFlight.outbound.duration,
-          price: `${selectedFlight.currency} ${selectedFlight.price}`,
-          stops: selectedFlight.outbound.stops,
-          ticket_type: selectedFlight.ticket_type,
-          return_departure: selectedFlight.return.departure_time,
-          return_arrival: selectedFlight.return.arrival_time,
-          return_duration: selectedFlight.return.duration,
-          return_stops: selectedFlight.return.stops
+          index: itineraryData.selectedFlight.index,
+          text_content: itineraryData.selectedFlight.text_content,
+          // Parse basic info for display
+          airline: extractAirline(itineraryData.selectedFlight.text_content),
+          price: extractPrice(itineraryData.selectedFlight.text_content),
+          departure: "See flight details",
+          arrival: "See flight details",
+          duration: "See flight details",
+          stops: "See flight details"
         }
       ];
     } else {
@@ -574,7 +540,8 @@ General:
 
     return NextResponse.json({
       success: true,
-      data: itineraryData
+      data: itineraryData,
+      selectedFlight: itineraryData.selectedFlight || null
     });
 
   } catch (error) {
@@ -584,4 +551,15 @@ General:
       { status: 500 }
     );
   }
+}
+
+// Helper functions to extract basic info for display
+function extractAirline(textContent: string): string {
+  const airlineMatch = textContent.match(/([A-Za-z\s]+(?:Airlines?|Airways?))/);
+  return airlineMatch ? airlineMatch[1].trim() : 'Unknown Airline';
+}
+
+function extractPrice(textContent: string): string {
+  const priceMatch = textContent.match(/INR([\d,]+\.?\d*)/);
+  return priceMatch ? `INR ${priceMatch[1]}` : 'Price not available';
 }
