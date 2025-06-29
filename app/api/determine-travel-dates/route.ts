@@ -15,6 +15,36 @@ interface GroupMember {
   };
 }
 
+interface BookingUrlParams {
+  from: string;
+  to: string;
+  departDate: string;
+  returnDate: string;
+  adults: number;
+  cabinClass: string;
+}
+
+function constructBookingUrl(params: BookingUrlParams): string {
+  const baseUrl = 'https://flights.booking.com/flights';
+  const route = `${params.from}.AIRPORT-${params.to}.AIRPORT/`;
+  
+  const searchParams = new URLSearchParams({
+    type: 'ROUNDTRIP',
+    adults: params.adults.toString(),
+    cabinClass: params.cabinClass,
+    children: '',
+    from: `${params.from}.AIRPORT`,
+    to: `${params.to}.AIRPORT`,
+    depart: params.departDate,
+    return: params.returnDate,
+    sort: 'BEST',
+    travelPurpose: 'leisure',
+    ca_source: 'flights_index_sb'
+  });
+
+  return `${baseUrl}/${route}?${searchParams.toString()}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { groupId } = await request.json();
@@ -164,7 +194,18 @@ ${isSinglePerson
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
     }
 
-    // Update the travel group with determined dates and flight info
+    // Generate booking URL directly
+    const adultCount = membersData?.length || 1;
+    const bookingUrl = constructBookingUrl({
+      from: travelDatesData.departure_iata_code,
+      to: travelDatesData.destination_iata_code,
+      departDate: travelDatesData.departure_date,
+      returnDate: travelDatesData.return_date,
+      adults: adultCount,
+      cabinClass: flightClass
+    });
+
+    // Update the travel group with determined dates, flight info, and booking URL
     const { error: updateError } = await supabase
       .from('travel_groups')
       .update({
@@ -175,7 +216,8 @@ ${isSinglePerson
         departure_iata_code: travelDatesData.departure_iata_code,
         destination_iata_code: travelDatesData.destination_iata_code,
         flight_class: flightClass,
-        travel_dates_determined: true
+        travel_dates_determined: true,
+        booking_url: bookingUrl
       })
       .eq('group_id', groupId);
 
@@ -184,28 +226,13 @@ ${isSinglePerson
       return NextResponse.json({ error: 'Failed to save travel dates' }, { status: 500 });
     }
 
-    // Generate and save booking URL
-    try {
-      const bookingResponse = await fetch('/api/generate-booking-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId })
-      });
-
-      if (!bookingResponse.ok) {
-        const errorText = await bookingResponse.text();
-        console.error('Failed to generate booking URL:', errorText);
-      }
-    } catch (bookingError) {
-      console.error('Error generating booking URL:', bookingError);
-      // Don't fail the entire request if booking URL generation fails
-    }
-
     return NextResponse.json({
       success: true,
       data: {
         ...travelDatesData,
-        flight_class: flightClass
+        flight_class: flightClass,
+        booking_url: bookingUrl,
+        adults: adultCount
       }
     });
 
