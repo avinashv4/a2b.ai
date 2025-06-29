@@ -341,23 +341,25 @@ export default function AIPreferencesPage() {
           {/* View Itinerary Buttons */}
           <div className="mt-8 space-y-3">
             <Button
-              onClick={() => {
-                if (allUsersReady && isHost) {
-                  window.location.href = `/travel-plan?groupId=${groupId}`;
-                } else if (!isHost) {
-                  // Show tooltip or message for non-hosts
-                  return;
-                }
-              }}
-              disabled={!allUsersReady || !isHost}
+              onClick={handleGenerateTravelPlan}
+              disabled={!allUsersReady || !isHost || generatingPlan}
               title={!isHost ? "Waiting for host to generate travel plan" : ""}
               className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 relative ${
-                allUsersReady && isHost
+                allUsersReady && isHost && !generatingPlan
                   ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-105' 
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
-              {isHost ? 'Generate Travel Plan' : 'Waiting for Host'}
+              {generatingPlan ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Generating Plan...</span>
+                </div>
+              ) : isHost ? (
+                'Generate Travel Plan'
+              ) : (
+                'Waiting for Host'
+              )}
             </Button>
           </div>
         </div>
