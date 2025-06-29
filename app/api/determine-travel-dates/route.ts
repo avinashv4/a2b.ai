@@ -303,14 +303,79 @@ ${isSinglePerson
       
       console.log('💾 Update data:', updateData);
       
-      const { error: updateError } = await supabase
-        .from('travel_groups')
-        .update(updateData)
-        .eq('group_id', groupId);
+      try {
+        console.log('💾 Attempting Supabase update...');
+        console.log('💾 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Missing');
+        console.log('💾 Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Missing');
+        
+        const { data: updateResult, error: updateError, count } = await supabase
+          .from('travel_groups')
+          .update(updateData)
+          .eq('group_id', groupId)
+          .select();
 
-      if (updateError) {
-        console.error('❌ Error updating travel group:', updateError);
-        return NextResponse.json({ error: 'Failed to save travel dates' }, { status: 500 });
+        console.log('💾 Supabase update result:', {
+          data: updateResult,
+          error: updateError,
+          count: count,
+          rowsAffected: updateResult?.length || 0
+        });
+
+        if (updateError) {
+          console.error('❌ Supabase update error details:', {
+            message: updateError.message,
+            details: updateError.details,
+            hint: updateError.hint,
+            code: updateError.code,
+            name: updateError.name || 'Unknown',
+            stack: updateError.stack || 'No stack trace'
+          });
+          
+          // Check if it's a network/connection error
+          if (updateError.message?.includes('fetch failed') || updateError.message?.includes('network')) {
+            console.error('❌ This appears to be a network/connection error to Supabase');
+            console.error('❌ Possible causes:');
+            console.error('   - Supabase service is down');
+            console.error('   - Network connectivity issues');
+            console.error('   - Invalid Supabase URL or credentials');
+            console.error('   - Firewall blocking the connection');
+          }
+          
+          return NextResponse.json({ 
+            error: 'Failed to save travel dates to database',
+            details: updateError.message,
+            supabaseError: updateError
+          }, { status: 500 });
+        }
+
+        if (!updateResult || updateResult.length === 0) {
+          console.error('❌ No rows were updated - group may not exist');
+          return NextResponse.json({ 
+            error: 'No travel group found to update',
+            groupId: groupId
+          }, { status: 404 });
+        }
+
+        console.log('✅ Supabase update successful, rows affected:', updateResult.length);
+        
+      } catch (supabaseError) {
+        console.error('❌ Unexpected error during Supabase update:', supabaseError);
+        console.error('❌ Error type:', typeof supabaseError);
+        console.error('❌ Error constructor:', supabaseError?.constructor?.name);
+        
+        if (supabaseError instanceof Error) {
+          console.error('❌ Error details:', {
+            name: supabaseError.name,
+            message: supabaseError.message,
+            stack: supabaseError.stack,
+            cause: supabaseError.cause
+          });
+        }
+        
+        return NextResponse.json({ 
+          error: 'Database connection failed',
+          details: supabaseError instanceof Error ? supabaseError.message : String(supabaseError)
+        }, { status: 500 });
       }
 
       console.log('✅ Travel group updated successfully');
