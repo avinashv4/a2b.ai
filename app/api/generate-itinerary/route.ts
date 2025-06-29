@@ -219,6 +219,7 @@ export async function POST(request: NextRequest) {
 
         if (flightResponse.ok) {
           const flightData = await flightResponse.json();
+          console.log('Flight API response:', flightData);
           if (flightData.success && flightData.flight_options?.length > 0) {
             // Format flight options for LLM
             availableFlights = `
@@ -230,11 +231,14 @@ Flight Details: ${flight.text_content}
 `;
             console.log('Formatted flight options for LLM:', availableFlights);
           } else {
-            console.log('No flight options available or API failed:', flightData);
+            console.log('No flight options available or API failed. Response:', JSON.stringify(flightData, null, 2));
           }
         } else {
-          console.error('Flight API request failed:', flightResponse.status);
+          const errorText = await flightResponse.text();
+          console.error('Flight API request failed:', flightResponse.status, errorText);
         }
+      } else {
+        console.log('No booking URL found for group:', groupId, 'Error:', groupDetailsError);
       }
     } catch (flightError) {
       console.error('Error fetching flight data:', flightError);
