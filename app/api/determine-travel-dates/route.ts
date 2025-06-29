@@ -162,6 +162,21 @@ REQUIREMENTS:
       return NextResponse.json({ error: 'Failed to save travel dates' }, { status: 500 });
     }
 
+    // Generate and save booking URL
+    try {
+      const bookingResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/generate-booking-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId })
+      });
+
+      if (!bookingResponse.ok) {
+        console.error('Failed to generate booking URL');
+      }
+    } catch (bookingError) {
+      console.error('Error generating booking URL:', bookingError);
+    }
+
     return NextResponse.json({
       success: true,
       data: {
