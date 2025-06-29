@@ -201,6 +201,14 @@ SOLO TRAVELER GUIDELINES:
 - Choose a reasonable trip duration (3-7 days for domestic, 5-10 days for international)
 - Use the traveler's location or host fallback location for departure
 ` : ''}
+
+CRITICAL DATE REQUIREMENTS:
+- ALL dates must be in the FUTURE (after today's date: ${new Date().toISOString().split('T')[0]})
+- If a member mentions dates without a year, assume the NEXT occurrence of those dates
+- If dates mentioned have already passed this year, use next year
+- NEVER generate dates in the past
+- Default to dates 2-4 weeks from today if no specific dates are mentioned
+
 Return your response in the following EXACT JSON format:
 
 {
@@ -215,6 +223,7 @@ Return your response in the following EXACT JSON format:
 
 REQUIREMENTS:
 - Dates must be in YYYY-MM-DD format
+- ALL dates must be in the future (after ${new Date().toISOString().split('T')[0]})
 - Trip duration should be realistic (3-14 days typically)
 ${isSinglePerson ? '- For solo travelers, if no schedule constraints mentioned, pick optimal dates 2-4 weeks from now' : ''}
 - IATA code must be valid 3-letter airport code
@@ -226,6 +235,8 @@ ${isSinglePerson
 }
 - ALWAYS provide a complete JSON response with all required fields
 - Consider work schedules, holidays, and availability mentioned by members
+- If member mentions "September 6-9" without year, and it's already past September 9 this year, use next year
+- Default to 2-4 weeks from today if no specific dates work for everyone
 `;
 
     console.log('🤖 Sending request to Gemini AI...');
