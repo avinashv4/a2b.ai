@@ -81,35 +81,6 @@ function constructBookingUrl(params: BookingUrlParams): string {
   return `${baseUrl}/${route}?${searchParams.toString()}`;
 }
 
-// Ranked-choice voting aggregation for hotel rankings
-function getRankedChoiceWinner(rankings: string[][]): string | null {
-  if (rankings.length === 0) return null;
-  // Get all unique hotel IDs
-  const allHotelIds = Array.from(new Set(rankings.flat()));
-  let candidates = [...allHotelIds];
-  let round = 0;
-  while (candidates.length > 1) {
-    // Count first-choice votes for each candidate
-    const counts: Record<string, number> = {};
-    for (const candidate of candidates) counts[candidate] = 0;
-    for (const ballot of rankings) {
-      const first = ballot.find(id => candidates.includes(id));
-      if (first) counts[first]++;
-    }
-    // Find the candidate(s) with the fewest votes
-    const minVotes = Math.min(...Object.values(counts));
-    const toEliminate = candidates.filter(id => counts[id] === minVotes);
-    // If all remaining have the same votes (draw), pick randomly
-    if (toEliminate.length === candidates.length) {
-      return candidates[Math.floor(Math.random() * candidates.length)];
-    }
-    // Eliminate the lowest
-    candidates = candidates.filter(id => !toEliminate.includes(id));
-    round++;
-  }
-  return candidates[0];
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { groupId, action } = await request.json();
@@ -118,20 +89,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Group ID is required' }, { status: 400 });
     }
 
-    if (action === 'aggregate_hotel_ranking') {
-      // Fetch all hotel_rankings for the group
-      const { data: members, error } = await supabase
-        .from('group_members')
-        .select('hotel_rankings')
-        .eq('group_id', groupId);
-      if (error) return NextResponse.json({ error: 'Failed to fetch rankings' }, { status: 500 });
-      const rankings = (members || [])
-        .map((m: any) => Array.isArray(m.hotel_rankings) ? m.hotel_rankings : [])
-        .filter(r => r.length > 0);
-      const winner = getRankedChoiceWinner(rankings);
-      return NextResponse.json({ winner });
-    }
-
+    // Handle hotel aggregation actions (separate from main itinerary generation)
     if (action === 'aggregate_selected_hotel') {
       // Fetch all selected_hotel for the group
       const { data: members, error } = await supabase
@@ -174,6 +132,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ winner: topHotels[0] });
     }
 
+    // Main itinerary generation logic starts here
     // Get group details and members with preferences
     const { data: groupData, error: groupError } = await supabase
       .from('travel_groups')
