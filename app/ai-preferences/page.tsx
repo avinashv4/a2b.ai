@@ -150,6 +150,46 @@ export default function AIPreferencesPage() {
     }
   };
 
+  const handleGenerateTravelPlan = async () => {
+    if (!groupId) return;
+    
+    setGeneratingPlan(true);
+    try {
+      // First, determine travel dates and flight class
+      const datesResponse = await fetch('/api/determine-travel-dates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId })
+      });
+
+      if (!datesResponse.ok) {
+        throw new Error('Failed to determine travel dates');
+      }
+
+      const datesData = await datesResponse.json();
+      console.log('Travel dates determined:', datesData);
+
+      // Then generate the itinerary
+      const itineraryResponse = await fetch('/api/generate-itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId })
+      });
+
+      if (!itineraryResponse.ok) {
+        throw new Error('Failed to generate itinerary');
+      }
+
+      // Redirect to travel plan page
+      window.location.href = `/travel-plan?groupId=${groupId}`;
+    } catch (error) {
+      console.error('Error generating travel plan:', error);
+      alert('Failed to generate travel plan. Please try again.');
+    } finally {
+      setGeneratingPlan(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
