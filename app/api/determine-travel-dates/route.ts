@@ -25,6 +25,8 @@ interface BookingUrlParams {
 }
 
 function constructBookingUrl(params: BookingUrlParams): string {
+  console.log('🔗 Constructing booking URL with params:', params);
+  
   const baseUrl = 'https://flights.booking.com/flights';
   const route = `${params.from}.AIRPORT-${params.to}.AIRPORT/`;
   
@@ -42,17 +44,26 @@ function constructBookingUrl(params: BookingUrlParams): string {
     ca_source: 'flights_index_sb'
   });
 
-  return `${baseUrl}/${route}?${searchParams.toString()}`;
+  const finalUrl = `${baseUrl}/${route}?${searchParams.toString()}`;
+  console.log('🔗 Generated booking URL:', finalUrl);
+  
+  return finalUrl;
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 Starting determine-travel-dates API call');
+  
   try {
+    console.log('📥 Parsing request body...');
     const { groupId } = await request.json();
+    console.log('📥 Request body parsed successfully. GroupId:', groupId);
 
     if (!groupId) {
+      console.error('❌ No group ID provided');
       return NextResponse.json({ error: 'Group ID is required' }, { status: 400 });
     }
 
+    console.log('🔍 Fetching group details from database...');
     // Get group details
     const { data: groupData, error: groupError } = await supabase
       .from('travel_groups')
@@ -60,10 +71,23 @@ export async function POST(request: NextRequest) {
       .eq('group_id', groupId)
       .single();
 
-    if (groupError || !groupData) {
+    if (groupError) {
+      console.error('❌ Error fetching group data:', groupError);
       return NextResponse.json({ error: 'Group not found' }, { status: 404 });
     }
 
+    if (!groupData) {
+      console.error('❌ No group data found for groupId:', groupId);
+      return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    }
+
+    console.log('✅ Group data fetched successfully:', {
+      destination: groupData.destination,
+      destination_display: groupData.destination_display,
+      host_id: groupData.host_id
+    });
+
+    console.log('👥 Fetching group members data...');
     // Get all group members with their schedules and flight preferences
     const { data: membersData, error: membersError } = await supabase
       .from('group_members')
@@ -75,10 +99,25 @@ export async function POST(request: NextRequest) {
       `)
       .eq('group_id', groupId);
 
-    if (membersError || !membersData) {
+    if (membersError) {
+      console.error('❌ Error fetching members data:', membersError);
       return NextResponse.json({ error: 'Failed to fetch group members' }, { status: 500 });
     }
 
+    if (!membersData) {
+      console.error('❌ No members data found for groupId:', groupId);
+      return NextResponse.json({ error: 'Failed to fetch group members' }, { status: 500 });
+    }
+
+    console.log('✅ Members data fetched successfully. Member count:', membersData.length);
+    console.log('👥 Members data:', membersData.map(m => ({
+      user_id: m.user_id,
+      name: `${m.profiles?.first_name} ${m.profiles?.last_name}`,
+      has_schedule: !!m.schedule_and_logistics,
+      has_flight_pref: !!m.flight_preference
+    })));
+
+    console.log('🏠 Fetching host profile for fallback location...');
     // Get host profile for fallback departure location
     const { data: hostProfile, error: hostError } = await supabase
       .from('profiles')
@@ -86,10 +125,19 @@ export async function POST(request: NextRequest) {
       .eq('user_id', groupData.host_id)
       .single();
 
+    if (hostError) {
+      console.warn('⚠️ Warning: Could not fetch host profile:', hostError);
+    } else {
+      console.log('✅ Host profile fetched:', hostProfile);
+    }
+
+    console.log('✈️ Determining flight class from preferences...');
     // Determine flight class based on preferences
     const flightPreferences = membersData
       .map(member => member.flight_preference)
       .filter(pref => pref);
+
+    console.log('✈️ Flight preferences found:', flightPreferences);
 
     let flightClass = 'ECONOMY'; // Default
     if (flightPreferences.includes('ECONOMY')) {
@@ -100,12 +148,17 @@ export async function POST(request: NextRequest) {
       flightClass = 'FIRST';
     }
 
+    console.log('✈️ Selected flight class:', flightClass);
+
+    console.log('📋 Formatting member data for LLM...');
     // Format member data for LLM
     const memberSchedules = membersData.map((member: any) => ({
-      name: `${member.profiles.first_name} ${member.profiles.last_name}`,
+      name: `${member.profiles?.first_name || 'Unknown'} ${member.profiles?.last_name || 'User'}`,
       schedule: member.schedule_and_logistics || 'No schedule information provided',
       flightPreference: member.flight_preference || 'Not specified'
     }));
+
+    console.log('📋 Formatted member schedules:', memberSchedules);
 
     // Handle single person case
     const isSinglePerson = memberSchedules.length === 1;
@@ -116,6 +169,8 @@ export async function POST(request: NextRequest) {
     const scheduleAnalysis = isSinglePerson
       ? `Since this is a solo trip, use the traveler's schedule preferences to determine optimal dates.`
       : `Analyze all member schedules to find common available dates that work for everyone.`;
+
+    console.log('🤖 Preparing LLM prompt...');
     // Create prompt for LLM to determine travel dates
     const prompt = `
 You are a travel planning assistant. Analyze the group's schedule and logistics information to determine the best travel dates for their trip to ${groupData.destination_display}.
@@ -173,42 +228,57 @@ ${isSinglePerson
 - Consider work schedules, holidays, and availability mentioned by members
 `;
 
+    console.log('🤖 Sending request to Gemini AI...');
+    console.log('🤖 Prompt length:', prompt.length, 'characters');
+
     // Generate travel dates using Gemini
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite-preview-06-17' });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    // Parse the JSON response
-    let travelDatesData;
+    
     try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        travelDatesData = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found in response');
+      const result = await model.generateContent(prompt);
+      console.log('✅ Gemini AI response received');
+      
+      const response = await result.response;
+      const text = response.text();
+      console.log('🤖 Raw Gemini response:', text);
+
+      // Parse the JSON response
+      let travelDatesData;
+      try {
+        console.log('📝 Parsing JSON response...');
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          travelDatesData = JSON.parse(jsonMatch[0]);
+          console.log('✅ JSON parsed successfully:', travelDatesData);
+        } else {
+          console.error('❌ No JSON found in Gemini response');
+          throw new Error('No JSON found in response');
+        }
+      } catch (parseError) {
+        console.error('❌ Failed to parse Gemini response:', parseError);
+        console.error('❌ Raw response:', text);
+        return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
       }
-    } catch (parseError) {
-      console.error('Failed to parse Gemini response:', parseError);
-      console.error('Raw response:', text);
-      return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
-    }
 
-    // Generate booking URL directly
-    const adultCount = membersData?.length || 1;
-    const bookingUrl = constructBookingUrl({
-      from: travelDatesData.departure_iata_code,
-      to: travelDatesData.destination_iata_code,
-      departDate: travelDatesData.departure_date,
-      returnDate: travelDatesData.return_date,
-      adults: adultCount,
-      cabinClass: flightClass
-    });
+      console.log('🔗 Generating booking URL...');
+      // Generate booking URL directly
+      const adultCount = membersData?.length || 1;
+      console.log('👥 Adult count for booking:', adultCount);
+      
+      const bookingUrlParams = {
+        from: travelDatesData.departure_iata_code,
+        to: travelDatesData.destination_iata_code,
+        departDate: travelDatesData.departure_date,
+        returnDate: travelDatesData.return_date,
+        adults: adultCount,
+        cabinClass: flightClass
+      };
+      
+      const bookingUrl = constructBookingUrl(bookingUrlParams);
 
-    // Update the travel group with determined dates, flight info, and booking URL
-    const { error: updateError } = await supabase
-      .from('travel_groups')
-      .update({
+      console.log('💾 Updating travel group in database...');
+      // Update the travel group with determined dates, flight info, and booking URL
+      const updateData = {
         departure_date: travelDatesData.departure_date,
         return_date: travelDatesData.return_date,
         trip_duration_days: travelDatesData.trip_duration_days,
@@ -218,26 +288,45 @@ ${isSinglePerson
         flight_class: flightClass,
         travel_dates_determined: true,
         booking_url: bookingUrl
-      })
-      .eq('group_id', groupId);
+      };
+      
+      console.log('💾 Update data:', updateData);
+      
+      const { error: updateError } = await supabase
+        .from('travel_groups')
+        .update(updateData)
+        .eq('group_id', groupId);
 
-    if (updateError) {
-      console.error('Error updating travel group:', updateError);
-      return NextResponse.json({ error: 'Failed to save travel dates' }, { status: 500 });
+      if (updateError) {
+        console.error('❌ Error updating travel group:', updateError);
+        return NextResponse.json({ error: 'Failed to save travel dates' }, { status: 500 });
+      }
+
+      console.log('✅ Travel group updated successfully');
+
+      const responseData = {
+        success: true,
+        data: {
+          ...travelDatesData,
+          flight_class: flightClass,
+          booking_url: bookingUrl,
+          adults: adultCount
+        }
+      };
+
+      console.log('🎉 API call completed successfully');
+      console.log('📤 Response data:', responseData);
+
+      return NextResponse.json(responseData);
+
+    } catch (geminiError) {
+      console.error('❌ Error calling Gemini AI:', geminiError);
+      return NextResponse.json({ error: 'Failed to generate travel dates with AI' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...travelDatesData,
-        flight_class: flightClass,
-        booking_url: bookingUrl,
-        adults: adultCount
-      }
-    });
-
   } catch (error) {
-    console.error('Error determining travel dates:', error);
+    console.error('❌ Unexpected error in determine-travel-dates:', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
       { error: 'Failed to determine travel dates' },
       { status: 500 }
