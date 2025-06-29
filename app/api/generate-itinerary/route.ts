@@ -194,9 +194,6 @@ export async function POST(request: NextRequest) {
     }));
 
     // Fetch real flight data from Booking.com
-    let selectedFlightData = null;
-    let flightArrivalInfo = '';
-    let flightDepartureInfo = '';
     let availableFlights = '';
     
     try {
@@ -257,8 +254,6 @@ ${memberPreferences.map(member => `
 - Flight Preference: ${member.flightPreference || 'None specified'}
 `).join('\n')}
 
-${flightArrivalInfo}
-${flightDepartureInfo}
 ${availableFlights}
 
 Please return the response in the following EXACT JSON format (no additional text, just the JSON):
