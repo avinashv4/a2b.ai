@@ -95,6 +95,22 @@
   }
 }
 
+/* Fade-in animation for confirmation page */
+.animate-fade-in {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Google Places Autocomplete Dropdown Custom Styles */
 .pac-container {
   border-radius: 1rem !important;

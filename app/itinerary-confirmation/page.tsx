@@ -81,6 +81,7 @@ export default function ItineraryConfirmationPage() {
   const [savingPDF, setSavingPDF] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [animationComplete, setAnimationComplete] = useState(false);
 
   useEffect(() => {
         const groupId = searchParams.get('groupId');
@@ -157,6 +158,65 @@ export default function ItineraryConfirmationPage() {
     loadItineraryData();
   }, [searchParams]);
 
+  // Auto-scroll animation effect
+  useEffect(() => {
+    if (!loading && itineraryData && !animationComplete) {
+      const startAnimation = async () => {
+        // Wait a bit for the page to fully render
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Get all animatable elements
+        const elements = document.querySelectorAll('.fade-in-element');
+        const totalHeight = document.documentElement.scrollHeight;
+        const viewportHeight = window.innerHeight;
+        
+        // Start from top
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        
+        // Calculate scroll duration based on content length (minimum 3 seconds, maximum 6 seconds)
+        const scrollDuration = Math.min(Math.max(3000, totalHeight / 2), 6000);
+        const scrollStep = totalHeight / (scrollDuration / 50); // 50ms intervals
+        
+        let currentScroll = 0;
+        let elementIndex = 0;
+        
+        const scrollInterval = setInterval(() => {
+          currentScroll += scrollStep;
+          window.scrollTo({ top: currentScroll, behavior: 'instant' });
+          
+          // Fade in elements as they come into view
+          while (elementIndex < elements.length) {
+            const element = elements[elementIndex];
+            const elementTop = element.getBoundingClientRect().top + currentScroll;
+            
+            if (elementTop <= currentScroll + viewportHeight * 0.8) {
+              element.classList.add('animate-fade-in');
+              elementIndex++;
+            } else {
+              break;
+            }
+          }
+          
+          // Check if we've reached the bottom
+          if (currentScroll >= totalHeight - viewportHeight) {
+            clearInterval(scrollInterval);
+            
+            // Fade in any remaining elements
+            elements.forEach(el => el.classList.add('animate-fade-in'));
+            
+            // Wait 2 seconds at the bottom
+            setTimeout(() => {
+              // Quick scroll back to top
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              setAnimationComplete(true);
+            }, 2000);
+          }
+        }, 50);
+      };
+      
+      startAnimation();
+    }
+  }, [loading, itineraryData, animationComplete]);
   const getTravelModeIcon = (mode: string) => {
     switch (mode) {
       case 'walking': return <span title="Walk">🚶</span>;
@@ -288,7 +348,7 @@ export default function ItineraryConfirmationPage() {
       {/* Main Content */}
       <div id="itinerary-content" className="max-w-4xl mx-auto px-6 py-8 pt-32">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 fade-in-element opacity-0">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="w-8 h-8 text-green-600" />
           </div>
@@ -297,7 +357,7 @@ export default function ItineraryConfirmationPage() {
         </div>
 
         {/* Trip Summary */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8 fade-in-element opacity-0">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">{tripTitle}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-center space-x-3">
@@ -345,7 +405,7 @@ export default function ItineraryConfirmationPage() {
 
         {/* Flight Details */}
         {flights && flights.length > 0 && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8 fade-in-element opacity-0">
             <h3 className="text-xl font-bold text-gray-900 mb-4">Flight Options</h3>
             <div className="space-y-4">
               {flights.map((flight) => (
@@ -387,7 +447,7 @@ export default function ItineraryConfirmationPage() {
 
         {/* Hotel Options */}
         {hotels && hotels.length > 0 && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8 fade-in-element opacity-0">
             <h3 className="text-xl font-bold text-gray-900 mb-4">Hotel Options</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {hotels.map((hotel) => (
@@ -427,7 +487,7 @@ export default function ItineraryConfirmationPage() {
 
         {/* Selected Hotel */}
         {selectedHotel && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-6">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-6 fade-in-element opacity-0">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Selected Hotel</h2>
             <div className="flex items-center space-x-4">
               <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
@@ -461,10 +521,10 @@ export default function ItineraryConfirmationPage() {
 
         {/* Confirmed Itinerary */}
         <div className="space-y-6 mb-8">
-          <h3 className="text-xl font-bold text-gray-900">Confirmed Itinerary</h3>
+          <h3 className="text-xl font-bold text-gray-900 fade-in-element opacity-0">Confirmed Itinerary</h3>
           
           {itinerary?.map((day, idx) => (
-            <div key={day.date} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+            <div key={day.date} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 fade-in-element opacity-0">
               <div className="flex items-center space-x-3 mb-4">
                 <DateIcon month={day.month} date={day.date} className="w-12 h-12 bg-blue-600 rounded-lg text-white" />
                 <div>
@@ -528,7 +588,7 @@ export default function ItineraryConfirmationPage() {
         </div>
 
         {/* Booking Summary */}
-        <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-6 mb-8">
+        <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-6 mb-8 fade-in-element opacity-0">
           <h3 className="text-xl font-bold text-gray-900 mb-4">What&apos;s Included</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center space-x-3">
@@ -553,7 +613,7 @@ export default function ItineraryConfirmationPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4 mb-6 fade-in-element opacity-0">
           <Button
             onClick={handleProceedWithBooking}
             disabled={isProcessing}
