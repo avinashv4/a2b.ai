@@ -164,10 +164,7 @@ REQUIREMENTS:
 
     // Generate and save booking URL
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                     (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
-      
-      const bookingResponse = await fetch(`${siteUrl}/api/generate-booking-url`, {
+      const bookingResponse = await fetch('/api/generate-booking-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId })

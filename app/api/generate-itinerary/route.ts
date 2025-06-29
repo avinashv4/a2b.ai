@@ -207,11 +207,8 @@ export async function POST(request: NextRequest) {
       if (!groupDetailsError && groupDetails?.booking_url) {
         console.log('Fetching flights from:', groupDetails.booking_url);
         
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                       (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
-        
         // Fetch flight data
-        const flightResponse = await fetch(`${siteUrl}/api/fetch-flights`, {
+        const flightResponse = await fetch('/api/fetch-flights', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -231,6 +228,7 @@ Index: ${flight.index}
 Flight Details: ${flight.text_content}
 `).join('\n')}
 `;
+            console.log('Formatted flight options for LLM:', availableFlights);
           } else {
             console.log('No flight options available or API failed:', flightData);
           }
@@ -498,42 +496,6 @@ General:
       ];
     }
 
-    try {
-      // Use Chennai (MAA) as departure, LLM-provided IATA code or group destination as arrival
-      const departureCode = 'MAA'; // Chennai
-      const arrivalIataCode = itineraryData.arrivalIataCode;
-      const arrivalId = arrivalIataCode || groupData.destination_display || groupData.destination;
-      
-      // Use a fixed date for demo (you can make this dynamic)
-      const outboundDate = '2024-06-15';
-      
-      const serpApiKey = process.env.SERPAPI_KEY!;
-      const serpApiUrl = `https://serpapi.com/search.json?engine=google_flights&departure_id=${departureCode}&arrival_id=${encodeURIComponent(arrivalId)}&outbound_date=${outboundDate}&api_key=${serpApiKey}`;
-      
-      const serpRes = await fetch(serpApiUrl);
-      const serpData = await serpRes.json();
-      
-      if (serpData && (serpData.best_flights || serpData.other_flights)) {
-        const allFlights = [...(serpData.best_flights || []), ...(serpData.other_flights || [])];
-        const realFlights = allFlights.slice(0, 3).map((flight: any, idx: number) => ({
-          id: String(idx + 1),
-          airline: flight.flights?.[0]?.airline || 'Unknown Airline',
-          departure: flight.flights?.[0]?.departure_airport?.time || '',
-          arrival: flight.flights?.[flight.flights.length - 1]?.arrival_airport?.time || '',
-          duration: flight.total_duration || '',
-          price: flight.price ? `$${flight.price}` : '',
-          stops: flight.flights?.length > 1 ? `${flight.flights.length - 1} stop${flight.flights.length > 2 ? 's' : ''}` : 'Direct',
-        }));
-      
-        if (realFlights.length > 0) {
-          itineraryData.flights = realFlights;
-        }
-      }
-    } catch (flightErr) {
-      console.error('Error fetching flights from SerpAPI:', flightErr);
-      // Fallback flights are already set above
-    }
-
     // Save the final itinerary to the database
     const { error: updateError } = await supabase
       .from('travel_groups')
@@ -565,7 +527,7 @@ General:
 
 // Helper functions to extract basic info for display
 function extractAirline(textContent: string): string {
-  const airlineMatch = textContent.match(/([A-Za-z\s]+(?:Airlines?|Airways?))/);
+  const airlineMatch = textContent.match(/([A-Za-z\s]+(?:Airlines?|Airways?|Air India|Emirates|Etihad|IndiGo))/);
   return airlineMatch ? airlineMatch[1].trim() : 'Unknown Airline';
 }
 

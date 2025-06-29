@@ -8,24 +8,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Flight URL is required' }, { status: 400 });
     }
 
-    // Check if the flight scraping API URL is configured
-    if (!process.env.FLIGHT_SCRAPING_API_URL) {
-      console.error('FLIGHT_SCRAPING_API_URL not configured');
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Flight scraping service not configured',
-        flight_options: []
-      });
-    }
+    // Use the provided ngrok URL for flight scraping
+    const flightScrapingUrl = 'https://0761-2406-7400-c2-45a9-00-1004.ngrok-free.app/api/get-flights';
 
-    // Make request to your flight scraping service
-    const response = await fetch(process.env.FLIGHT_SCRAPING_API_URL!, {
+    console.log('Fetching flights from:', flightScrapingUrl);
+    console.log('Flight URL:', flight_url);
+
+    // Make request to the flight scraping service
+    const response = await fetch(flightScrapingUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(process.env.FLIGHT_SCRAPING_API_KEY && {
-          'Authorization': `Bearer ${process.env.FLIGHT_SCRAPING_API_KEY}`
-        })
+        'ngrok-skip-browser-warning': 'true'
       },
       body: JSON.stringify({
         flight_url,
@@ -44,10 +38,13 @@ export async function POST(request: NextRequest) {
     }
 
     const flightData = await response.json();
+    console.log('Flight data received:', flightData);
 
     return NextResponse.json({
-      success: true,
-      flight_options: flightData.flight_options || []
+      success: flightData.success || true,
+      flight_options: flightData.flight_options || [],
+      total_count: flightData.total_count || 0,
+      message: flightData.message || 'Flight data retrieved'
     });
 
   } catch (error) {
