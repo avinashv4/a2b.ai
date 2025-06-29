@@ -77,6 +77,15 @@ export async function POST(request: NextRequest) {
       flightPreference: member.flight_preference || 'Not specified'
     }));
 
+    // Handle single person case
+    const isSinglePerson = memberSchedules.length === 1;
+    const groupDescription = isSinglePerson 
+      ? `solo traveler ${memberSchedules[0].name}` 
+      : `group of ${memberSchedules.length} members`;
+    
+    const scheduleAnalysis = isSinglePerson
+      ? `Since this is a solo trip, use the traveler's schedule preferences to determine optimal dates.`
+      : `Analyze all member schedules to find common available dates that work for everyone.`;
     // Create prompt for LLM to determine travel dates
     const prompt = `
 You are a travel planning assistant. Analyze the group's schedule and logistics information to determine the best travel dates for their trip to ${groupData.destination_display}.
@@ -90,8 +99,10 @@ ${memberSchedules.map(member => `
 
 HOST FALLBACK LOCATION: ${hostProfile ? `${hostProfile.state}, ${hostProfile.country}` : 'Not available'}
 
+This is a ${groupDescription} planning a trip to ${groupData.destination_display}.
+
 INSTRUCTIONS:
-1. Analyze all member schedules to find common available dates
+1. ${scheduleAnalysis}
 2. Determine optimal departure and return dates that work for everyone
 3. Calculate trip duration in days
 4. Identify the most common departure location mentioned by members
@@ -99,6 +110,12 @@ INSTRUCTIONS:
 6. Provide IATA airport code for the departure location
 7. Provide IATA airport code for the destination (${groupData.destination_display})
 
+${isSinglePerson ? `
+SOLO TRAVELER GUIDELINES:
+- If no specific dates are mentioned, suggest dates 2-4 weeks from now
+- Choose a reasonable trip duration (3-7 days for domestic, 5-10 days for international)
+- Use the traveler's location or host fallback location for departure
+` : ''}
 Return your response in the following EXACT JSON format:
 
 {
@@ -114,10 +131,15 @@ Return your response in the following EXACT JSON format:
 REQUIREMENTS:
 - Dates must be in YYYY-MM-DD format
 - Trip duration should be realistic (3-14 days typically)
+${isSinglePerson ? '- For solo travelers, if no schedule constraints mentioned, pick optimal dates 2-4 weeks from now' : ''}
 - IATA code must be valid 3-letter airport code
 - Destination IATA code should be the main airport for ${groupData.destination_display}
-- If multiple departure locations, choose the one mentioned by majority
-- If tied or unclear, use host location as fallback
+${isSinglePerson 
+  ? '- Use the departure location mentioned by the traveler, or host location as fallback'
+  : `- If multiple departure locations, choose the one mentioned by majority
+- If tied or unclear, use host location as fallback`
+}
+- ALWAYS provide a complete JSON response with all required fields
 - Consider work schedules, holidays, and availability mentioned by members
 `;
 
