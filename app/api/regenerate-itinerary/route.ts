@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
           schedule_and_logistics,
           budget_and_spending,
           travel_style_preferences,
+          flight_preference,
           profiles!group_members_user_id_fkey(first_name, last_name)
         `)
         .eq('group_id', groupId);
@@ -107,7 +108,8 @@ export async function POST(request: NextRequest) {
         learning: member.learning_interests,
         schedule: member.schedule_and_logistics,
         budget: member.budget_and_spending,
-        travelStyle: member.travel_style_preferences
+        travelStyle: member.travel_style_preferences,
+        flightPreference: member.flight_preference
       }));
 
       // Create regeneration prompt
@@ -127,6 +129,7 @@ ${memberPreferences.map(member => `
 - Schedule: ${member.schedule || 'None specified'}
 - Budget: ${member.budget || 'None specified'}
 - Travel Style: ${member.travelStyle || 'None specified'}
+- Flight Preference: ${member.flightPreference || 'None specified'}
 `).join('\n')}
 
 ORIGINAL ITINERARY RESPONSE:

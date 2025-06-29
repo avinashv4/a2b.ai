@@ -45,6 +45,7 @@ function extractTravelPreferences(webhookData: any) {
       schedule_and_logistics: results.schedule_and_logistics?.value || null,
       budget_and_spending: results.budget_and_spending?.value || null,
       travel_style_preferences: results.travel_style_preferences?.value || null,
+      flight_preference: results.flight_preference?.value || null,
     };
 
     console.log('✅ Extracted preferences:', preferences);
