@@ -97,6 +97,7 @@ INSTRUCTIONS:
 4. Identify the most common departure location mentioned by members
 5. If no departure locations are mentioned, use the host's location as fallback
 6. Provide IATA airport code for the departure location
+7. Provide IATA airport code for the destination (${groupData.destination_display})
 
 Return your response in the following EXACT JSON format:
 
@@ -106,6 +107,7 @@ Return your response in the following EXACT JSON format:
   "trip_duration_days": 7,
   "departure_location": "Chennai",
   "departure_iata_code": "MAA",
+  "destination_iata_code": "JFK",
   "majority_departure_location": "Chennai, Tamil Nadu, India",
   "reasoning": "Brief explanation of why these dates and location were chosen"
 }
@@ -114,6 +116,7 @@ REQUIREMENTS:
 - Dates must be in YYYY-MM-DD format
 - Trip duration should be realistic (3-14 days typically)
 - IATA code must be valid 3-letter airport code
+- Destination IATA code should be the main airport for ${groupData.destination_display}
 - If multiple departure locations, choose the one mentioned by majority
 - If tied or unclear, use host location as fallback
 - Consider work schedules, holidays, and availability mentioned by members
@@ -149,6 +152,7 @@ REQUIREMENTS:
         trip_duration_days: travelDatesData.trip_duration_days,
         departure_location: travelDatesData.departure_location,
         departure_iata_code: travelDatesData.departure_iata_code,
+        destination_iata_code: travelDatesData.destination_iata_code,
         flight_class: flightClass,
         travel_dates_determined: true,
         majority_departure_location: travelDatesData.majority_departure_location
