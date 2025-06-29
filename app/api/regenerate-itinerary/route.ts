@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       // Get group data including original API response and member preferences
       const { data: groupData, error: groupError } = await supabase
         .from('travel_groups')
-        .select('most_recent_api_call, destination, destination_display')
+        .select('most_recent_api_call, destination, destination_display, departure_date, return_date, trip_duration_days')
         .eq('group_id', groupId)
         .single();
 
@@ -116,6 +116,11 @@ export async function POST(request: NextRequest) {
       const regenerationPrompt = `
 You are a professional travel planner. I need you to update an existing itinerary based on group voting feedback.
 
+TRAVEL DATES AND DURATION:
+- Departure Date: ${groupData.departure_date}
+- Return Date: ${groupData.return_date}
+- Trip Duration: ${groupData.trip_duration_days} days
+- You MUST maintain exactly ${groupData.trip_duration_days} days in the itinerary
 
 GROUP MEMBER PREFERENCES:
 ${memberPreferences.map(member => `
@@ -146,6 +151,8 @@ INSTRUCTIONS:
 5. Keep the same budget range, arrival IATA code, hotels, and flights.
 6. Only modify the itinerary section with place replacements.
 7. Ensure new places align with group preferences and are in the same location/day.
+8. CRITICAL: Maintain the exact same dates from ${groupData.departure_date} to ${groupData.return_date}
+9. CRITICAL: Keep exactly ${groupData.trip_duration_days} days in the itinerary
 
 Return the updated itinerary in the EXACT same JSON format as the original response.
 `;

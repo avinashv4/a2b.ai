@@ -35,6 +35,7 @@ export default function AIPreferencesPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isHost, setIsHost] = useState(false);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
 
   useEffect(() => {
     const loadGroupData = async () => {

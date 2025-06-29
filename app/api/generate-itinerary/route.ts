@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     // Get group details and members with preferences
     const { data: groupData, error: groupError } = await supabase
       .from('travel_groups')
-      .select('destination, host_id, destination_display')
+      .select('destination, host_id, destination_display, departure_date, return_date, trip_duration_days')
       .eq('group_id', groupId)
       .single();
 
@@ -240,6 +240,12 @@ Flight Details: ${flight.text_content}
     const prompt = `
 You are a professional travel planner. Create a detailed group itinerary for ${groupData.destination} based on the group member preferences below:
 
+TRAVEL DATES AND DURATION:
+- Departure Date: ${groupData.departure_date}
+- Return Date: ${groupData.return_date}
+- Trip Duration: ${groupData.trip_duration_days} days
+- You MUST create an itinerary for exactly ${groupData.trip_duration_days} days
+
 ${memberPreferences.map(member => `
 **${member.name}:**
 - Deal Breakers: ${member.dealBreakers || 'None specified'}
@@ -311,10 +317,10 @@ CRITICAL DATE FORMAT REQUIREMENTS:
 - "date" must be a 2-digit day number (e.g., "15", "01", "31")
 - "day" must be the full day name (e.g., "Monday", "Tuesday", "Wednesday")
 - "month" must be a 3-letter month abbreviation (e.g., "Jun", "Dec", "Jan")
+- You MUST use the exact dates from ${groupData.departure_date} to ${groupData.return_date}
+- Create exactly ${groupData.trip_duration_days} days of itinerary
 
-Days in Itinerary:
-- If group members mention availability (schedule), find common free dates. Use only dates when all members who have mentioned a schedule are free.
-- If no dates are mentioned or availability is unclear, default to creating an itinerary for exactly 3 full days.
+CRITICAL: Use the provided travel dates above. Do NOT create different dates based on member preferences.
 ${availableFlights ? `
 Flight Selection:
 - CRITICAL: Choose the BEST flight option from the available flights list above
@@ -323,6 +329,7 @@ Flight Selection:
 - CRITICAL: Plan activities considering the selected flight's arrival time
 - CRITICAL: On departure day, ensure all activities end at least 4 hours before flight departure time
 - Do not schedule any activities after the time needed to reach airport 3 hours before departure
+- Consider the departure date (${groupData.departure_date}) and return date (${groupData.return_date}) when planning
 ` : ''}
 
 Daily Structure:
@@ -357,6 +364,7 @@ Hotels:
 General:
 - The JSON must be syntactically correct and parseable.
 - Ensure all suggestions reflect a balance of group budgets, styles, and must-dos.
+- CRITICAL: Create exactly ${groupData.trip_duration_days} days of itinerary using dates from ${groupData.departure_date} to ${groupData.return_date}
 `;
 
     // Generate itinerary using Gemini
