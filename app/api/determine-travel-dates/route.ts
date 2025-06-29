@@ -380,7 +380,38 @@ ${isSinglePerson
 
       console.log('✅ Travel group updated successfully');
 
-      const responseData = {
+      // Create response data with error isolation
+      let responseData;
+      try {
+        responseData = {
+          success: true,
+          data: {
+            ...travelDatesData,
+            flight_class: flightClass,
+            booking_url: bookingUrl,
+            adults: adultCount
+          }
+        };
+        
+        // Test JSON serialization
+        JSON.stringify(responseData);
+        console.log('✅ Response data serialization successful');
+        
+      } catch (serializationError) {
+        console.error('❌ Response serialization error:', serializationError);
+        
+        // Fallback response with minimal data
+        responseData = {
+          success: true,
+          data: {
+            departure_date: travelDatesData.departure_date,
+            return_date: travelDatesData.return_date,
+            trip_duration_days: travelDatesData.trip_duration_days,
+            flight_class: flightClass,
+            message: 'Travel dates determined successfully (data saved to database)'
+          }
+        };
+      }
         success: true,
         data: {
           ...travelDatesData,
@@ -393,7 +424,17 @@ ${isSinglePerson
       console.log('🎉 API call completed successfully');
       console.log('📤 Response data:', responseData);
 
-      return NextResponse.json(responseData);
+      try {
+        return NextResponse.json(responseData);
+      } catch (responseError) {
+        console.error('❌ Error sending response:', responseError);
+        
+        // Ultimate fallback - just confirm success
+        return NextResponse.json({
+          success: true,
+          message: 'Travel dates determined and saved successfully'
+        });
+      }
 
     } catch (geminiError) {
       console.error('❌ Error calling Gemini AI:', geminiError);
