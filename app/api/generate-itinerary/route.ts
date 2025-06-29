@@ -207,8 +207,11 @@ export async function POST(request: NextRequest) {
       if (!groupDetailsError && groupDetails?.booking_url) {
         console.log('Fetching flights from:', groupDetails.booking_url);
         
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+                       (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+        
         // Fetch flight data
-        const flightResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/fetch-flights`, {
+        const flightResponse = await fetch(`${siteUrl}/api/fetch-flights`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -223,12 +226,16 @@ export async function POST(request: NextRequest) {
             // Format flight options for LLM
             availableFlights = `
 AVAILABLE FLIGHT OPTIONS:
-${flightData.flight_options.map((flight: any) => `
+${flightData.flight_options.slice(0, 5).map((flight: any) => `
 Index: ${flight.index}
 Flight Details: ${flight.text_content}
 `).join('\n')}
 `;
+          } else {
+            console.log('No flight options available or API failed:', flightData);
           }
+        } else {
+          console.error('Flight API request failed:', flightResponse.status);
         }
       }
     } catch (flightError) {

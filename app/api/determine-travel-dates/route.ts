@@ -164,17 +164,22 @@ REQUIREMENTS:
 
     // Generate and save booking URL
     try {
-      const bookingResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/generate-booking-url`, {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+                     (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+      
+      const bookingResponse = await fetch(`${siteUrl}/api/generate-booking-url`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId })
       });
 
       if (!bookingResponse.ok) {
-        console.error('Failed to generate booking URL');
+        const errorText = await bookingResponse.text();
+        console.error('Failed to generate booking URL:', errorText);
       }
     } catch (bookingError) {
       console.error('Error generating booking URL:', bookingError);
+      // Don't fail the entire request if booking URL generation fails
     }
 
     return NextResponse.json({
