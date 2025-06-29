@@ -332,14 +332,26 @@ ${isSinglePerson
 
     } catch (geminiError) {
       console.error('❌ Error calling Gemini AI:', geminiError);
-      return NextResponse.json({ error: 'Failed to generate travel dates with AI' }, { status: 500 });
+      console.error('❌ Gemini error details:', {
+        name: geminiError instanceof Error ? geminiError.name : 'Unknown',
+        message: geminiError instanceof Error ? geminiError.message : String(geminiError),
+        stack: geminiError instanceof Error ? geminiError.stack : 'No stack trace'
+      });
+      return NextResponse.json({ 
+        error: 'Failed to generate travel dates with AI: ' + (geminiError instanceof Error ? geminiError.message : 'Unknown error')
+      }, { status: 500 });
     }
 
   } catch (error) {
     console.error('❌ Unexpected error in determine-travel-dates:', error);
     console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('❌ Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      type: typeof error
+    });
     return NextResponse.json(
-      { error: 'Failed to determine travel dates' },
+      { error: 'Failed to determine travel dates: ' + (error instanceof Error ? error.message : 'Unknown error') },
       { status: 500 }
     );
   }
