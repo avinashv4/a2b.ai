@@ -412,14 +412,6 @@ ${isSinglePerson
           }
         };
       }
-        success: true,
-        data: {
-          ...travelDatesData,
-          flight_class: flightClass,
-          booking_url: bookingUrl,
-          adults: adultCount
-        }
-      };
 
       console.log('🎉 API call completed successfully');
       console.log('📤 Response data:', responseData);
