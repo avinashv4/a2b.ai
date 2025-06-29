@@ -1,7 +1,7 @@
 const cheerio = require('cheerio');
 
 const FLIGHT_URL = 'https://flights.booking.com/flights/MAA.AIRPORT-JFK.AIRPORT?...';
-const TARGET_ARIA = 'Flight option';
+const TARGET_ARIA = 'Flight options';
 
 async function run() {
   try {
