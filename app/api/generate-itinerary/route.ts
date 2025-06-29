@@ -51,6 +51,36 @@ interface DayItinerary {
   places: Place[];
 }
 
+interface BookingUrlParams {
+  from: string;
+  to: string;
+  departDate: string;
+  returnDate: string;
+  adults: number;
+  cabinClass: string;
+}
+
+function constructBookingUrl(params: BookingUrlParams): string {
+  const baseUrl = 'https://flights.booking.com/flights';
+  const route = `${params.from}.AIRPORT-${params.to}.AIRPORT/`;
+  
+  const searchParams = new URLSearchParams({
+    type: 'ROUNDTRIP',
+    adults: params.adults.toString(),
+    cabinClass: params.cabinClass,
+    children: '',
+    from: `${params.from}.AIRPORT`,
+    to: `${params.to}.AIRPORT`,
+    depart: params.departDate,
+    return: params.returnDate,
+    sort: 'BEST',
+    travelPurpose: 'leisure',
+    ca_source: 'flights_index_sb'
+  });
+
+  return `${baseUrl}/${route}?${searchParams.toString()}`;
+}
+
 // Ranked-choice voting aggregation for hotel rankings
 function getRankedChoiceWinner(rankings: string[][]): string | null {
   if (rankings.length === 0) return null;
@@ -147,12 +177,53 @@ export async function POST(request: NextRequest) {
     // Get group details and members with preferences
     const { data: groupData, error: groupError } = await supabase
       .from('travel_groups')
-      .select('destination, host_id, destination_display, departure_date, return_date, trip_duration_days')
+      .select('destination, host_id, destination_display, departure_date, return_date, trip_duration_days, departure_iata_code, destination_iata_code, flight_class, travel_dates_determined, booking_url')
       .eq('group_id', groupId)
       .single();
 
     if (groupError || !groupData) {
       return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    }
+
+    // Check if travel dates have been determined
+    if (!groupData.travel_dates_determined) {
+      return NextResponse.json({ error: 'Travel dates must be determined first' }, { status: 400 });
+    }
+
+    // Generate booking URL if not already present
+    let bookingUrl = groupData.booking_url;
+    if (!bookingUrl) {
+      // Get member count for adults
+      const { data: membersCount, error: membersCountError } = await supabase
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', groupId);
+
+      if (membersCountError) {
+        return NextResponse.json({ error: 'Failed to get member count' }, { status: 500 });
+      }
+
+      const adultCount = membersCount?.length || 1;
+
+      // Construct booking URL
+      bookingUrl = constructBookingUrl({
+        from: groupData.departure_iata_code,
+        to: groupData.destination_iata_code,
+        departDate: groupData.departure_date,
+        returnDate: groupData.return_date,
+        adults: adultCount,
+        cabinClass: groupData.flight_class || 'ECONOMY'
+      });
+
+      // Save booking URL to database
+      const { error: updateUrlError } = await supabase
+        .from('travel_groups')
+        .update({ booking_url: bookingUrl })
+        .eq('group_id', groupId);
+
+      if (updateUrlError) {
+        console.error('Error saving booking URL:', updateUrlError);
+      }
     }
 
     // Get all group members with their preferences
@@ -197,48 +268,37 @@ export async function POST(request: NextRequest) {
     let availableFlights = '';
     
     try {
-      // Get the booking URL from the travel group
-      const { data: groupDetails, error: groupDetailsError } = await supabase
-        .from('travel_groups')
-        .select('booking_url, departure_date, return_date')
-        .eq('group_id', groupId)
-        .single();
+      console.log('Fetching flights from booking URL:', bookingUrl);
+      
+      // Fetch flight data using the booking URL
+      const flightResponse = await fetch('/api/fetch-flights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flight_url: bookingUrl,
+          headless: true
+        })
+      });
 
-      if (!groupDetailsError && groupDetails?.booking_url) {
-        console.log('Fetching flights from:', groupDetails.booking_url);
-        
-        // Fetch flight data
-        const flightResponse = await fetch('/api/fetch-flights', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            flight_url: groupDetails.booking_url,
-            headless: true
-          })
-        });
-
-        if (flightResponse.ok) {
-          const flightData = await flightResponse.json();
-          console.log('Flight API response:', flightData);
-          if (flightData.success && flightData.flight_options?.length > 0) {
-            // Format flight options for LLM
-            availableFlights = `
+      if (flightResponse.ok) {
+        const flightData = await flightResponse.json();
+        console.log('Flight API response:', flightData);
+        if (flightData.success && flightData.flight_options?.length > 0) {
+          // Format flight options for LLM (only first 5)
+          availableFlights = `
 AVAILABLE FLIGHT OPTIONS:
 ${flightData.flight_options.slice(0, 5).map((flight: any) => `
 Index: ${flight.index}
 Flight Details: ${flight.text_content}
 `).join('\n')}
 `;
-            console.log('Formatted flight options for LLM:', availableFlights);
-          } else {
-            console.log('No flight options available or API failed. Response:', JSON.stringify(flightData, null, 2));
-          }
+          console.log('Formatted flight options for LLM:', availableFlights);
         } else {
-          const errorText = await flightResponse.text();
-          console.error('Flight API request failed:', flightResponse.status, errorText);
+          console.log('No flight options available or API failed. Response:', JSON.stringify(flightData, null, 2));
         }
       } else {
-        console.log('No booking URL found for group:', groupId, 'Error:', groupDetailsError);
+        const errorText = await flightResponse.text();
+        console.error('Flight API request failed:', flightResponse.status, errorText);
       }
     } catch (flightError) {
       console.error('Error fetching flight data:', flightError);
@@ -449,8 +509,7 @@ General:
         || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=300&h=200&fit=crop';
     }
 
-    // --- Fetch real flights from SerpAPI ---
-    // Initialize with fallback flights first
+    // Process selected flight data
     if (itineraryData.selectedFlight) {
       // Store the selected flight data
       itineraryData.flights = [
@@ -517,7 +576,8 @@ General:
     return NextResponse.json({
       success: true,
       data: itineraryData,
-      selectedFlight: itineraryData.selectedFlight || null
+      selectedFlight: itineraryData.selectedFlight || null,
+      bookingUrl: bookingUrl
     });
 
   } catch (error) {
