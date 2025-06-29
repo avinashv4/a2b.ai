@@ -7,26 +7,26 @@ const TARGET_ARIA = 'Flight option';
 async function run() {
   try {
     const response = await fetch(FLIGHT_URL);
-    if (!response.ok) throw new Error(HTTP error! Status: ${response.status});
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
     const html = await response.text();
 
     const $ = cheerio.load(html);
 
-    const elements = $([aria-label="${TARGET_ARIA}"]);
-    console.log(Found ${elements.length} elements with aria-label="${TARGET_ARIA}");
+    const elements = $(`[aria-label="${TARGET_ARIA}"]`);
+    console.log(`Found ${elements.length} elements with aria-label="${TARGET_ARIA}"`);
 
     const flight_cards_info = [];
 
     elements.each((i, el) => {
-      const tag = el.tagName.toLowerCase();
+      const tag = el.tagName?.toLowerCase();
       const aria = $(el).attr('aria-label');
       const text = $(el).text().trim();
-      const flight_info = #${i}: <${tag}> aria-label='${aria}'; text='${text}';
+      const flight_info = `#${i}: <${tag}> aria-label='${aria}'; text='${text}'`;
       console.log(flight_info);
       flight_cards_info.push(flight_info);
     });
 
-    // You can now return or write flight_cards_info somewhere
+    // Optionally return, save, or process `flight_cards_info`
   } catch (err) {
     console.error('Scraping failed:', err);
   }
