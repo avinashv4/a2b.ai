@@ -108,7 +108,6 @@ Return your response in the following EXACT JSON format:
   "departure_location": "Chennai",
   "departure_iata_code": "MAA",
   "destination_iata_code": "JFK",
-  "majority_departure_location": "Chennai, Tamil Nadu, India",
   "reasoning": "Brief explanation of why these dates and location were chosen"
 }
 
@@ -154,8 +153,7 @@ REQUIREMENTS:
         departure_iata_code: travelDatesData.departure_iata_code,
         destination_iata_code: travelDatesData.destination_iata_code,
         flight_class: flightClass,
-        travel_dates_determined: true,
-        majority_departure_location: travelDatesData.majority_departure_location
+        travel_dates_determined: true
       })
       .eq('group_id', groupId);
 
