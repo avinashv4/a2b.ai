@@ -34,12 +34,18 @@ interface DayItinerary {
 
 interface Flight {
   id: string;
+  flight_type?: string;
   airline: string;
   departure: string;
+  departure_date?: string;
   arrival: string;
+  arrival_date?: string;
   duration: string;
   price: string;
   stops: string;
+  text_content?: string;
+  departure_airport?: string;
+  arrival_airport?: string;
 }
 
 interface Hotel {
@@ -406,19 +412,27 @@ export default function ItineraryConfirmationPage() {
         {/* Flight Details */}
         {flights && flights.length > 0 && (
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8 fade-in-element opacity-0">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Flight Options</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Selected Flights</h3>
             <div className="space-y-4">
               {flights.map((flight) => (
                 <div key={flight.id} className="border border-gray-200 rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-4 mb-2">
-                        <h4 className="text-lg font-semibold text-gray-900">{flight.airline}</h4>
+                        <h4 className="text-lg font-semibold text-gray-900">
+                          {flight.flight_type && <span className="text-blue-600 mr-2">{flight.flight_type}:</span>}
+                          {flight.airline}
+                        </h4>
                       </div>
                       <div className="flex items-center space-x-6 text-gray-600 text-sm">
                         <div>
-                          <p className="font-medium">{flight.departure}</p>
-                          <p className="text-xs">Departure</p>
+                          <p className="font-medium">
+                            {flight.departure}
+                            {flight.departure_date && <span className="ml-1">({flight.departure_date})</span>}
+                          </p>
+                          <p className="text-xs">
+                            {flight.departure_airport ? `${flight.departure_airport} Departure` : 'Departure'}
+                          </p>
                         </div>
                         <div className="flex items-center space-x-2">
                           <div className="w-6 h-px bg-gray-300"></div>
@@ -426,8 +440,13 @@ export default function ItineraryConfirmationPage() {
                           <div className="w-6 h-px bg-gray-300"></div>
                         </div>
                         <div>
-                          <p className="font-medium">{flight.arrival}</p>
-                          <p className="text-xs">Arrival</p>
+                          <p className="font-medium">
+                            {flight.arrival}
+                            {flight.arrival_date && <span className="ml-1">({flight.arrival_date})</span>}
+                          </p>
+                          <p className="text-xs">
+                            {flight.arrival_airport ? `${flight.arrival_airport} Arrival` : 'Arrival'}
+                          </p>
                         </div>
                         <div className="text-xs">
                           <p>{flight.duration}</p>
@@ -435,9 +454,11 @@ export default function ItineraryConfirmationPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-blue-600">{flight.price}</p>
-                    </div>
+                    {flight.price && (
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-blue-600">{flight.price}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -597,7 +618,12 @@ export default function ItineraryConfirmationPage() {
               </div>
               <div>
                 <p className="font-medium text-gray-900">Round-trip Flights</p>
-                <p className="text-sm text-gray-600">{flights[0]?.airline || 'Air India'} {flights[0]?.stops || 'Direct'}</p>
+                <p className="text-sm text-gray-600">
+                  {flights.length > 1 
+                    ? `${flights[0]?.airline} / ${flights[1]?.airline}` 
+                    : flights[0]?.airline || 'Air India'
+                  }
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-3">

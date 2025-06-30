@@ -364,6 +364,51 @@ Flight Selection:
 - Consider the departure date (${groupData.departure_date}) and return date (${groupData.return_date}) when planning
 ` : ''}
 
+CRITICAL FLIGHT TEXT PARSING:
+If you select a flight from the available options, you MUST also parse the text_content and return structured flight data.
+
+The text_content format is: "Flexible ticket upgrade available01:00MAA · 26 Jul1 stop9h 15m10:15IXZ · 26 Jul13:25IXZ · 2 Aug2 stops15h 55m05:20MAA · 3 AugAir IndiaINR86,414.00View details"
+
+Parse this into structured JSON within the selectedFlight object as "parsed_details":
+{
+  "going_flight": {
+    "departure_time": "01:00",
+    "departure_airport": "MAA", 
+    "departure_date": "26 Jul",
+    "arrival_time": "10:15",
+    "arrival_airport": "IXZ",
+    "arrival_date": "26 Jul", 
+    "stops": "1 stop",
+    "duration": "9h 15m"
+  },
+  "return_flight": {
+    "departure_time": "13:25",
+    "departure_airport": "IXZ",
+    "departure_date": "2 Aug", 
+    "arrival_time": "05:20",
+    "arrival_airport": "MAA",
+    "arrival_date": "3 Aug",
+    "stops": "2 stops", 
+    "duration": "15h 55m"
+  },
+  "airlines_used": ["Air India"],
+  "total_price": "INR86,414.00",
+  "flights_used_text": "Air India"
+}
+
+AIRLINE PARSING RULES:
+- Split airline text by commas
+- If a segment starts with "operated", it belongs to the previous airline
+- Extract main airline names only (no "operated by" text)
+- First airline is for going flight, second (if exists) for return flight
+- If only one airline, use same for both flights
+
+PARSING PATTERN:
+- Ignore "Flexible ticket upgrade available" at start
+- Going flight: time + airport + date + stops + duration + time + airport + date
+- Return flight: time + airport + date + stops + duration + time + airport + date  
+- Airline info + price + "View details" (ignore "View details")
+
 Daily Structure:
 - Include items per day depending on group travel style:
   - If relaxed/spontaneous → 4-5 key places (max), include leisure time.
@@ -474,21 +519,69 @@ General:
 
     // Process selected flight data
     if (itineraryData.selectedFlight) {
-      // Store the selected flight data
-      itineraryData.flights = [
-        {
-          id: "1",
-          index: itineraryData.selectedFlight.index,
-          text_content: itineraryData.selectedFlight.text_content,
-          // Parse basic info for display
-          airline: extractAirline(itineraryData.selectedFlight.text_content),
-          price: extractPrice(itineraryData.selectedFlight.text_content),
-          departure: "See flight details",
-          arrival: "See flight details",
-          duration: "See flight details",
-          stops: "See flight details"
+      // Check if we have parsed flight details
+      if (itineraryData.selectedFlight.parsed_details) {
+        const parsed = itineraryData.selectedFlight.parsed_details;
+        const flights = [];
+        
+        // Going flight
+        if (parsed.going_flight) {
+          flights.push({
+            id: "going",
+            flight_type: "Going",
+            index: itineraryData.selectedFlight.index,
+            text_content: itineraryData.selectedFlight.text_content,
+            airline: parsed.airlines_used?.[0] || "Unknown Airline",
+            departure: parsed.going_flight.departure_time,
+            departure_date: parsed.going_flight.departure_date,
+            arrival: parsed.going_flight.arrival_time,
+            arrival_date: parsed.going_flight.arrival_date,
+            duration: parsed.going_flight.duration,
+            stops: parsed.going_flight.stops,
+            price: "", // Price shown only on return flight
+            departure_airport: parsed.going_flight.departure_airport,
+            arrival_airport: parsed.going_flight.arrival_airport
+          });
         }
-      ];
+        
+        // Return flight
+        if (parsed.return_flight) {
+          flights.push({
+            id: "return",
+            flight_type: "Return", 
+            index: itineraryData.selectedFlight.index,
+            text_content: itineraryData.selectedFlight.text_content,
+            airline: parsed.airlines_used?.[1] || parsed.airlines_used?.[0] || "Unknown Airline",
+            departure: parsed.return_flight.departure_time,
+            departure_date: parsed.return_flight.departure_date,
+            arrival: parsed.return_flight.arrival_time,
+            arrival_date: parsed.return_flight.arrival_date,
+            duration: parsed.return_flight.duration,
+            stops: parsed.return_flight.stops,
+            price: `Total: ${parsed.total_price}`,
+            departure_airport: parsed.return_flight.departure_airport,
+            arrival_airport: parsed.return_flight.arrival_airport
+          });
+        }
+        
+        itineraryData.flights = flights;
+        itineraryData.flights_used_text = parsed.flights_used_text;
+      } else {
+        // Fallback to basic parsing
+        itineraryData.flights = [
+          {
+            id: "1",
+            index: itineraryData.selectedFlight.index,
+            text_content: itineraryData.selectedFlight.text_content,
+            airline: extractAirline(itineraryData.selectedFlight.text_content),
+            price: extractPrice(itineraryData.selectedFlight.text_content),
+            departure: "See flight details",
+            arrival: "See flight details", 
+            duration: "See flight details",
+            stops: "See flight details"
+          }
+        ];
+      }
     } else {
       // Fallback flights
       itineraryData.flights = [
