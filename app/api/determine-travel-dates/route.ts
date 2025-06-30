@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ Members data fetched successfully. Member count:', membersData.length);
     console.log('👥 Members data:', membersData.map(m => ({
       user_id: m.user_id,
-      name: `${m.profiles?.[0]?.first_name} ${member.profiles?.[0]?.last_name}`,
+      name: `${m.profiles?.[0]?.first_name} ${m.profiles?.[0]?.last_name}`,
       has_schedule: !!m.schedule_and_logistics,
       has_flight_pref: !!m.flight_preference
     })));
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     console.log('📋 Formatting member data for LLM...');
     // Format member data for LLM
     const memberSchedules = membersData.map((member: any) => ({
-      name: `${member.profiles?.first_name || 'Unknown'} ${member.profiles?.last_name || 'User'}`,
+      name: `${member.profiles?.[0]?.first_name || 'Unknown'} ${member.profiles?.[0]?.last_name || 'User'}`,
       schedule: member.schedule_and_logistics || 'No schedule information provided',
       flightPreference: member.flight_preference || 'Not specified'
     }));
