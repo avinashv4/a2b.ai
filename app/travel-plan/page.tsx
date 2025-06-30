@@ -863,10 +863,7 @@ export default function TravelPlanPage() {
     <FadeIn>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Flight Options (Round Trip)</h2>
-          <Button variant="outline" className="px-4 py-2 rounded-xl text-sm">
-            See More Flights
-          </Button>
+          <h2 className="text-2xl font-bold text-gray-900">Best Flight Option</h2>
         </div>
         
         <div className="flex items-stretch">
@@ -1003,7 +1000,7 @@ export default function TravelPlanPage() {
       <div className="space-y-6">
         {itinerary.map((day, dayIndex) => (
           <FadeIn key={day.date} delay={dayIndex * 100}>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div id={day.date} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
               <button
                 onClick={() => toggleDayInMain(day.date)}
                 className="w-full p-6 text-left hover:bg-gray-50 transition-colors flex items-center justify-between"

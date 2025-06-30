@@ -270,6 +270,7 @@ export default function OnboardingPage() {
     if (user) {
       const profileData = {
         user_id: user.id,
+        email: user.email,
         first_name: profileAnswers.firstName,
         middle_name: profileAnswers.middleName,
         last_name: profileAnswers.lastName,

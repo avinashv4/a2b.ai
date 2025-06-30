@@ -296,10 +296,6 @@ export default function AccountDetailsPage() {
               </div>
             </div>
             
-            <div className="mb-6 text-center">
-              <p className="text-sm text-gray-500">Hover over your profile picture to change it</p>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* First Name */}
               <div>

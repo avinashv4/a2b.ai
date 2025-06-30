@@ -343,7 +343,7 @@ export default function ItineraryConfirmationPage() {
         flight_url: groupData.booking_url,
         passengers: passengers,
         flight_option: flightOption,
-        headless: true,
+        headless: false,
         timeout: 45000,
         email: `${hostProfile.first_name.toLowerCase()}.${hostProfile.last_name.toLowerCase()}@example.com`, // You might want to store actual email
         phone_country_code: phoneCountryCode,
