@@ -840,46 +840,6 @@ export default function ItineraryConfirmationPage() {
           </div>
         )}
 
-        {/* Hotel Options */}
-        {hotels && hotels.length > 0 && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8 fade-in-element opacity-0">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Hotel Options</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {hotels.map((hotel) => (
-                <div key={hotel.id} className="border border-gray-200 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                      <img
-                        src={hotel.image}
-                        alt={hotel.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{hotel.name}</h4>
-                      <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
-                        <div className="flex items-center">
-                          <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                          <span>{hotel.rating}</span>
-                        </div>
-                        <span>•</span>
-                        <span className="text-blue-600 font-semibold">{hotel.price}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {hotel.amenities.slice(0, 2).map((amenity, idx) => (
-                          <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                            {amenity}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Selected Hotel */}
         {selectedHotel && (
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-6 fade-in-element opacity-0">

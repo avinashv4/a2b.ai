@@ -562,6 +562,11 @@ export default function TravelPlanPage() {
       .eq('user_id', data.user.id);
     setHasConfirmedItinerary(true);
     setConfirming(false);
+
+    // If only one member in the group, redirect immediately
+    if (totalMembers === 1) {
+      window.location.href = `/itinerary-confirmation?groupId=${groupId}`;
+    }
   };
 
   const getTravelModeIcon = (mode: string) => {
