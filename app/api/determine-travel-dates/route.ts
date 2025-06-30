@@ -9,10 +9,10 @@ interface GroupMember {
   user_id: string;
   schedule_and_logistics?: string;
   flight_preference?: string;
-  profiles: {
-    first_name: string;
-    last_name: string;
-  };
+  profiles: { 
+    first_name: string; 
+    last_name: string; 
+  }[];
 }
 
 interface BookingUrlParams {
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ Members data fetched successfully. Member count:', membersData.length);
     console.log('👥 Members data:', membersData.map(m => ({
       user_id: m.user_id,
-      name: `${m.profiles?.first_name} ${m.profiles?.last_name}`,
+      name: `${m.profiles?.[0]?.first_name} ${member.profiles?.[0]?.last_name}`,
       has_schedule: !!m.schedule_and_logistics,
       has_flight_pref: !!m.flight_preference
     })));
