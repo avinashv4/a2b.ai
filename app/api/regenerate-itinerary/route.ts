@@ -11,16 +11,16 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(request: NextRequest) {
   try {
-    const { groupId, userId, placeVotes } = await request.json();
+    const { groupId, userId, feedback } = await request.json();
 
     if (!groupId || !userId) {
       return NextResponse.json({ error: 'Group ID and User ID are required' }, { status: 400 });
     }
 
-    // Update user's regenerate vote and place_votes
+    // Update user's regenerate vote and feedback
     const { error: voteError } = await supabase
       .from('group_members')
-      .update({ regenerate_vote: true, place_votes: placeVotes || {} })
+      .update({ regenerate_vote: true, itinerary_feedback: feedback })
       .eq('group_id', groupId)
       .eq('user_id', userId);
 
@@ -40,9 +40,10 @@ export async function POST(request: NextRequest) {
 
     const totalMembers = allMembers.length;
     const regenerateVotes = allMembers.filter(member => member.regenerate_vote).length;
+    const majorityThreshold = totalMembers === 2 ? 2 : Math.ceil(totalMembers / 2);
 
-    // Check if all members have voted on all places AND voted to regenerate
-    if (regenerateVotes === totalMembers) {
+    // Check if majority have voted to regenerate
+    if (regenerateVotes >= majorityThreshold) {
       // Get group data including original API response and member preferences
       const { data: groupData, error: groupError } = await supabase
         .from('travel_groups')
@@ -54,12 +55,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to get original API response' }, { status: 500 });
       }
 
-      // Get all member votes and preferences
-      const { data: membersWithVotes, error: votesError } = await supabase
+      // Get all member feedback and preferences
+      const { data: membersWithFeedback, error: feedbackError } = await supabase
         .from('group_members')
         .select(`
           user_id,
-          place_votes,
+          itinerary_feedback,
           deal_breakers_and_strong_preferences,
           interests_and_activities,
           nice_to_haves_and_openness,
@@ -74,31 +75,20 @@ export async function POST(request: NextRequest) {
         `)
         .eq('group_id', groupId);
 
-      if (votesError) {
-        return NextResponse.json({ error: 'Failed to get member votes' }, { status: 500 });
+      if (feedbackError) {
+        return NextResponse.json({ error: 'Failed to get member feedback' }, { status: 500 });
       }
 
-      // Aggregate voting results and summarize
-      const votingResults: Record<string, { accept: number; reject: number }> = {};
-      membersWithVotes.forEach(member => {
-        const votes = member.place_votes || {};
-        Object.entries(votes).forEach(([placeId, vote]) => {
-          if (!votingResults[placeId]) {
-            votingResults[placeId] = { accept: 0, reject: 0 };
-          }
-          votingResults[placeId][vote as 'accept' | 'reject']++;
-        });
-      });
-      // Summarize results: accept, reject, draw
-      const votingSummary: Record<string, 'accept' | 'reject' | 'draw'> = {};
-      Object.entries(votingResults).forEach(([placeId, counts]) => {
-        if (counts.accept > counts.reject) votingSummary[placeId] = 'accept';
-        else if (counts.reject > counts.accept) votingSummary[placeId] = 'reject';
-        else votingSummary[placeId] = 'draw';
-      });
+      // Collect all feedback
+      const allFeedback = membersWithFeedback
+        .filter(member => member.itinerary_feedback)
+        .map(member => ({
+          name: `${member.profiles.first_name} ${member.profiles.last_name}`,
+          feedback: member.itinerary_feedback
+        }));
 
       // Format member preferences for Gemini
-      const memberPreferences = membersWithVotes.map((member: any) => ({
+      const memberPreferences = membersWithFeedback.map((member: any) => ({
         name: `${member.profiles.first_name} ${member.profiles.last_name}`,
         dealBreakers: member.deal_breakers_and_strong_preferences,
         interests: member.interests_and_activities,
@@ -140,19 +130,22 @@ ${memberPreferences.map(member => `
 ORIGINAL ITINERARY RESPONSE:
 ${groupData.most_recent_api_call.response}
 
-VOTING RESULTS (summary):
-${Object.entries(votingSummary).map(([placeId, summary]) => `Place ${placeId}: ${summary}`).join('\n')}
+GROUP FEEDBACK:
+${allFeedback.map(fb => `
+**${fb.name}:**
+${fb.feedback}
+`).join('\n')}
 
 INSTRUCTIONS:
-1. Keep places with a summary of 'accept'.
-2. Replace places with a summary of 'reject' with better alternatives.
-3. For places with a summary of 'draw', use your judgment based on group preferences.
+1. Carefully analyze the group feedback to understand what they liked and what they want changed.
+2. Keep elements that received positive feedback.
+3. Replace or modify elements that received negative feedback or suggestions for improvement.
 4. Maintain the same JSON structure as the original response.
-5. Keep the same budget range, arrival IATA code, hotels, and flights.
-6. Only modify the itinerary section with place replacements.
-7. Ensure new places align with group preferences and are in the same location/day.
-8. CRITICAL: Maintain the exact same dates from ${groupData.departure_date} to ${groupData.return_date}
-9. CRITICAL: Keep exactly ${groupData.trip_duration_days} days in the itinerary
+5. Keep the same budget range, arrival IATA code, hotels, and flights unless specifically mentioned in feedback.
+6. Ensure new places align with group preferences and feedback.
+7. CRITICAL: Maintain the exact same dates from ${groupData.departure_date} to ${groupData.return_date}
+8. CRITICAL: Keep exactly ${groupData.trip_duration_days} days in the itinerary
+9. Address each piece of feedback thoughtfully while maintaining overall trip coherence.
 
 Return the updated itinerary in the EXACT same JSON format as the original response.
 `;
@@ -250,7 +243,7 @@ Return the updated itinerary in the EXACT same JSON format as the original respo
       // Reset all regenerate_vote to false for all group members in the group
       const { error: resetVotesError } = await supabase
         .from('group_members')
-        .update({ regenerate_vote: false })
+        .update({ regenerate_vote: false, itinerary_feedback: null })
         .eq('group_id', groupId);
       if (resetVotesError) {
         console.error('Failed to reset regenerate_vote:', resetVotesError);
@@ -259,7 +252,7 @@ Return the updated itinerary in the EXACT same JSON format as the original respo
       return NextResponse.json({
         success: true,
         regenerated: true,
-        regenerateVotes: totalMembers,
+        regenerateVotes: regenerateVotes,
         totalMembers
       });
     }
