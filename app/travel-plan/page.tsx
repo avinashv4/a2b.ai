@@ -1116,6 +1116,156 @@ export default function TravelPlanPage() {
     </div>
   );
 
+  const renderSidebar = () => (
+    <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col fixed h-full z-10`}>
+      {/* Sidebar Content */}
+      <div className="flex-1 overflow-y-auto pb-32">
+        {/* Logo and Back Button */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            {!sidebarCollapsed && (
+              <div className={`flex items-center space-x-2`}>
+                <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
+                  <Plane className="w-4 h-4 text-white" />
+                </div>
+                <span className={`text-lg font-bold text-gray-900 transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>a2b.ai</span>
+              </div>
+            )}
+            <Button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              variant="ghost"
+              size="sm"
+              className="p-1"
+            >
+              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </Button>
+          </div>
+        </div>
+
+        {/* Navigation Items */}
+        <div className="p-3 space-y-2">
+          {sidebarItems.map((item) => {
+            if (item.isExternal) {
+              return (
+                <a
+                  key={item.id}
+                  href={item.href}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100`}
+                  onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter(item.id, e)}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  <div className="h-8 flex items-center">
+                    <item.icon className="w-4 h-4 text-gray-600 transition-opacity duration-300" />
+                  </div>
+                  {!sidebarCollapsed && (
+                    <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
+                  )}
+                </a>
+              );
+            }
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => scrollToSection(item.id)}
+                className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
+                  activeSection === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                }`}
+                onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter(item.id, e)}
+                onMouseLeave={handleMouseLeave}
+              >
+                <div className="h-8 flex items-center">
+                  <item.icon className="w-4 h-4 transition-opacity duration-300" />
+                </div>
+                {!sidebarCollapsed && (
+                  <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
+                )}
+              </button>
+            );
+          })}
+
+          {/* Itinerary Section */}
+          <div className="mt-2">
+            <button
+              onClick={() => setItineraryExpanded(!itineraryExpanded)}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-700"
+            >
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-4 h-4" />
+                {!sidebarCollapsed && (
+                  <span className={`font-medium text-sm transition-opacity duration-300 ${
+                    sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}>Itinerary</span>
+                )}
+              </div>
+              {!sidebarCollapsed && (
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${
+                  itineraryExpanded ? 'rotate-180' : ''
+                }`} />
+              )}
+            </button>
+
+            {/* Itinerary Days List */}
+            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+              itineraryExpanded && !sidebarCollapsed ? 'max-h-[60vh] opacity-100' : 'max-h-0 opacity-0'
+            }`}>
+              <div className="ml-4 mt-1 space-y-1 overflow-y-auto">
+                {itinerary.map((day, idx) => (
+                  <button
+                    key={day.date}
+                    onClick={() => scrollToSection(day.date)}
+                    id={`sidebar-${day.date}`}
+                    className={`w-full flex items-center space-x-2 px-2 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
+                      activeSection === day.date ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                    } transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    style={{ transitionDelay: `${150 + idx * 80}ms` }}
+                  >
+                    <DateIcon month={day.month} date={day.date} className="w-8" />
+                    <span className="font-medium text-sm">Day {idx + 1}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Actions */}
+      <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 space-y-2">
+        <button
+          onClick={handleRegenerateVote}
+          disabled={hasVotedRegenerate}
+          className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+            hasVotedRegenerate ? 'bg-gray-100 text-gray-500' : 'hover:bg-gray-100 text-gray-700'
+          }`}
+        >
+          <RotateCcw className="w-4 h-4" />
+          {!sidebarCollapsed && (
+            <span className={`font-medium text-sm whitespace-nowrap transition-opacity duration-300 ${
+              sidebarFullyOpen ? 'opacity-100' : 'opacity-0'
+            }`}>
+              Regenerate {regenerateVotes > 0 && `(${regenerateVotes}/${totalMembers})`}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setShowSettings(true)}
+          className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-700"
+        >
+          <Settings className="w-4 h-4" />
+          {!sidebarCollapsed && (
+            <span className={`font-medium text-sm whitespace-nowrap transition-opacity duration-300 ${
+              sidebarFullyOpen ? 'opacity-100' : 'opacity-0'
+            }`}>
+              Settings
+            </span>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+
   if (isMobile) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
@@ -1237,214 +1387,10 @@ export default function TravelPlanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white relative">
-      {/* Existing content */}
-      
-      {/* Main content container */}
+    <div className="min-h-screen bg-white">
       <div className="flex">
-        {/* Sidebar */}
-        <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col fixed h-full z-10`}>
-          {/* Sidebar Header */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              {!sidebarCollapsed && (
-                <div className={`flex items-center space-x-2`}>
-                  <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-                    <Plane className="w-4 h-4 text-white" />
-                  </div>
-                  <span className={`text-lg font-bold text-gray-900 transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>a2b.ai</span>
-                </div>
-              )}
-              <Button
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                variant="ghost"
-                size="sm"
-                className="p-1"
-              >
-                {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-              </Button>
-            </div>
-          </div>
-
-          {/* Sidebar Navigation */}
-          <div className="flex-1 overflow-y-auto p-3">
-            <div className="space-y-1">
-              {sidebarItems.map((item) => {
-                if (item.isExternal) {
-                  return (
-                    <a
-                      key={item.id}
-                      href={item.href}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100`}
-                      onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter(item.id, e)}
-                      onMouseLeave={handleMouseLeave}
-                    >
-                      <div className="h-8 flex items-center">
-                        <item.icon className="w-4 h-4 text-gray-600 transition-opacity duration-300" />
-                      </div>
-                      {!sidebarCollapsed && (
-                        <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
-                      )}
-                    </a>
-                  );
-                }
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => scrollToSection(item.id)}
-                    className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
-                      activeSection === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
-                    }`}
-                    onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter(item.id, e)}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <div className="h-8 flex items-center">
-                      <item.icon className="w-4 h-4 transition-opacity duration-300" />
-                    </div>
-                    {!sidebarCollapsed && (
-                      <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
-                    )}
-                  </button>
-                );
-              })}
-
-              {/* Divider */}
-              {/* Divider */}
-              <div className="pt-2">
-                <div className="border-t border-gray-200"></div>
-              </div>
-
-              {/* Itinerary Section */}
-              <div>
-                <button
-                  onClick={() => setItineraryExpanded(!itineraryExpanded)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
-                    sidebarCollapsed ? 'justify-center' : ''
-                  }`}
-                  onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('itinerary', e)}
-                  onMouseLeave={handleMouseLeave}
-                >
-                  <div className="flex items-center space-x-2">
-                    <div className="h-8 flex items-center">
-                      <Calendar className="w-4 h-4 text-gray-600" />
-                    </div>
-                    {!sidebarCollapsed && (
-                      <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Itinerary</span>
-                    )}
-                  </div>
-                  {!sidebarCollapsed && (
-                    <ChevronDown className={`w-3 h-3 text-gray-400 transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${itineraryExpanded ? 'rotate-180' : ''}`} />
-                  )}
-                </button>
-
-                {/* Itinerary Days */}
-                <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                  itineraryExpanded && !sidebarCollapsed ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                }`}>
-                  <div className="ml-4 mt-1 space-y-1">
-                    {itinerary.map((day, idx) => (
-                      <button
-                        key={day.date}
-                        onClick={() => scrollToSection(day.date)}
-                        id={`sidebar-${day.date}`}
-                        className={`w-full flex items-center space-x-2 px-2 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
-                          activeSection === day.date ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
-                        } transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                        style={{ transitionDelay: `${150 + idx * 80}ms` }}
-                      >
-                        <DateIcon month={day.month} date={day.date} className="w-8" />
-                        <span className="font-medium text-sm">Day {idx + 1}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Actions */}
-          <div className="p-3 border-t border-gray-200 space-y-2">
-            {/* Regenerate Itinerary */}
-            <button
-              onClick={handleRegenerateVote}
-              disabled={hasVotedRegenerate || regenerating || !allPlacesVoted}
-              className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                hasVotedRegenerate || regenerating || !allPlacesVoted ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'hover:bg-gray-100 text-gray-700'
-              }`}
-              title={!allPlacesVoted ? 'Vote on all places before regenerating' : ''}
-              onMouseEnter={(e: React.MouseEvent) => {
-                if (!allPlacesVoted) setShowRegenTooltip(true);
-                if (sidebarCollapsed) handleMouseEnter('regenerate', e);
-              }}
-              onMouseLeave={() => {
-                setShowRegenTooltip(false);
-                handleMouseLeave();
-              }}
-            >
-              <div className="h-8 flex items-center">
-                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-              </div>
-              {!sidebarCollapsed && (
-                <div className={`flex items-center justify-between w-full`}>
-                  <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                    {regenerating ? 'Regenerating...' : hasVotedRegenerate ? 'Waiting for others...' : 'Regenerate'}
-                  </span>
-                  <span className={`text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                    {regenerateVotes}/{totalMembers}
-                  </span>
-                </div>
-              )}
-              {showRegenTooltip && !allPlacesVoted && (
-                <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-black text-white px-3 py-2 rounded shadow text-xs z-50">
-                  You have not finished voting yet
-                </div>
-              )}
-              {totalMembers === 0 && (
-                <div className="text-xs text-red-600 mt-1">No group members found for this trip. Voting will not work.</div>
-              )}
-            </button>
-
-            {/* Settings */}
-            <div className="relative" ref={settingsRef}>
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-700`}
-                onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('settings', e)}
-                onMouseLeave={handleMouseLeave}
-              >
-                <div className="h-8 flex items-center">
-                  <Settings className="w-4 h-4" />
-                </div>
-                {!sidebarCollapsed && (
-                  <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Settings</span>
-                )}
-              </button>
-
-              {/* Settings Dropdown */}
-              {showSettings && !sidebarCollapsed && (
-                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
-                  <button
-                    onClick={copyInviteLink}
-                    className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors"
-                  >
-                    <Copy className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm text-gray-700">Copy Invite Link</span>
-                  </button>
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-red-50 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-600" />
-                    <span className="text-sm text-red-600">Delete Plan</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
+        {renderSidebar()}
+        {/* Main Content Area */}
         <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'} flex items-start`} style={{ width: 'auto' }}>
           <div className="max-w-[900px] w-full px-6 pt-6 pb-6 mx-auto">
             {renderMainContent()}
