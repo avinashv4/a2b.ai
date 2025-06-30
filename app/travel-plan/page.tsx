@@ -869,43 +869,55 @@ export default function TravelPlanPage() {
           </Button>
         </div>
         
-        <div className="space-y-4">
-          {(flights || []).map((flight) => (
-            <div key={flight.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-4 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{flight.airline}</h3>
+        <div className="flex items-stretch">
+          <div className="flex-1 max-w-[500px]">
+            <div className="bg-white rounded-2xl py-2 px-6">
+              {(flights || []).map((flight, index) => (
+                <div key={flight.id}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4 mb-1">
+                        <h3 className="text-lg font-semibold text-gray-900">{flight.airline}</h3>
+                      </div>
+                      <div className="flex items-center space-x-6 text-gray-600 text-sm">
+                        <div>
+                          <p className="font-medium">{flight.departure}</p>
+                          <p className="text-xs">Departure</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-px bg-gray-300"></div>
+                          <Plane className="w-3 h-3" />
+                          <div className="w-6 h-px bg-gray-300"></div>
+                        </div>
+                        <div>
+                          <p className="font-medium">{flight.arrival}</p>
+                          <p className="text-xs">Arrival</p>
+                        </div>
+                        <div className="text-xs">
+                          <p>{flight.duration}</p>
+                          <p>{flight.stops}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-6 text-gray-600 text-sm">
-                    <div>
-                      <p className="font-medium">{flight.departure}</p>
-                      <p className="text-xs">Departure</p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-px bg-gray-300"></div>
-                      <Plane className="w-3 h-3" />
-                      <div className="w-6 h-px bg-gray-300"></div>
-                    </div>
-                    <div>
-                      <p className="font-medium">{flight.arrival}</p>
-                      <p className="text-xs">Arrival</p>
-                    </div>
-                    <div className="text-xs">
-                      <p>{flight.duration}</p>
-                      <p>{flight.stops}</p>
-                    </div>
-                  </div>
+                  {index === 0 && <div className="border-t my-1.5" />}
                 </div>
-                <div className="text-right">
-                  <p className="text-xl font-bold text-blue-600">{flight.price}</p>
-                  <Button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-xl text-sm">
-                    Select
-                  </Button>
-                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="w-px bg-gray-200"></div>
+          
+          <div className="w-72 ml-4">
+            <div className="w-full h-full bg-white rounded-2xl py-2 px-4 flex flex-col justify-center">
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Round Trip Total</p>
+                <p className="text-3xl font-bold text-blue-600">
+                  {flights && flights.length > 1 ? `${flights[1].price}` : 'N/A'}
+                </p>
               </div>
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </FadeIn>

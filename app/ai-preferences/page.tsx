@@ -6,6 +6,7 @@ import { Plane, Check, X, ArrowLeft, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import VoiceAgentWidget from '@/components/VoiceAgentWidget';
+import { FadeIn } from '@/components/ui/fade-in';
 
 interface User {
   id: string;
@@ -229,89 +230,91 @@ export default function AIPreferencesPage() {
       <div className="flex h-[calc(100vh-6rem)] mt-24">
         {/* Main Content Area */}
         <div className="flex-1 relative">
-          {/* Left Content Container */}
-          <div className="h-full flex flex-col pl-24 pr-8">
-            <div className="mb-8 mt-4">
-              <div className="flex items-center justify-between gap-8">
-                <div className="text-left flex-1">
-                  <h1 className="text-5xl font-bold text-gray-900 mb-4">Share Your Travel Preferences</h1>
-                  <p className="text-xl text-gray-600">Tell our AI what you&apos;re looking for in this {destination_display} trip</p>
-                </div>
+          <FadeIn>
+            {/* Left Content Container */}
+            <div className="h-full flex flex-col pl-24 pr-8">
+              <div className="mb-8 mt-4">
+                <div className="flex items-center justify-between gap-8">
+                  <div className="text-left flex-1">
+                    <h1 className="text-5xl font-bold text-gray-900 mb-4">Share Your Travel Preferences</h1>
+                    <p className="text-xl text-gray-600">Tell our AI what you&apos;re looking for in this {destination_display} trip</p>
+                  </div>
 
-                {/* Confirm Preferences Button */}
-                <Button
-                  onClick={handleConfirmPreferences}
-                  disabled={userCompleted}
-                  className={`shrink-0 w-64 py-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 ${
-                    userCompleted 
-                      ? 'bg-green-600 hover:bg-green-700 text-white' 
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  }`}
-                >
-                  {userCompleted ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      <Check className="w-5 h-5" />
-                      <span>Preferences Confirmed</span>
+                  {/* Confirm Preferences Button */}
+                  <Button
+                    onClick={handleConfirmPreferences}
+                    disabled={userCompleted}
+                    className={`shrink-0 w-64 py-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 ${
+                      userCompleted 
+                        ? 'bg-green-600 hover:bg-green-700 text-white' 
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
+                  >
+                    {userCompleted ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <Check className="w-5 h-5" />
+                        <span>Preferences Confirmed</span>
+                      </div>
+                    ) : (
+                      'Confirm My Preferences'
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex-1 flex flex-col">
+                {/* ElevenLabs Conversational AI Widget - only render after loading */}
+                {!loading && currentUserId && groupId && destination ? (
+                  <div className="flex-1 flex h-full">
+                    {/* Info Boxes */}
+                    <div className="w-[40rem] flex flex-col gap-4 mr-12">
+                      <div className="bg-blue-600 rounded-xl px-8 py-6 text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                        <h3 className="text-2xl font-semibold mb-2">Meet Maya, Your AI Travel Agent</h3>
+                        <p className="text-lg opacity-90 mb-4">
+                          Maya is powered by advanced AI to understand your travel style, preferences, and interests. 
+                          She'll help craft a personalized itinerary that matches your unique travel personality.
+                        </p>
+                        <p className="text-lg opacity-90 italic">
+                          Can't wait to get started? Click the call button to your right to start talking with Maya.
+                        </p>
+                      </div>
+                      <div className="bg-blue-600 rounded-xl px-8 py-6 text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                        <h3 className="text-2xl font-semibold mb-2">How Maya Helps Plan Your Trip</h3>
+                        <ul className="text-lg opacity-90 space-y-2">
+                          <li>• Suggests local experiences based on your interests</li>
+                          <li>• Recommends restaurants matching your dietary preferences</li>
+                          <li>• Plans activities around your preferred pace</li>
+                          <li>• Balances tourist spots with hidden gems</li>
+                          <li>• Crafts your dream trip without breaking the bank</li>
+                        </ul>
+                      </div>
                     </div>
-                  ) : (
-                    'Confirm My Preferences'
-                  )}
-                </Button>
+
+                    {/* Voice AI Widget Container - Main Content */}
+                    <div className="flex-1" style={{ minHeight: '500px' }}>
+                      <VoiceAgentWidget
+                        agentId="agent_01jxy55f0afx8aax07xahyqsy5"
+                        userId={currentUserId}
+                        groupId={groupId}
+                        destination={destination}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading AI assistant...</p>
+                      {loading && <p className="text-sm text-gray-500 mt-2">Loading trip details...</p>}
+                      {!currentUserId && <p className="text-sm text-gray-500 mt-2">Getting user information...</p>}
+                      {!groupId && <p className="text-sm text-gray-500 mt-2">Loading group information...</p>}
+                      {!destination && <p className="text-sm text-gray-500 mt-2">Loading destination...</p>}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-
-            <div className="flex-1 flex flex-col">
-              {/* ElevenLabs Conversational AI Widget - only render after loading */}
-              {!loading && currentUserId && groupId && destination ? (
-                <div className="flex-1 flex h-full">
-                  {/* Info Boxes */}
-                  <div className="w-[40rem] flex flex-col gap-4 mr-12">
-                    <div className="bg-blue-600 rounded-xl px-8 py-6 text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
-                      <h3 className="text-2xl font-semibold mb-2">Meet Maya, Your AI Travel Agent</h3>
-                      <p className="text-lg opacity-90 mb-4">
-                        Maya is powered by advanced AI to understand your travel style, preferences, and interests. 
-                        She'll help craft a personalized itinerary that matches your unique travel personality.
-                      </p>
-                      <p className="text-lg opacity-90 italic">
-                        Can't wait to get started? Click the call button to your right to start chatting with Maya.
-                      </p>
-                    </div>
-                    <div className="bg-blue-600 rounded-xl px-8 py-6 text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
-                      <h3 className="text-2xl font-semibold mb-2">How Maya Helps Plan Your Trip</h3>
-                      <ul className="text-lg opacity-90 space-y-2">
-                        <li>• Suggests local experiences based on your interests</li>
-                        <li>• Recommends restaurants matching your dietary preferences</li>
-                        <li>• Plans activities around your preferred pace</li>
-                        <li>• Balances tourist spots with hidden gems</li>
-                        <li>• Crafts your dream trip without breaking the bank</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Voice AI Widget Container - Main Content */}
-                  <div className="flex-1" style={{ minHeight: '500px' }}>
-                    <VoiceAgentWidget
-                      agentId="agent_01jxy55f0afx8aax07xahyqsy5"
-                      userId={currentUserId}
-                      groupId={groupId}
-                      destination={destination}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading AI assistant...</p>
-                    {loading && <p className="text-sm text-gray-500 mt-2">Loading trip details...</p>}
-                    {!currentUserId && <p className="text-sm text-gray-500 mt-2">Getting user information...</p>}
-                    {!groupId && <p className="text-sm text-gray-500 mt-2">Loading group information...</p>}
-                    {!destination && <p className="text-sm text-gray-500 mt-2">Loading destination...</p>}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          </FadeIn>
         </div>
 
         {/* Right Sidebar - User Status */}

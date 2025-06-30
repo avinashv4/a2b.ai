@@ -558,7 +558,7 @@ General:
             arrival_date: parsed.return_flight.arrival_date,
             duration: parsed.return_flight.duration,
             stops: parsed.return_flight.stops,
-            price: `Total: ${parsed.total_price}`,
+            price: `${parsed.total_price}`,
             departure_airport: parsed.return_flight.departure_airport,
             arrival_airport: parsed.return_flight.arrival_airport
           });
