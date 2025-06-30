@@ -189,6 +189,7 @@ This is a ${groupDescription} planning a trip to ${groupData.destination_display
 INSTRUCTIONS:
 1. ${scheduleAnalysis}
 2. Determine optimal departure and return dates that work for everyone
+3. Only plan the trip for the days the people are free on.
 3. Calculate trip duration in days
 4. Identify the most common departure location mentioned by members
 5. If no departure locations are mentioned, use the host's location as fallback
@@ -198,7 +199,6 @@ INSTRUCTIONS:
 ${isSinglePerson ? `
 SOLO TRAVELER GUIDELINES:
 - If no specific dates are mentioned, suggest dates 2-4 weeks from now
-- Choose a reasonable trip duration (3-7 days for domestic, 5-10 days for international)
 - Use the traveler's location or host fallback location for departure
 ` : ''}
 
