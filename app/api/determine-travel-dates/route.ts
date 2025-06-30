@@ -188,7 +188,7 @@ This is a ${groupDescription} planning a trip to ${groupData.destination_display
 
 INSTRUCTIONS:
 1. ${scheduleAnalysis}
-2. Determine optimal departure and return dates that work for everyone
+2. Determine optimal departure and return dates that all the members of the travel group are free on
 3. Only plan the trip for the days the people are free on.
 3. Calculate trip duration in days
 4. Identify the most common departure location mentioned by members
@@ -198,23 +198,24 @@ INSTRUCTIONS:
 
 ${isSinglePerson ? `
 SOLO TRAVELER GUIDELINES:
-- If no specific dates are mentioned, suggest dates 2-4 weeks from now
+- If no specific dates are mentioned
 - Use the traveler's location or host fallback location for departure
 ` : ''}
 
 CRITICAL DATE REQUIREMENTS:
-- ALL dates must be in the FUTURE (after today's date: ${new Date().toISOString().split('T')[0]})
+- If user mentions a specific date, use that date
+- If user mentions a specific date range, use that date range, do not make up dates
+- ALL dates must be in the FUTURE (today's date: ${new Date().toISOString().split('T')[0]})
 - If a member mentions dates without a year, assume the NEXT occurrence of those dates
 - If dates mentioned have already passed this year, use next year
 - NEVER generate dates in the past
-- Default to dates 2-4 weeks from today if no specific dates are mentioned
 
 Return your response in the following EXACT JSON format:
 
 {
   "departure_date": "2025-07-26",
   "return_date": "2025-08-02",
-  "trip_duration_days": 7,
+  "trip_duration_days": 5,
   "departure_location": "Chennai",
   "departure_iata_code": "MAA",
   "destination_iata_code": "JFK",
@@ -224,8 +225,6 @@ Return your response in the following EXACT JSON format:
 REQUIREMENTS:
 - Dates must be in YYYY-MM-DD format
 - ALL dates must be in the future (after ${new Date().toISOString().split('T')[0]})
-- Trip duration should be realistic (3-14 days typically)
-${isSinglePerson ? '- For solo travelers, if no schedule constraints mentioned, pick optimal dates 2-4 weeks from now' : ''}
 - IATA code must be valid 3-letter airport code
 - Destination IATA code should be the main airport for ${groupData.destination_display}
 ${isSinglePerson 

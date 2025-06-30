@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@elevenlabs/react": "^0.1.7",
+    "@google/genai": "^1.7.0",
     "@google/generative-ai": "^0.24.1",
     "@googlemaps/google-maps-services-js": "^3.4.1",
     "@googlemaps/js-api-loader": "^1.16.8",

@@ -478,7 +478,8 @@ export default function TravelPlanPage() {
       if (!groupId) throw new Error('No group ID');
       const payload = { groupId, userId: data.user.id, feedback: regenFeedback };
       console.log('Submitting regenerate feedback:', payload);
-      const response = await fetch('/api/regenerate-itinerary', {
+      // CHANGED: Use /railway/api/regenerate-itinerary and poll for itinerary
+      const response = await fetch('https://web-production-45560.up.railway.app/api/regenerate-itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -490,9 +491,44 @@ export default function TravelPlanPage() {
       setHasVotedRegenerate(true);
       setShowRegenModal(false);
       setRegenFeedback('');
-      // If regeneration happened, refetch group data and reset vote state
-      if (result.regenerated) {
-        await fetchOrGenerateItinerary();
+      // Poll for itinerary change
+      let newItinerary = null;
+      const pollMaxAttempts = 30;
+      for (let attempt = 0; attempt < pollMaxAttempts; attempt++) {
+        if (attempt > 0) {
+          await new Promise(res => setTimeout(res, 3000));
+        }
+        const pollRes = await supabase
+          .from('travel_groups')
+          .select('itinerary')
+          .eq('group_id', groupId)
+          .single();
+        if (pollRes.data && pollRes.data.itinerary) {
+          // Compare with current itineraryData
+          if (JSON.stringify(pollRes.data.itinerary) !== JSON.stringify(itineraryData)) {
+            newItinerary = pollRes.data.itinerary;
+            break;
+          }
+        }
+      }
+      if (newItinerary) {
+        // Enhancement step (same as in AI Preferences)
+        const numDays = newItinerary?.itinerary?.length || 0;
+        for (let dayIndex = 0; dayIndex < numDays; dayIndex++) {
+          await fetch('/api/enhance-itinerary-basic', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupId, dayIndex })
+          });
+        }
+        for (let dayIndex = 0; dayIndex < numDays; dayIndex++) {
+          await fetch('/api/enhance-itinerary-travelmodes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupId, dayIndex })
+          });
+        }
+        setItineraryData(newItinerary);
         setHasVotedRegenerate(false);
       }
     } catch (err: any) {

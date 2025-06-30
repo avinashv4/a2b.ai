@@ -154,35 +154,132 @@ export default function AIPreferencesPage() {
 
   const handleGenerateTravelPlan = async () => {
     if (!groupId) return;
-    
     setGeneratingPlan(true);
     try {
-      // First, determine travel dates and flight class
+      // 1. Determine travel dates and flight class
       const datesResponse = await fetch('/api/determine-travel-dates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId })
       });
-
       if (!datesResponse.ok) {
         throw new Error('Failed to determine travel dates');
       }
 
-      const datesData = await datesResponse.json();
-      console.log('Travel dates determined:', datesData);
-
-      // Then generate the itinerary
-      const itineraryResponse = await fetch('/api/generate-itinerary', {
+      // 2. Trigger Railway flight scraping
+      const triggerResponse = await fetch('/api/trigger-flight-scraping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId })
       });
-
-      if (!itineraryResponse.ok) {
-        throw new Error('Failed to generate itinerary');
+      if (!triggerResponse.ok) {
+        throw new Error('Failed to trigger flight scraping');
       }
 
-      // Redirect to travel plan page
+      // 3. Poll for flight options (6 tries, 5 seconds apart, start immediately)
+      let flightOptions = null;
+      const maxAttempts = 8;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (attempt > 0) {
+          await new Promise(res => setTimeout(res, 5000));
+        }
+        const pollResponse = await fetch('/api/check-flight-options', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ groupId })
+        });
+        const pollData = await pollResponse.json();
+        if (pollData.ready) {
+          flightOptions = pollData.flight_options;
+          break;
+        }
+      }
+      if (!flightOptions) {
+        throw new Error('Flight data not ready after polling.');
+      }
+
+      // 4. Generate itinerary with LLM (call your generate-itinerary endpoint)
+      const railwayResponse = await fetch('https://web-production-45560.up.railway.app/api/generate-itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId })
+      });
+      if (!railwayResponse.ok) {
+        throw new Error('Failed to trigger itinerary generation');
+      }
+
+      // Poll for most_recent_api_call
+      let mostRecentApiCall = null;
+      const pollMaxAttempts = 30;
+      for (let attempt = 0; attempt < pollMaxAttempts; attempt++) {
+        if (attempt > 0) {
+          await new Promise(res => setTimeout(res, 3000));
+        }
+        const pollRes = await fetch('/api/get-itinerary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ groupId })
+        });
+        if (!pollRes.ok) continue;
+        const pollData = await pollRes.json();
+        let apiCall = pollData?.most_recent_api_call;
+        if (typeof apiCall === 'string') {
+          try {
+            apiCall = JSON.parse(apiCall);
+          } catch (e) {
+            // ignore parse error, treat as not ready
+            continue;
+          }
+        }
+        if (apiCall) {
+          mostRecentApiCall = apiCall;
+          break;
+        }
+      }
+      if (!mostRecentApiCall) {
+        throw new Error('Itinerary generation did not complete in time.');
+      }
+
+      // 5. Fetch the number of days in the itinerary using the new endpoint
+      const numDaysRes = await fetch('/api/get-num-itinerary-days', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId })
+      });
+      if (!numDaysRes.ok) {
+        throw new Error('Failed to get number of itinerary days');
+      }
+      const numDaysData = await numDaysRes.json();
+      const numDays = numDaysData?.numDays;
+      if (!numDays) {
+        throw new Error('No days found in itinerary');
+      }
+
+      // 6. Enhance each day (basic)
+      for (let dayIndex = 0; dayIndex < numDays; dayIndex++) {
+        const enhanceBasicResponse = await fetch('/api/enhance-itinerary-basic', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ groupId, dayIndex })
+        });
+        if (!enhanceBasicResponse.ok) {
+          throw new Error(`Failed to enhance itinerary (basic) for day ${dayIndex + 1}`);
+        }
+      }
+
+      // 7. Enhance each day (travel modes)
+      for (let dayIndex = 0; dayIndex < numDays; dayIndex++) {
+        const enhanceTravelModesResponse = await fetch('/api/enhance-itinerary-travelmodes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ groupId, dayIndex })
+        });
+        if (!enhanceTravelModesResponse.ok) {
+          throw new Error(`Failed to enhance itinerary (travel modes) for day ${dayIndex + 1}`);
+        }
+      }
+
+      // 8. Redirect to travel plan page
       window.location.href = `/travel-plan?groupId=${groupId}`;
     } catch (error) {
       console.error('Error generating travel plan:', error);
@@ -199,6 +296,16 @@ export default function AIPreferencesPage() {
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading trip details...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (generatingPlan) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white bg-opacity-95">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-6"></div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Analyzing your preferences</h2>
+        <p className="text-lg text-gray-700">Sit back and relax, this may take a while.</p>
       </div>
     );
   }
@@ -277,7 +384,7 @@ export default function AIPreferencesPage() {
                         </div>
                         <p className="text-lg leading-relaxed opacity-95 mb-6">
                           Maya is an advanced AI travel agent designed to understand your unique travel style, preferences, and interests. 
-                          She'll craft a personalized itinerary that perfectly matches your travel personality and creates unforgettable experiences.
+                          She&apos;ll craft a personalized itinerary that perfectly matches your travel personality and creates unforgettable experiences.
                         </p>
                         <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
                           <p className="text-lg font-medium mb-2">✨ Ready to start planning?</p>
@@ -306,7 +413,7 @@ export default function AIPreferencesPage() {
                               <span className="text-sm font-bold">2</span>
                             </div>
                             <p className="text-lg leading-relaxed">
-                              <span className="font-semibold">Don't miss important details</span> like your free dates, budget preferences, and where you'll be traveling from
+                              <span className="font-semibold">Don&apos;t miss important details</span> like your free dates, budget preferences, and where you&apos;ll be traveling from
                             </p>
                           </div>
                           <div className="flex items-start gap-3">
@@ -314,7 +421,7 @@ export default function AIPreferencesPage() {
                               <span className="text-sm font-bold">3</span>
                             </div>
                             <p className="text-lg leading-relaxed">
-                              <span className="font-semibold">After the call ends</span>, click "Confirm My Preferences" and wait for the host to generate the travel plan
+                              <span className="font-semibold">After the call ends</span>, click &quot;Confirm My Preferences&quot; and wait for the host to generate the travel plan
                             </p>
                           </div>
                         </div>

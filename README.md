@@ -59,3 +59,7 @@ npm install
 
 # Start the development server
 npm run dev
+
+---
+
+Bolt: World Largest Hackathon Submission!

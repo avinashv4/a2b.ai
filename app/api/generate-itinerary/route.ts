@@ -223,52 +223,24 @@ export async function POST(request: NextRequest) {
       flightPreference: member.flight_preference
     }));
 
-    // Fetch real flight data from Booking.com
-    let availableFlights = '';
-    
-    try {
-      console.log('Fetching flights from booking URL:', bookingUrl);
-      
-      // Fetch flight data using the booking URL
-      const baseUrl = process.env.URL // Netlify's primary URL environment variable
-        ? `https://${process.env.URL}`
-        : 'http://localhost:3000';
-      
-      const flightResponse = await fetch(`${baseUrl}/api/fetch-flights`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          flight_url: bookingUrl,
-          headless: true
-        })
-      });
+    // Fetch flight options from DB
+    const { data: flightData, error: flightError } = await supabase
+      .from('travel_groups')
+      .select('flight_options')
+      .eq('group_id', groupId)
+      .single();
 
-      if (flightResponse.ok) {
-        const flightData = await flightResponse.json();
-        console.log('Flight API response:', flightData);
-        if (flightData.success && flightData.flight_options?.length > 0) {
-          // Format flight options for LLM (only first 5)
-          availableFlights = `
-AVAILABLE FLIGHT OPTIONS:
-${flightData.flight_options.slice(0, 5).map((flight: any) => `
-Index: ${flight.index}
-Flight Details: ${flight.text_content}
-`).join('\n')}
-`;
-          console.log('Formatted flight options for LLM:', availableFlights);
-        } else {
-          console.log('No flight options available or API failed. Response:', JSON.stringify(flightData, null, 2));
-        }
-      } else {
-        const errorText = await flightResponse.text();
-        console.error('Flight API request failed:', flightResponse.status, errorText);
-      }
-    } catch (flightError) {
-      console.error('Error fetching flight data:', flightError);
-      // Continue with itinerary generation without flight data
+    if (flightError || !flightData || !flightData.flight_options) {
+      return NextResponse.json({ error: 'Flight options not found' }, { status: 404 });
     }
 
-    // Create prompt for Gemini
+    // Format flight options for LLM (only first 5)
+    let availableFlights = '';
+    if (Array.isArray(flightData.flight_options) && flightData.flight_options.length > 0) {
+      availableFlights = `\nAVAILABLE FLIGHT OPTIONS:\n${flightData.flight_options.slice(0, 5).map((flight: any) => `\nIndex: ${flight.index}\nFlight Details: ${flight.text_content}\n`).join('\n')}`;
+    }
+
+    // Create prompt for Gemini (same as before, but using availableFlights from DB)
     const prompt = `
 You are a professional travel planner. Create a detailed group itinerary for ${groupData.destination} based on the group member preferences below:
 
@@ -278,19 +250,7 @@ TRAVEL DATES AND DURATION:
 - Trip Duration: ${groupData.trip_duration_days} days
 - You MUST create an itinerary for exactly ${groupData.trip_duration_days} days
 
-${memberPreferences.map(member => `
-**${member.name}:**
-- Deal Breakers: ${member.dealBreakers || 'None specified'}
-- Interests: ${member.interests || 'None specified'}
-- Nice to Haves: ${member.niceToHaves || 'None specified'}
-- Motivations: ${member.motivations || 'None specified'}
-- Must Do: ${member.mustDo || 'None specified'}
-- Learning Interests: ${member.learning || 'None specified'}
-- Schedule: ${member.schedule || 'None specified'}
-- Budget: ${member.budget || 'None specified'}
-- Travel Style: ${member.travelStyle || 'None specified'}
-- Flight Preference: ${member.flightPreference || 'None specified'}
-`).join('\n')}
+${memberPreferences.map(member => `\n**${member.name}:**\n- Deal Breakers: ${member.dealBreakers || 'None specified'}\n- Interests: ${member.interests || 'None specified'}\n- Nice to Haves: ${member.niceToHaves || 'None specified'}\n- Motivations: ${member.motivations || 'None specified'}\n- Must Do: ${member.mustDo || 'None specified'}\n- Learning Interests: ${member.learning || 'None specified'}\n- Schedule: ${member.schedule || 'None specified'}\n- Budget: ${member.budget || 'None specified'}\n- Travel Style: ${member.travelStyle || 'None specified'}\n- Flight Preference: ${member.flightPreference || 'None specified'}\n`).join('\n')}
 
 ${availableFlights}
 
@@ -475,174 +435,24 @@ General:
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
     }
 
-    // Enhance images and coordinates with Pexels and Google Places
-    for (const day of itineraryData.itinerary) {
-      for (const place of day.places) {
-        // Get image from Google Places
-        place.image = await getGooglePlacePhotoUrl(`${place.name} ${groupData.destination_display || groupData.destination}`)
-          || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=300&h=200&fit=crop';
-        // Get accurate coordinates
-        const coordinates = await getPlaceCoordinates(place.name, groupData.destination_display || groupData.destination);
-        if (coordinates) {
-          place.coordinates = coordinates;
-      }
-    }
-      // After all coordinates are set, get all travel modes between consecutive places
-      for (let i = 1; i < day.places.length; i++) {
-        const prev = day.places[i - 1];
-        const curr = day.places[i];
-        if (prev.coordinates && curr.coordinates) {
-          const allModes = await getAllTravelModes(prev.coordinates, curr.coordinates);
-          curr.travelModes = allModes; // { walking: {...}, bicycling: {...}, driving: {...}, transit: {...} }
-        }
-      }
-    }
-
-    // Format map locations from the itinerary
-    itineraryData.mapLocations = itineraryData.itinerary.flatMap((day: DayItinerary) =>
-      day.places.map((place: Place) => ({
-        id: place.id,
-        name: place.name,
-        lat: place.coordinates?.lat || 0,
-        lng: place.coordinates?.lng || 0,
-        day: day.month,
-        type: place.type,
-        visitTime: place.visitTime,
-        duration: place.duration
-      }))
-    );
-
-    for (const hotel of itineraryData.hotels) {
-      hotel.image = await getGooglePlacePhotoUrl(`${hotel.name} hotel ${groupData.destination_display || groupData.destination}`)
-        || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=300&h=200&fit=crop';
-    }
-
-    // Process selected flight data
-    if (itineraryData.selectedFlight) {
-      // Check if we have parsed flight details
-      if (itineraryData.selectedFlight.parsed_details) {
-        const parsed = itineraryData.selectedFlight.parsed_details;
-        const iataCode = itineraryData.selectedFlight.iata_code;
-        const flights = [];
-        // Going flight
-        if (parsed.going_flight) {
-          flights.push({
-            id: "going",
-            flight_type: "Going",
-            index: itineraryData.selectedFlight.index,
-            text_content: itineraryData.selectedFlight.text_content,
-            airline: parsed.airlines_used?.[0] || "Unknown Airline",
-            iata_code: iataCode,
-            departure: parsed.going_flight.departure_time,
-            departure_date: parsed.going_flight.departure_date,
-            arrival: parsed.going_flight.arrival_time,
-            arrival_date: parsed.going_flight.arrival_date,
-            duration: parsed.going_flight.duration,
-            stops: parsed.going_flight.stops,
-            price: "", // Price shown only on return flight
-            departure_airport: parsed.going_flight.departure_airport,
-            arrival_airport: parsed.going_flight.arrival_airport
-          });
-        }
-        // Return flight
-        if (parsed.return_flight) {
-          flights.push({
-            id: "return",
-            flight_type: "Return", 
-            index: itineraryData.selectedFlight.index,
-            text_content: itineraryData.selectedFlight.text_content,
-            airline: parsed.airlines_used?.[1] || parsed.airlines_used?.[0] || "Unknown Airline",
-            iata_code: iataCode,
-            departure: parsed.return_flight.departure_time,
-            departure_date: parsed.return_flight.departure_date,
-            arrival: parsed.return_flight.arrival_time,
-            arrival_date: parsed.return_flight.arrival_date,
-            duration: parsed.return_flight.duration,
-            stops: parsed.return_flight.stops,
-            price: `${parsed.total_price}`,
-            departure_airport: parsed.return_flight.departure_airport,
-            arrival_airport: parsed.return_flight.arrival_airport
-          });
-        }
-        itineraryData.flights = flights;
-        itineraryData.flights_used_text = parsed.flights_used_text;
-      } else {
-        // Fallback to basic parsing
-        itineraryData.flights = [
-          {
-            id: "1",
-            index: itineraryData.selectedFlight.index,
-            text_content: itineraryData.selectedFlight.text_content,
-            airline: extractAirline(itineraryData.selectedFlight.text_content),
-            iata_code: itineraryData.selectedFlight.iata_code,
-            price: extractPrice(itineraryData.selectedFlight.text_content),
-            departure: "See flight details",
-            arrival: "See flight details", 
-            duration: "See flight details",
-            stops: "See flight details"
-          }
-        ];
-      }
-    } else {
-      // Fallback flights
-    itineraryData.flights = [
-      {
-        id: "1",
-        airline: "Air India",
-        departure: "10:30 AM",
-        arrival: "2:45 PM",
-        duration: "8h 15m",
-        price: "$650",
-        stops: "Direct"
-      },
-      {
-        id: "2",
-        airline: "Emirates",
-        departure: "11:45 PM",
-        arrival: "6:30 AM+1",
-        duration: "9h 45m",
-        price: "$720",
-        stops: "1 stop"
-      },
-      {
-        id: "3",
-        airline: "Qatar Airways",
-        departure: "2:15 AM",
-        arrival: "8:00 AM",
-        duration: "10h 45m",
-        price: "$680",
-        stops: "1 stop"
-      }
-    ];
-    }
-
-    // Save the final itinerary to the database
+    // Store the raw LLM response, the parsed itinerary, and the selected flight if present
     const updateData: any = { 
-      itinerary: itineraryData,
-      most_recent_api_call: rawApiResponse
+      most_recent_api_call: rawApiResponse,
+      itinerary: itineraryData
     };
-
-    // Store selected flight data if available
     if (itineraryData.selectedFlight) {
       updateData.selected_flight = itineraryData.selectedFlight;
     }
-
     const { error: updateError } = await supabase
       .from('travel_groups')
       .update(updateData)
       .eq('group_id', groupId);
 
     if (updateError) {
-      console.error('Error saving itinerary to DB:', updateError);
-      // Optional: return an error if saving is critical, but for now we'll just log it
+      console.error('Error saving LLM response to DB:', updateError);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: itineraryData,
-      selectedFlight: itineraryData.selectedFlight || null,
-      bookingUrl: bookingUrl
-    });
+    return NextResponse.json({ success: true });
 
   } catch (error) {
     console.error('Error generating itinerary:', error);
