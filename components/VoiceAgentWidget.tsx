@@ -58,7 +58,7 @@ export default function VoiceAgentWidget({
   });
 
   return (
-    <div className="flex items-center justify-center" style={{ minHeight: 600, padding: 0, margin: 0 }} suppressHydrationWarning>
+    <div className="w-full h-full relative" suppressHydrationWarning>
       <elevenlabs-convai
         agent-id={agentId}
         variant="expanded"
@@ -69,6 +69,7 @@ export default function VoiceAgentWidget({
         expand-text="Open Assistant"
         listening-text="Listening..."
         speaking-text="Maya is speaking..."
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
       ></elevenlabs-convai>
     </div>
   );
