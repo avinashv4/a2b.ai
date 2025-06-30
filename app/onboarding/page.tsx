@@ -38,6 +38,16 @@ const onboardingSteps: OnboardingStep[] = [
   { id: 'firstName', question: 'What\'s your first name?', placeholder: 'Enter your first name', type: 'text' },
   { id: 'middleName', question: 'What\'s your middle name?', placeholder: 'Enter your middle name (optional)', type: 'text' },
   { id: 'lastName', question: 'What\'s your last name?', placeholder: 'Enter your last name', type: 'text' },
+  { 
+    id: 'gender', 
+    question: 'What\'s your gender?', 
+    type: 'select',
+    options: [
+      { value: 'male', label: 'Male', flag: '👨' },
+      { value: 'female', label: 'Female', flag: '👩' },
+      { value: 'other', label: 'Other', flag: '🧑' }
+    ]
+  },
   { id: 'profilePicture', question: 'Add a profile picture', type: 'image' },
   { id: 'dateOfBirth', question: 'When were you born?', placeholder: 'YYYY/MM/DD', type: 'date' },
   { 
@@ -71,6 +81,7 @@ export default function OnboardingPage() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedGender, setSelectedGender] = useState('');
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [onboardingError, setOnboardingError] = useState('');
@@ -103,6 +114,8 @@ export default function OnboardingPage() {
         savedAddress[field.id] = answers[field.id] || '';
       });
       setAddressFields(savedAddress);
+    } else if (currentStepData.type === 'select') {
+      setSelectedGender(answers[currentStepData?.id] || '');
     } else {
       setCurrentAnswer(answers[currentStepData?.id] || '');
     }
@@ -212,6 +225,9 @@ export default function OnboardingPage() {
         // Set default profile image if skipped
         setAnswers(prev => ({ ...prev, [currentStepData.id]: 'https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png' }));
       }
+    } else if (currentStepData.type === 'select') {
+      if (!selectedGender) return;
+      setAnswers(prev => ({ ...prev, [currentStepData.id]: selectedGender }));
     } else if (currentStepData.type === 'date') {
       if (!validateDate(currentAnswer)) return;
       setAnswers(prev => ({ ...prev, [currentStepData.id]: currentAnswer }));
@@ -257,6 +273,7 @@ export default function OnboardingPage() {
         first_name: profileAnswers.firstName,
         middle_name: profileAnswers.middleName,
         last_name: profileAnswers.lastName,
+        gender: profileAnswers.gender,
         profile_picture: profileAnswers.profilePicture,
         date_of_birth: profileAnswers.dateOfBirth,
         mobile_number: profileAnswers.mobileNumber,
@@ -475,6 +492,28 @@ export default function OnboardingPage() {
       );
     }
 
+    if (currentStepData.type === 'select') {
+      return (
+        <div className="space-y-4">
+          {currentStepData.options?.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setSelectedGender(option.value)}
+              className={`w-full h-16 text-lg rounded-xl border-2 transition-all duration-200 flex items-center justify-center space-x-3 ${
+                selectedGender === option.value
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-300 hover:border-gray-400 text-gray-700'
+              }`}
+            >
+              <span className="text-2xl">{option.flag}</span>
+              <span className="font-medium">{option.label}</span>
+            </button>
+          ))}
+        </div>
+      );
+    }
+
     return (
       <Input
         type={currentStepData.type === 'date' ? 'text' : currentStepData.type}
@@ -492,6 +531,10 @@ export default function OnboardingPage() {
   const canProceed = () => {
     if (currentStepData.type === 'image') {
       return profileImage !== null;
+    }
+    
+    if (currentStepData.type === 'select') {
+      return selectedGender !== '';
     }
     
     if (currentStepData.type === 'address') {

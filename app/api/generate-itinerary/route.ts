@@ -616,12 +616,19 @@ General:
     }
 
     // Save the final itinerary to the database
+    const updateData: any = { 
+      itinerary: itineraryData,
+      most_recent_api_call: rawApiResponse
+    };
+
+    // Store selected flight data if available
+    if (itineraryData.selectedFlight) {
+      updateData.selected_flight = itineraryData.selectedFlight;
+    }
+
     const { error: updateError } = await supabase
       .from('travel_groups')
-      .update({ 
-        itinerary: itineraryData,
-        most_recent_api_call: rawApiResponse
-      })
+      .update(updateData)
       .eq('group_id', groupId);
 
     if (updateError) {
