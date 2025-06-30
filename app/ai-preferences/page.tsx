@@ -267,26 +267,91 @@ export default function AIPreferencesPage() {
                 {!loading && currentUserId && groupId && destination ? (
                   <div className="flex-1 flex h-full">
                     {/* Info Boxes */}
-                    <div className="w-[40rem] flex flex-col gap-4 mr-12">
-                      <div className="bg-blue-600 rounded-xl px-8 py-6 text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
-                        <h3 className="text-2xl font-semibold mb-2">Meet Maya, Your AI Travel Agent</h3>
-                        <p className="text-lg opacity-90 mb-4">
-                          Maya is powered by advanced AI to understand your travel style, preferences, and interests. 
-                          She'll help craft a personalized itinerary that matches your unique travel personality.
+                    <div className="w-[42rem] flex flex-col gap-6 mr-12">
+                      <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl px-8 py-8 text-white shadow-[0_8px_32px_rgba(59,130,246,0.3)]">
+                        <div className="flex items-center gap-4 mb-6">
+                          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                            <span className="text-2xl">🤖</span>
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-bold mb-1">Meet Maya</h3>
+                            <p className="text-blue-100 text-lg">Your AI Travel Concierge</p>
+                          </div>
+                        </div>
+                        <p className="text-lg leading-relaxed opacity-95 mb-6">
+                          Maya is an advanced AI travel agent designed to understand your unique travel style, preferences, and interests. 
+                          She'll craft a personalized itinerary that perfectly matches your travel personality and creates unforgettable experiences.
                         </p>
-                        <p className="text-lg opacity-90 italic">
-                          Can't wait to get started? Click the call button to your right to start talking with Maya.
-                        </p>
+                        <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                          <p className="text-lg font-medium mb-2">✨ Ready to start planning?</p>
+                          <p className="text-blue-100">Click the call button on the right to begin your conversation with Maya!</p>
+                        </div>
                       </div>
-                      <div className="bg-blue-600 rounded-xl px-8 py-6 text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
-                        <h3 className="text-2xl font-semibold mb-2">How Maya Helps Plan Your Trip</h3>
-                        <ul className="text-lg opacity-90 space-y-2">
-                          <li>• Suggests local experiences based on your interests</li>
-                          <li>• Recommends restaurants matching your dietary preferences</li>
-                          <li>• Plans activities around your preferred pace</li>
-                          <li>• Balances tourist spots with hidden gems</li>
-                          <li>• Crafts your dream trip without breaking the bank</li>
-                        </ul>
+                      
+                      <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl px-8 py-8 text-white shadow-[0_8px_32px_rgba(99,102,241,0.3)]">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                            <span className="text-xl">📋</span>
+                          </div>
+                          <h3 className="text-2xl font-bold">Important Instructions</h3>
+                        </div>
+                        <div className="space-y-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <span className="text-sm font-bold">1</span>
+                            </div>
+                            <p className="text-lg leading-relaxed">
+                              <span className="font-semibold">Start talking to Maya</span> by clicking the call button on the right side
+                            </p>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <span className="text-sm font-bold">2</span>
+                            </div>
+                            <p className="text-lg leading-relaxed">
+                              <span className="font-semibold">Don't miss important details</span> like your free dates, budget preferences, and where you'll be traveling from
+                            </p>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <span className="text-sm font-bold">3</span>
+                            </div>
+                            <p className="text-lg leading-relaxed">
+                              <span className="font-semibold">After the call ends</span>, click "Confirm My Preferences" and wait for the host to generate the travel plan
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl px-8 py-8 text-white shadow-[0_8px_32px_rgba(16,185,129,0.3)]">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                            <span className="text-xl">🎯</span>
+                          </div>
+                          <h3 className="text-2xl font-bold">How Maya Personalizes Your Trip</h3>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
+                            <p className="text-lg">Suggests experiences based on your interests</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
+                            <p className="text-lg">Recommends restaurants matching your dietary needs</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
+                            <p className="text-lg">Plans activities around your preferred pace</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
+                            <p className="text-lg">Balances popular spots with hidden gems</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
+                            <p className="text-lg">Creates your dream trip within your budget</p>
+                          </div>
+                        </p>
                       </div>
                     </div>
 

@@ -88,6 +88,7 @@ export default function AccountDetailsPage() {
           first_name: profile.first_name,
           middle_name: profile.middle_name,
           last_name: profile.last_name,
+          profile_picture: profile.profile_picture,
           mobile_number: profile.mobile_number,
           address_line1: profile.address_line1,
           address_line2: profile.address_line2,
