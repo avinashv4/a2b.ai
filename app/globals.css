@@ -150,3 +150,13 @@
 .gm-ui-hover-effect {
   display: none !important;
 }
+
+.fade-in {
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+
+.fade-in-visible {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}

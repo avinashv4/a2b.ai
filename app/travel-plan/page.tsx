@@ -27,7 +27,8 @@ import {
   Car,
   Train,
   Ship,
-  BookOpen
+  BookOpen,
+  ArrowUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import InteractiveMap from '@/components/InteractiveMap';
@@ -35,6 +36,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import DateIcon from '@/components/DateIcon';
 import { getLocationImage } from '@/lib/getLocationImage';
+import { FadeIn } from '@/components/ui/fade-in';
 
 interface Place {
   id: string;
@@ -143,6 +145,7 @@ export default function TravelPlanPage() {
   const [toasts, setToasts] = useState<{ id: number; message: string }[]>([]);
   const toastId = useRef(0);
   const [showRegenTooltip, setShowRegenTooltip] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileSettingsRef = useRef<HTMLDivElement>(null);
@@ -195,8 +198,8 @@ export default function TravelPlanPage() {
         // Initialize expanded states for days
         if (finalItineraryData?.itinerary) {
           const initialExpanded: Record<string, boolean> = {};
-          finalItineraryData.itinerary.forEach((day, index) => {
-            initialExpanded[day.date] = index === 0; // Expand first day by default
+          finalItineraryData.itinerary.forEach((day) => {
+            initialExpanded[day.date] = true; // Set all days to expanded by default
           });
           setDayExpandedStates(initialExpanded);
         }
@@ -307,6 +310,11 @@ export default function TravelPlanPage() {
 
   useEffect(() => {
     const handleScroll = () => {
+      // Show scroll button when near the bottom of the page
+      const scrolledToBottom = 
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 1000; // Show button when within 1000px of bottom
+      setShowScrollTop(scrolledToBottom);
+      
       if (isMobile || !itineraryData) return;
       
       const dayIds = itineraryData.itinerary.map(day => day.date);
@@ -615,6 +623,13 @@ export default function TravelPlanPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, itineraryData]);
 
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -711,254 +726,271 @@ export default function TravelPlanPage() {
   };
 
   const renderOverviewContent = () => (
-    <div className="space-y-8">
-      {/* Trip Image */}
-      <div className="w-full h-64 md:h-80 rounded-2xl overflow-hidden bg-gray-200">
-        <img
-          src={tripImage}
-          alt={destination}
-          className="w-full h-full object-cover"
-        />
-      </div>
+    <FadeIn>
+      <div className="space-y-8">
+        {/* Trip Image */}
+        <div className="w-full h-64 md:h-80 rounded-2xl overflow-hidden bg-gray-200">
+          <img
+            src={tripImage}
+            alt={destination}
+            className="w-full h-full object-cover"
+          />
+        </div>
 
-      {/* Trip Header */}
-      <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex-1">
-            {isEditingTitle ? (
-              <input
-                type="text"
-                value={tripTitle}
-                onChange={(e) => setTripTitle(e.target.value)}
-                onBlur={handleTitleEdit}
-                onKeyPress={handleTitleKeyPress}
-                className="text-2xl md:text-3xl font-bold text-gray-900 bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
-                autoFocus
-                disabled={savingTitle}
-              />
-            ) : (
-              <div className="flex items-center space-x-2">
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{tripTitle}</h1>
-                <button
-                  onClick={() => setIsEditingTitle(true)}
-                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+        {/* Trip Header */}
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex-1">
+              {isEditingTitle ? (
+                <input
+                  type="text"
+                  value={tripTitle}
+                  onChange={(e) => setTripTitle(e.target.value)}
+                  onBlur={handleTitleEdit}
+                  onKeyPress={handleTitleKeyPress}
+                  className="text-2xl md:text-3xl font-bold text-gray-900 bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
+                  autoFocus
                   disabled={savingTitle}
-                >
-                  {savingTitle ? (
-                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <Edit3 className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-            )}
-            <p className="text-lg text-gray-600 mt-1">
-              {itinerary[0]?.month} {itinerary[0]?.date}-{itinerary[itinerary.length - 1]?.date}, {itinerary[0] ? getClosestYear(itinerary[0].month, itinerary[0].date) : ''} • {itinerary.length} Days
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xl md:text-2xl font-bold text-blue-600">
-              {itineraryData.budgetRange ? itineraryData.budgetRange : 'Price varies'}
-            </p>
-            <p className="text-sm text-gray-600">estimated budget per person</p>
-          </div>
-        </div>
-        
-        {/* Trip Members */}
-        <div className="flex items-center space-x-4">
-          <span className="text-gray-700 font-medium text-sm">Travelers:</span>
-          <div className="flex -space-x-2">
-            {tripMembers.map((member, index) => (
-              <div
-                key={index}
-                className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gray-200"
-                style={{ zIndex: tripMembers.length - index }}
-              >
-                <img
-                  src={member.avatar}
-                  alt={member.name}
-                  className="w-full h-full object-cover"
                 />
-              </div>
-            ))}
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{tripTitle}</h1>
+                  <button
+                    onClick={() => setIsEditingTitle(true)}
+                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                    disabled={savingTitle}
+                  >
+                    {savingTitle ? (
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Edit3 className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              )}
+              <p className="text-lg text-gray-600 mt-1">
+                {itinerary[0]?.month} {itinerary[0]?.date}-{itinerary[itinerary.length - 1]?.date}, {itinerary[0] ? getClosestYear(itinerary[0].month, itinerary[0].date) : ''} • {itinerary.length} Days
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xl md:text-2xl font-bold text-blue-600">
+                {itineraryData.budgetRange ? itineraryData.budgetRange : 'Price varies'}
+              </p>
+              <p className="text-sm text-gray-600">estimated budget per person</p>
+            </div>
           </div>
-          <span className="text-gray-600 text-sm">{tripMembers.length} travelers</span>
+          
+          {/* Trip Members */}
+          <div className="flex items-center space-x-4">
+            <span className="text-gray-700 font-medium text-sm">Travelers:</span>
+            <div className="flex -space-x-2">
+              {tripMembers.map((member, index) => (
+                <div
+                  key={index}
+                  className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gray-200"
+                  style={{ zIndex: tripMembers.length - index }}
+                >
+                  <img
+                    src={member.avatar}
+                    alt={member.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+            <span className="text-gray-600 text-sm">{tripMembers.length} travelers</span>
+          </div>
         </div>
-      </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
-          <Plane className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Flight</h3>
-          <p className="text-xs text-gray-600">{flights?.[0]?.airline || 'Air India'} • {flights?.[0]?.stops || 'Direct'}</p>
-          <p className="text-xs text-gray-500">{flights?.[0]?.duration || '8h 15m'}</p>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
+            <Plane className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Flight</h3>
+            <p className="text-xs text-gray-600">{flights?.[0]?.airline || 'Air India'} • {flights?.[0]?.stops || 'Direct'}</p>
+            <p className="text-xs text-gray-500">{flights?.[0]?.duration || '8h 15m'}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
+            <Hotel className="w-6 h-6 text-green-600 mx-auto mb-2" />
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Hotel</h3>
+            <p className="text-xs text-gray-600">{hotels?.[0]?.name || 'Hotel Name'}</p>
+            <p className="text-xs text-gray-500">{hotels?.[0]?.rating || 4.5}★ • {hotels?.[0]?.price || '$180/night'}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
+            <MapPin className="w-6 h-6 text-purple-600 mx-auto mb-2" />
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Activities</h3>
+            <p className="text-xs text-gray-600">{itinerary.flatMap(day => day.places).length} attractions</p>
+            <p className="text-xs text-gray-500">Museums, landmarks</p>
+          </div>
         </div>
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
-          <Hotel className="w-6 h-6 text-green-600 mx-auto mb-2" />
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">Suggested Hotel</h3>
-          <p className="text-xs text-gray-600">{hotels?.[0]?.name || 'Hotel Name'}</p>
-          <p className="text-xs text-gray-500">{hotels?.[0]?.rating || 4.5}★ • {hotels?.[0]?.price || '$180/night'}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center">
-          <MapPin className="w-6 h-6 text-purple-600 mx-auto mb-2" />
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">Activities</h3>
-          <p className="text-xs text-gray-600">{itinerary.flatMap(day => day.places).length} attractions</p>
-          <p className="text-xs text-gray-500">Museums, landmarks</p>
-        </div>
-      </div>
 
-      {/* Action Buttons */}
-      {!allConfirmed ? (
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Button
-          onClick={handleConfirmItinerary}
-          className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold"
-            disabled={hasConfirmedItinerary || confirming}
-        >
-            {hasConfirmedItinerary ? 'Waiting for others to confirm...' : confirming ? 'Confirming...' : 'Confirm Itinerary'}
-        </Button>
-        </div>
-      ) : (
+        {/* Action Buttons */}
+        {!allConfirmed ? (
         <div className="flex flex-col sm:flex-row gap-3">
           <Button
-            onClick={() => {
-              const groupId = searchParams.get('groupId');
-              window.location.href = `/itinerary-confirmation?groupId=${groupId}`;
-            }}
+            onClick={handleConfirmItinerary}
             className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold"
+              disabled={hasConfirmedItinerary || confirming}
           >
-            Go to Confirmation
+              {hasConfirmedItinerary ? 'Waiting for others to confirm...' : confirming ? 'Confirming...' : 'Confirm Itinerary'}
           </Button>
-        </div>
-      )}
-
-      {/* Voting Progress */}
-      <div className="text-center text-sm text-gray-600 space-y-1">
-        {regenerateVotes > 0 && (
-          <p>Regenerate votes: {regenerateVotes}/{totalMembers}</p>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={() => {
+                const groupId = searchParams.get('groupId');
+                window.location.href = `/itinerary-confirmation?groupId=${groupId}`;
+              }}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold"
+            >
+              Go to Confirmation
+            </Button>
+          </div>
         )}
+
+        {/* Voting Progress */}
+        <div className="text-center text-sm text-gray-600 space-y-1">
+          {regenerateVotes > 0 && (
+            <p>Regenerate votes: {regenerateVotes}/{totalMembers}</p>
+          )}
+        </div>
       </div>
-    </div>
+    </FadeIn>
   );
 
   const renderFlightsContent = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Flight Options (Round Trip)</h2>
-        <Button variant="outline" className="px-4 py-2 rounded-xl text-sm">
-          See More Flights
-        </Button>
-      </div>
-      
-      <div className="space-y-4">
-        {(flights || []).map((flight) => (
-          <div key={flight.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center space-x-4 mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900">{flight.airline}</h3>
+    <FadeIn>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Flight Options (Round Trip)</h2>
+          <Button variant="outline" className="px-4 py-2 rounded-xl text-sm">
+            See More Flights
+          </Button>
+        </div>
+        
+        <div className="space-y-4">
+          {(flights || []).map((flight) => (
+            <div key={flight.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-4 mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900">{flight.airline}</h3>
+                  </div>
+                  <div className="flex items-center space-x-6 text-gray-600 text-sm">
+                    <div>
+                      <p className="font-medium">{flight.departure}</p>
+                      <p className="text-xs">Departure</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-px bg-gray-300"></div>
+                      <Plane className="w-3 h-3" />
+                      <div className="w-6 h-px bg-gray-300"></div>
+                    </div>
+                    <div>
+                      <p className="font-medium">{flight.arrival}</p>
+                      <p className="text-xs">Arrival</p>
+                    </div>
+                    <div className="text-xs">
+                      <p>{flight.duration}</p>
+                      <p>{flight.stops}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-6 text-gray-600 text-sm">
-                  <div>
-                    <p className="font-medium">{flight.departure}</p>
-                    <p className="text-xs">Departure</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-6 h-px bg-gray-300"></div>
-                    <Plane className="w-3 h-3" />
-                    <div className="w-6 h-px bg-gray-300"></div>
-                  </div>
-                  <div>
-                    <p className="font-medium">{flight.arrival}</p>
-                    <p className="text-xs">Arrival</p>
-                  </div>
-                  <div className="text-xs">
-                    <p>{flight.duration}</p>
-                    <p>{flight.stops}</p>
-                  </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-blue-600">{flight.price}</p>
+                  <Button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-xl text-sm">
+                    Select
+                  </Button>
                 </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-blue-600">{flight.price}</p>
-                <Button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-xl text-sm">
-                  Select
-                </Button>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+    </FadeIn>
   );
 
   const renderHotelsContent = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-4">Recommended Hotels</h2>
-      {hotels && hotels.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-lg font-bold mb-2">Select Your Preferred Hotel</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {hotels.map((hotel) => (
+    <FadeIn>
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Recommended Hotels</h2>
+        {itineraryData?.hotels && (
+          <div className="grid grid-cols-1 gap-6">
+            {itineraryData.hotels.map((hotel) => (
               <div
                 key={hotel.id}
-                className={`bg-white rounded-2xl shadow-sm border-2 transition-all duration-200 flex flex-col cursor-pointer ${
-                  selectedHotel === hotel.id ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100' : 'border-gray-200 hover:shadow-md hover:border-gray-300'
-                }`}
-                onClick={() => setSelectedHotel(hotel.id)}
+                className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
               >
-                <div className="h-48 w-full rounded-t-2xl overflow-hidden bg-gray-200">
-                <img
-                  src={hotel.image}
-                  alt={hotel.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-                <div className="flex-1 flex flex-col p-5">
-                <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900 leading-tight">{hotel.name}</h3>
-                    <span className="flex items-center text-yellow-500 font-semibold text-base">
-                      <Star className="w-4 h-4 mr-1 fill-yellow-400" />
-                      {hotel.rating?.toFixed(1)}
-                    </span>
+                <div className="flex flex-col md:flex-row">
+                  <div className="w-full md:w-1/3">
+                    <img
+                      src={hotel.image}
+                      alt={hotel.name}
+                      className="w-full h-48 md:h-full object-cover"
+                    />
                   </div>
-                  <div className="text-blue-700 font-bold text-lg mb-3">{hotel.price}</div>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {hotel.amenities.slice(0, 3).map((amenity, idx) => (
-                      <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                      {amenity}
-                    </span>
-                  ))}
-                    {hotel.amenities.length > 3 && (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                        +{hotel.amenities.length - 3} more
-                      </span>
-                    )}
-                </div>
-                  {selectedHotel === hotel.id && (
-                    <div className="mt-auto pt-2">
-                      <div className="flex items-center text-green-600 text-sm font-medium">
-                        <Check className="w-4 h-4 mr-1" />
-                        Selected
-              </div>
+                  <div className="p-6 flex-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900">
+                          {hotel.name}
+                        </h3>
+                        <div className="mt-1">
+                          {renderStarRating(hotel.rating)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-gray-900">
+                          {hotel.price}
+                        </div>
+                        <div className="text-sm text-gray-500">per night</div>
+                      </div>
                     </div>
-                  )}
-            </div>
+                    <div className="mt-4">
+                      <div className="flex flex-wrap gap-2">
+                        {hotel.amenities.map((amenity, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
+                          >
+                            {amenity}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mt-6 flex justify-between items-center">
+                      <Button
+                        onClick={() => setSelectedHotel(hotel.id)}
+                        variant={selectedHotel === hotel.id ? "default" : "outline"}
+                        className="w-full"
+                      >
+                        {selectedHotel === hotel.id ? "Selected" : "Select Hotel"}
+                      </Button>
+                      {selectedHotel === hotel.id && (
+                        <div className="flex items-center text-green-600 text-sm font-medium">
+                          <Check className="w-4 h-4 mr-1" />
+                          Selected
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
-        </div>
-      )}
-    </div>
+    </FadeIn>
   );
 
   const renderItineraryContent = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <h2 className="text-2xl font-bold text-gray-900">Daily Itinerary</h2>
       
       <div className="space-y-6">
         {itinerary.map((day, dayIndex) => (
-          <div key={day.date} id={day.date}>
+          <FadeIn key={day.date} delay={dayIndex * 100}>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
               <button
                 onClick={() => toggleDayInMain(day.date)}
@@ -1067,9 +1099,20 @@ export default function TravelPlanPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </FadeIn>
         ))}
       </div>
+
+      {/* Scroll to Top Button - Positioned inside itinerary box */}
+      <button
+        onClick={scrollToTop}
+        className={`absolute bottom-6 right-6 z-10 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white transition-all duration-150 shadow-lg hover:scale-110 ${
+          showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-16 pointer-events-none'
+        }`}
+        aria-label="Scroll to top"
+      >
+        <ArrowUp className="w-6 h-6" />
+      </button>
     </div>
   );
 
@@ -1194,300 +1237,305 @@ export default function TravelPlanPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
-      {/* Sidebar */}
-      <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col fixed h-full z-10`}>
-        {/* Sidebar Header */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            {!sidebarCollapsed && (
-              <div className={`flex items-center space-x-2`}>
-                <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-                  <Plane className="w-4 h-4 text-white" />
+    <div className="min-h-screen bg-white relative">
+      {/* Existing content */}
+      
+      {/* Main content container */}
+      <div className="flex">
+        {/* Sidebar */}
+        <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col fixed h-full z-10`}>
+          {/* Sidebar Header */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              {!sidebarCollapsed && (
+                <div className={`flex items-center space-x-2`}>
+                  <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
+                    <Plane className="w-4 h-4 text-white" />
+                  </div>
+                  <span className={`text-lg font-bold text-gray-900 transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>a2b.ai</span>
                 </div>
-                <span className={`text-lg font-bold text-gray-900 transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>a2b.ai</span>
-              </div>
-            )}
-            <Button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              variant="ghost"
-              size="sm"
-              className="p-1"
-            >
-              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </Button>
+              )}
+              <Button
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                variant="ghost"
+                size="sm"
+                className="p-1"
+              >
+                {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              </Button>
+            </div>
           </div>
-        </div>
 
-        {/* Sidebar Navigation */}
-        <div className="flex-1 overflow-y-auto p-3">
-          <div className="space-y-1">
-            {sidebarItems.map((item) => {
-              if (item.isExternal) {
+          {/* Sidebar Navigation */}
+          <div className="flex-1 overflow-y-auto p-3">
+            <div className="space-y-1">
+              {sidebarItems.map((item) => {
+                if (item.isExternal) {
+                  return (
+                    <a
+                      key={item.id}
+                      href={item.href}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100`}
+                      onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter(item.id, e)}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      <div className="h-8 flex items-center">
+                        <item.icon className="w-4 h-4 text-gray-600 transition-opacity duration-300" />
+                      </div>
+                      {!sidebarCollapsed && (
+                        <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
+                      )}
+                    </a>
+                  );
+                }
+
                 return (
-                  <a
+                  <button
                     key={item.id}
-                    href={item.href}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100`}
+                    onClick={() => scrollToSection(item.id)}
+                    className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
+                      activeSection === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                    }`}
                     onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter(item.id, e)}
                     onMouseLeave={handleMouseLeave}
                   >
                     <div className="h-8 flex items-center">
-                      <item.icon className="w-4 h-4 text-gray-600 transition-opacity duration-300" />
+                      <item.icon className="w-4 h-4 transition-opacity duration-300" />
                     </div>
                     {!sidebarCollapsed && (
-                      <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
+                      <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
                     )}
-                  </a>
+                  </button>
                 );
-              }
+              })}
 
-              return (
+              {/* Divider */}
+              {/* Divider */}
+              <div className="pt-2">
+                <div className="border-t border-gray-200"></div>
+              </div>
+
+              {/* Itinerary Section */}
+              <div>
                 <button
-                  key={item.id}
-                  onClick={() => scrollToSection(item.id)}
-                  className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
-                    activeSection === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                  onClick={() => setItineraryExpanded(!itineraryExpanded)}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
+                    sidebarCollapsed ? 'justify-center' : ''
                   }`}
-                  onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter(item.id, e)}
+                  onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('itinerary', e)}
                   onMouseLeave={handleMouseLeave}
                 >
-                  <div className="h-8 flex items-center">
-                    <item.icon className="w-4 h-4 transition-opacity duration-300" />
+                  <div className="flex items-center space-x-2">
+                    <div className="h-8 flex items-center">
+                      <Calendar className="w-4 h-4 text-gray-600" />
+                    </div>
+                    {!sidebarCollapsed && (
+                      <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Itinerary</span>
+                    )}
                   </div>
                   {!sidebarCollapsed && (
-                    <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
+                    <ChevronDown className={`w-3 h-3 text-gray-400 transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${itineraryExpanded ? 'rotate-180' : ''}`} />
                   )}
                 </button>
-              );
-            })}
 
-            {/* Divider */}
-            {/* Divider */}
-            <div className="pt-2">
-              <div className="border-t border-gray-200"></div>
-            </div>
-
-            {/* Itinerary Section */}
-            <div>
-              <button
-                onClick={() => setItineraryExpanded(!itineraryExpanded)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
-                  sidebarCollapsed ? 'justify-center' : ''
-                }`}
-                onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('itinerary', e)}
-                onMouseLeave={handleMouseLeave}
-              >
-                <div className="flex items-center space-x-2">
-                  <div className="h-8 flex items-center">
-                    <Calendar className="w-4 h-4 text-gray-600" />
+                {/* Itinerary Days */}
+                <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                  itineraryExpanded && !sidebarCollapsed ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                }`}>
+                  <div className="ml-4 mt-1 space-y-1">
+                    {itinerary.map((day, idx) => (
+                      <button
+                        key={day.date}
+                        onClick={() => scrollToSection(day.date)}
+                        id={`sidebar-${day.date}`}
+                        className={`w-full flex items-center space-x-2 px-2 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
+                          activeSection === day.date ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                        } transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                        style={{ transitionDelay: `${150 + idx * 80}ms` }}
+                      >
+                        <DateIcon month={day.month} date={day.date} className="w-8" />
+                        <span className="font-medium text-sm">Day {idx + 1}</span>
+                      </button>
+                    ))}
                   </div>
-                  {!sidebarCollapsed && (
-                    <span className={`font-medium text-gray-700 text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Itinerary</span>
-                  )}
-                </div>
-                {!sidebarCollapsed && (
-                  <ChevronDown className={`w-3 h-3 text-gray-400 transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${itineraryExpanded ? 'rotate-180' : ''}`} />
-                )}
-              </button>
-
-              {/* Itinerary Days */}
-              <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                itineraryExpanded && !sidebarCollapsed ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-              }`}>
-                <div className="ml-4 mt-1 space-y-1">
-                  {itinerary.map((day, idx) => (
-                    <button
-                      key={day.date}
-                      onClick={() => scrollToSection(day.date)}
-                      id={`sidebar-${day.date}`}
-                      className={`w-full flex items-center space-x-2 px-2 py-2 rounded-lg transition-colors hover:bg-gray-100 ${
-                        activeSection === day.date ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
-                      } transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                      style={{ transitionDelay: `${150 + idx * 80}ms` }}
-                    >
-                      <DateIcon month={day.month} date={day.date} className="w-8" />
-                      <span className="font-medium text-sm">Day {idx + 1}</span>
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Bottom Actions */}
-        <div className="p-3 border-t border-gray-200 space-y-2">
-          {/* Regenerate Itinerary */}
-          <button
-            onClick={handleRegenerateVote}
-            disabled={hasVotedRegenerate || regenerating || !allPlacesVoted}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              hasVotedRegenerate || regenerating || !allPlacesVoted ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'hover:bg-gray-100 text-gray-700'
-            }`}
-            title={!allPlacesVoted ? 'Vote on all places before regenerating' : ''}
-            onMouseEnter={(e: React.MouseEvent) => {
-              if (!allPlacesVoted) setShowRegenTooltip(true);
-              if (sidebarCollapsed) handleMouseEnter('regenerate', e);
-            }}
-            onMouseLeave={() => {
-              setShowRegenTooltip(false);
-              handleMouseLeave();
-            }}
-          >
-            <div className="h-8 flex items-center">
-              <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-            </div>
-            {!sidebarCollapsed && (
-              <div className={`flex items-center justify-between w-full`}>
-                <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                  {regenerating ? 'Regenerating...' : hasVotedRegenerate ? 'Waiting for others...' : 'Regenerate'}
-                </span>
-                <span className={`text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                  {regenerateVotes}/{totalMembers}
-                </span>
-              </div>
-            )}
-            {showRegenTooltip && !allPlacesVoted && (
-              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-black text-white px-3 py-2 rounded shadow text-xs z-50">
-                You have not finished voting yet
-              </div>
-            )}
-            {totalMembers === 0 && (
-              <div className="text-xs text-red-600 mt-1">No group members found for this trip. Voting will not work.</div>
-            )}
-          </button>
-
-          {/* Settings */}
-          <div className="relative" ref={settingsRef}>
+          {/* Bottom Actions */}
+          <div className="p-3 border-t border-gray-200 space-y-2">
+            {/* Regenerate Itinerary */}
             <button
-              onClick={() => setShowSettings(!showSettings)}
-              className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-700`}
-              onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('settings', e)}
-              onMouseLeave={handleMouseLeave}
+              onClick={handleRegenerateVote}
+              disabled={hasVotedRegenerate || regenerating || !allPlacesVoted}
+              className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                hasVotedRegenerate || regenerating || !allPlacesVoted ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'hover:bg-gray-100 text-gray-700'
+              }`}
+              title={!allPlacesVoted ? 'Vote on all places before regenerating' : ''}
+              onMouseEnter={(e: React.MouseEvent) => {
+                if (!allPlacesVoted) setShowRegenTooltip(true);
+                if (sidebarCollapsed) handleMouseEnter('regenerate', e);
+              }}
+              onMouseLeave={() => {
+                setShowRegenTooltip(false);
+                handleMouseLeave();
+              }}
             >
               <div className="h-8 flex items-center">
-                <Settings className="w-4 h-4" />
+                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
               </div>
               {!sidebarCollapsed && (
-                <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Settings</span>
+                <div className={`flex items-center justify-between w-full`}>
+                  <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                    {regenerating ? 'Regenerating...' : hasVotedRegenerate ? 'Waiting for others...' : 'Regenerate'}
+                  </span>
+                  <span className={`text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                    {regenerateVotes}/{totalMembers}
+                  </span>
+                </div>
+              )}
+              {showRegenTooltip && !allPlacesVoted && (
+                <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-black text-white px-3 py-2 rounded shadow text-xs z-50">
+                  You have not finished voting yet
+                </div>
+              )}
+              {totalMembers === 0 && (
+                <div className="text-xs text-red-600 mt-1">No group members found for this trip. Voting will not work.</div>
               )}
             </button>
 
-            {/* Settings Dropdown */}
-            {showSettings && !sidebarCollapsed && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
-                <button
-                  onClick={copyInviteLink}
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <Copy className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm text-gray-700">Copy Invite Link</span>
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-red-50 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4 text-red-600" />
-                  <span className="text-sm text-red-600">Delete Plan</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'} flex items-start`} style={{ width: 'auto' }}>
-        <div className="max-w-[900px] w-full px-6 pt-6 pb-6 mx-auto">
-          {renderMainContent()}
-        </div>
-      </div>
-
-      {/* Map Section */}
-      <div className="hidden md:block flex-1 bg-gray-100 border-l border-gray-200 sticky top-0 h-screen">
-        <InteractiveMap
-          locations={computedMapLocations}
-          center={computedMapLocations[0] ? { lat: computedMapLocations[0].lat, lng: computedMapLocations[0].lng } : { lat: 48.8566, lng: 2.3522 }}
-          zoom={12}
-          className="w-full h-full"
-          ref={mapRef}
-        />
-      </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-sm mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Travel Plan</h3>
-            <p className="text-gray-600 mb-4">Are you sure? :(</p>
-            <div className="flex space-x-3">
-              <Button
-                onClick={() => setShowDeleteConfirm(false)}
-                variant="outline"
-                className="flex-1"
+            {/* Settings */}
+            <div className="relative" ref={settingsRef}>
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-700`}
+                onMouseEnter={(e) => sidebarCollapsed && handleMouseEnter('settings', e)}
+                onMouseLeave={handleMouseLeave}
               >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleDeletePlan}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-              >
-                Delete
-              </Button>
+                <div className="h-8 flex items-center">
+                  <Settings className="w-4 h-4" />
+                </div>
+                {!sidebarCollapsed && (
+                  <span className={`font-medium text-sm transition-opacity duration-300 ${sidebarFullyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Settings</span>
+                )}
+              </button>
+
+              {/* Settings Dropdown */}
+              {showSettings && !sidebarCollapsed && (
+                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
+                  <button
+                    onClick={copyInviteLink}
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <Copy className="w-4 h-4 text-gray-600" />
+                    <span className="text-sm text-gray-700">Copy Invite Link</span>
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <span className="text-sm text-red-600">Delete Plan</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Tooltips */}
-      {hoveredTooltip && sidebarCollapsed && (
-        <div
-          className="fixed z-50 bg-gray-900 text-white px-2 py-1 rounded-lg text-xs pointer-events-none"
-          style={{
-            left: tooltipPosition.x + 10,
-            top: tooltipPosition.y - 10,
-          }}
-        >
-          {
-            sidebarItems.find(item => item.id === hoveredTooltip)?.label ||
-           itinerary.find(day => day.date === hoveredTooltip)?.month ||
-            (hoveredTooltip ? hoveredTooltip.charAt(0).toUpperCase() + hoveredTooltip.slice(1) : '')
-          }
-        </div>
-      )}
-
-      {/* Vote Tooltips */}
-      {hoveredTooltip && hoveredTooltip.startsWith('accept-') && (
-        <div
-          className="fixed z-50 bg-green-900 text-white px-2 py-1 rounded-lg text-xs pointer-events-none"
-          style={{
-            left: tooltipPosition.x + 10,
-            top: tooltipPosition.y - 10,
-          }}
-        >
-          Vote to Accept
-        </div>
-      )}
-      {hoveredTooltip && hoveredTooltip.startsWith('deny-') && (
-        <div
-          className="fixed z-50 bg-red-900 text-white px-2 py-1 rounded-lg text-xs pointer-events-none"
-          style={{
-            left: tooltipPosition.x + 10,
-            top: tooltipPosition.y - 10,
-          }}
-        >
-          Vote to Reject
-        </div>
-      )}
-
-      {/* Render toasts */}
-      <div className="fixed top-6 right-6 z-50 space-y-2">
-        {toasts.map((toast) => (
-          <div key={toast.id} className="bg-blue-600 text-white px-4 py-2 rounded shadow-lg animate-fade-in">
-            {toast.message}
+        {/* Main Content */}
+        <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'} flex items-start`} style={{ width: 'auto' }}>
+          <div className="max-w-[900px] w-full px-6 pt-6 pb-6 mx-auto">
+            {renderMainContent()}
           </div>
-        ))}
+        </div>
+
+        {/* Map Section */}
+        <div className="hidden md:block flex-1 bg-gray-100 border-l border-gray-200 sticky top-0 h-screen">
+          <InteractiveMap
+            locations={computedMapLocations}
+            center={computedMapLocations[0] ? { lat: computedMapLocations[0].lat, lng: computedMapLocations[0].lng } : { lat: 48.8566, lng: 2.3522 }}
+            zoom={12}
+            className="w-full h-full"
+            ref={mapRef}
+          />
+        </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-6 max-w-sm mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Travel Plan</h3>
+              <p className="text-gray-600 mb-4">Are you sure? :(</p>
+              <div className="flex space-x-3">
+                <Button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDeletePlan}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tooltips */}
+        {hoveredTooltip && sidebarCollapsed && (
+          <div
+            className="fixed z-50 bg-gray-900 text-white px-2 py-1 rounded-lg text-xs pointer-events-none"
+            style={{
+              left: tooltipPosition.x + 10,
+              top: tooltipPosition.y - 10,
+            }}
+          >
+            {
+              sidebarItems.find(item => item.id === hoveredTooltip)?.label ||
+             itinerary.find(day => day.date === hoveredTooltip)?.month ||
+              (hoveredTooltip ? hoveredTooltip.charAt(0).toUpperCase() + hoveredTooltip.slice(1) : '')
+            }
+          </div>
+        )}
+
+        {/* Vote Tooltips */}
+        {hoveredTooltip && hoveredTooltip.startsWith('accept-') && (
+          <div
+            className="fixed z-50 bg-green-900 text-white px-2 py-1 rounded-lg text-xs pointer-events-none"
+            style={{
+              left: tooltipPosition.x + 10,
+              top: tooltipPosition.y - 10,
+            }}
+          >
+            Vote to Accept
+          </div>
+        )}
+        {hoveredTooltip && hoveredTooltip.startsWith('deny-') && (
+          <div
+            className="fixed z-50 bg-red-900 text-white px-2 py-1 rounded-lg text-xs pointer-events-none"
+            style={{
+              left: tooltipPosition.x + 10,
+              top: tooltipPosition.y - 10,
+            }}
+          >
+            Vote to Reject
+          </div>
+        )}
+
+        {/* Render toasts */}
+        <div className="fixed top-6 right-6 z-50 space-y-2">
+          {toasts.map((toast) => (
+            <div key={toast.id} className="bg-blue-600 text-white px-4 py-2 rounded shadow-lg animate-fade-in">
+              {toast.message}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
