@@ -232,9 +232,9 @@ export default function AIPreferencesPage() {
           {/* Left Content Container */}
           <div className="h-full flex flex-col px-8">
             <div className="mb-8 mt-4">
-              <div className="flex items-center justify-between">
-                <div className="text-left">
-                  <h1 className="text-4xl font-bold text-gray-900 mb-4">Share Your Travel Preferences</h1>
+              <div className="flex items-center justify-between gap-8">
+                <div className="text-left flex-1">
+                  <h1 className="text-5xl font-bold text-gray-900 mb-4">Share Your Travel Preferences</h1>
                   <p className="text-xl text-gray-600">Tell our AI what you&apos;re looking for in this {destination_display} trip</p>
                 </div>
 
@@ -242,7 +242,7 @@ export default function AIPreferencesPage() {
                 <Button
                   onClick={handleConfirmPreferences}
                   disabled={userCompleted}
-                  className={`w-64 py-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 ${
+                  className={`shrink-0 w-64 py-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 ${
                     userCompleted 
                       ? 'bg-green-600 hover:bg-green-700 text-white' 
                       : 'bg-blue-600 hover:bg-blue-700 text-white'
