@@ -230,7 +230,7 @@ export default function AIPreferencesPage() {
         {/* Main Content Area */}
         <div className="flex-1 relative">
           {/* Left Content Container */}
-          <div className="h-full flex flex-col px-8">
+          <div className="h-full flex flex-col pl-24 pr-8">
             <div className="mb-8 mt-4">
               <div className="flex items-center justify-between gap-8">
                 <div className="text-left flex-1">
@@ -263,7 +263,30 @@ export default function AIPreferencesPage() {
             <div className="flex-1 flex flex-col">
               {/* ElevenLabs Conversational AI Widget - only render after loading */}
               {!loading && currentUserId && groupId && destination ? (
-                <div className="flex-1 flex flex-col">
+                <div className="flex-1 flex h-full">
+                  {/* Info Boxes */}
+                  <div className="w-[40rem] flex flex-col gap-4 mr-12">
+                    <div className="bg-blue-600 rounded-xl px-8 py-6 text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                      <h3 className="text-2xl font-semibold mb-2">Meet Maya, Your AI Travel Agent</h3>
+                      <p className="text-lg opacity-90 mb-4">
+                        Maya is powered by advanced AI to understand your travel style, preferences, and interests. 
+                        She'll help craft a personalized itinerary that matches your unique travel personality.
+                      </p>
+                      <p className="text-lg opacity-90 italic">
+                        Can't wait to get started? Click the call button to your right to start chatting with Maya.
+                      </p>
+                    </div>
+                    <div className="bg-blue-600 rounded-xl px-8 py-6 text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                      <h3 className="text-2xl font-semibold mb-2">How Maya Helps Plan Your Trip</h3>
+                      <ul className="text-lg opacity-90 space-y-2">
+                        <li>• Suggests local experiences based on your interests</li>
+                        <li>• Recommends restaurants matching your dietary preferences</li>
+                        <li>• Plans activities around your preferred pace</li>
+                        <li>• Balances tourist spots with hidden gems</li>
+                      </ul>
+                    </div>
+                  </div>
+
                   {/* Voice AI Widget Container - Main Content */}
                   <div className="flex-1" style={{ minHeight: '500px' }}>
                     <VoiceAgentWidget
@@ -294,36 +317,36 @@ export default function AIPreferencesPage() {
         <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
           {/* Members List - Scrollable */}
           <div className="flex-1 overflow-y-auto p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Trip Members</h3>
-            
-            <div className="space-y-4">
-              {groupMembers.map((user) => (
-                <div key={user.id} className="flex items-center space-x-3 p-3 bg-white rounded-xl shadow-sm">
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200">
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{user.name}</p>
-                    <p className={`text-sm ${user.completed ? 'text-green-600' : 'text-gray-500'}`}>
-                      {user.completed ? 'Preferences shared' : 'Pending...'}
-                    </p>
-                  </div>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                    user.completed ? 'bg-green-100' : 'bg-gray-100'
-                  }`}>
-                    {user.completed ? (
-                      <Check className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <X className="w-4 h-4 text-gray-400" />
-                    )}
-                  </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Trip Members</h3>
+          
+          <div className="space-y-4">
+            {groupMembers.map((user) => (
+              <div key={user.id} className="flex items-center space-x-3 p-3 bg-white rounded-xl shadow-sm">
+                <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200">
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-              ))}
-            </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">{user.name}</p>
+                  <p className={`text-sm ${user.completed ? 'text-green-600' : 'text-gray-500'}`}>
+                    {user.completed ? 'Preferences shared' : 'Pending...'}
+                  </p>
+                </div>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                  user.completed ? 'bg-green-100' : 'bg-gray-100'
+                }`}>
+                  {user.completed ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <X className="w-4 h-4 text-gray-400" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
           </div>
 
           {/* Bottom Controls - Fixed */}
