@@ -88,6 +88,9 @@ export default function ItineraryConfirmationPage() {
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [animationComplete, setAnimationComplete] = useState(false);
+  const [isHost, setIsHost] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [bookingInProgress, setBookingInProgress] = useState(false);
 
   useEffect(() => {
         const groupId = searchParams.get('groupId');
@@ -111,13 +114,20 @@ export default function ItineraryConfirmationPage() {
       try {
         const { data: groupData, error: groupError } = await supabase
           .from('travel_groups')
-          .select('itinerary, trip_name, destination_display')
+          .select('itinerary, trip_name, destination_display, host_id, booking_url, selected_flight')
           .eq('group_id', groupId)
           .single();
 
         if (groupError || !groupData?.itinerary) {
           window.location.href = `/travel-plan?groupId=${groupId}`;
           return;
+        }
+
+        // Get current user and check if they're the host
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUserId(user.id);
+          setIsHost(user.id === groupData.host_id);
         }
 
         setItineraryData(groupData.itinerary);
@@ -252,13 +262,129 @@ export default function ItineraryConfirmationPage() {
     }
   };
 
-  const handleProceedWithBooking = () => {
+  const handleProceedWithBooking = async () => {
+    const groupId = searchParams.get('groupId');
+    
+    if (!isHost || !groupId || !currentUserId) {
+      return;
+    }
+
+    setBookingInProgress(true);
     setIsProcessing(true);
-    // Simulate booking process
-    setTimeout(() => {
-      alert('Booking initiated! You will be redirected to payment.');
+
+    try {
+      // Get group data including booking URL and selected flight
+      const { data: groupData, error: groupError } = await supabase
+        .from('travel_groups')
+        .select('booking_url, selected_flight, host_id')
+        .eq('group_id', groupId)
+        .single();
+
+      if (groupError || !groupData) {
+        throw new Error('Failed to fetch group data');
+      }
+
+      // Get all group members
+      const { data: membersData, error: membersError } = await supabase
+        .from('group_members')
+        .select(`
+          user_id,
+          profiles!group_members_user_id_fkey(
+            first_name,
+            last_name,
+            gender,
+            date_of_birth
+          )
+        `)
+        .eq('group_id', groupId);
+
+      if (membersError || !membersData) {
+        throw new Error('Failed to fetch group members');
+      }
+
+      // Get host profile for contact details
+      const { data: hostProfile, error: hostError } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, mobile_number')
+        .eq('user_id', groupData.host_id)
+        .single();
+
+      if (hostError || !hostProfile) {
+        throw new Error('Failed to fetch host profile');
+      }
+
+      // Format passengers data
+      const passengers = membersData.map((member: any) => {
+        const profile = member.profiles;
+        const dateOfBirth = new Date(profile.date_of_birth);
+        
+        return {
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          gender: profile.gender || 'male',
+          day: dateOfBirth.getDate().toString().padStart(2, '0'),
+          month: (dateOfBirth.getMonth() + 1).toString().padStart(2, '0'),
+          year: dateOfBirth.getFullYear().toString()
+        };
+      });
+
+      // Extract phone details from mobile number (assuming format like +91 9876543210)
+      const mobileNumber = hostProfile.mobile_number || '';
+      const phoneNumber = mobileNumber.replace(/\D/g, ''); // Remove non-digits
+      const phoneCountryCode = 'in'; // Default to India, you might want to make this dynamic
+
+      // Get flight option index from selected flight
+      const flightOption = groupData.selected_flight?.index !== undefined 
+        ? `flight-card-${groupData.selected_flight.index}`
+        : 'flight-card-0';
+
+      // Prepare booking request
+      const bookingData = {
+        flight_url: groupData.booking_url,
+        passengers: passengers,
+        flight_option: flightOption,
+        headless: true,
+        timeout: 45000,
+        email: `${hostProfile.first_name.toLowerCase()}.${hostProfile.last_name.toLowerCase()}@example.com`, // You might want to store actual email
+        phone_country_code: phoneCountryCode,
+        phone_number: phoneNumber.slice(-10) // Last 10 digits
+      };
+
+      console.log('Booking request:', bookingData);
+
+      // Make booking request
+      const response = await fetch('https://c05b-2406-7400-c2-45a9-00-1004.ngrok-free.app/api/book-flight', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bookingData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Booking API returned ${response.status}`);
+      }
+
+      const bookingResult = await response.json();
+      console.log('Booking result:', bookingResult);
+
+      if (bookingResult.success && bookingResult.final_url) {
+        // Open booking page in new tab
+        window.open(bookingResult.final_url, '_blank');
+        
+        // Show success message
+        alert(`Booking completed successfully! Session ID: ${bookingResult.session_id}`);
+      } else {
+        throw new Error(bookingResult.message || 'Booking failed');
+      }
+
+    } catch (error) {
+      console.error('Booking error:', error);
+      alert(`Booking failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setBookingInProgress(false);
       setIsProcessing(false);
-    }, 2000);
+    }
   };
 
   const handleSavePDF = async () => {
@@ -642,16 +768,21 @@ export default function ItineraryConfirmationPage() {
         <div className="flex flex-col sm:flex-row gap-4 mb-6 fade-in-element opacity-0">
           <Button
             onClick={handleProceedWithBooking}
-            disabled={isProcessing}
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-semibold text-lg"
+            disabled={isProcessing || !isHost}
+            title={!isHost ? "Only host has access to book the flight" : ""}
+            className={`flex-1 py-4 rounded-xl font-semibold text-lg transition-all duration-200 ${
+              isHost 
+                ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-105' 
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
           >
-            {isProcessing ? (
+            {bookingInProgress ? (
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Processing...</span>
+                <span>Booking Flight...</span>
               </div>
             ) : (
-                <span>Proceed with Booking</span>
+              <span>Proceed to Book Flight</span>
             )}
           </Button>
           <Button
