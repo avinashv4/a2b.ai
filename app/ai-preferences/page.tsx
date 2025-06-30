@@ -233,7 +233,7 @@ export default function AIPreferencesPage() {
           <FadeIn>
             {/* Left Content Container */}
             <div className="h-full flex flex-col pl-24 pr-8">
-              <div className="mb-8 mt-4">
+              <div className="mb-8 mt-12">
                 <div className="flex items-center justify-between gap-8">
                   <div className="text-left flex-1">
                     <h1 className="text-5xl font-bold text-gray-900 mb-4">Share Your Travel Preferences</h1>

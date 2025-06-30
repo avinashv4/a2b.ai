@@ -37,6 +37,9 @@ import { supabase } from '@/lib/supabaseClient';
 import DateIcon from '@/components/DateIcon';
 import { getLocationImage } from '@/lib/getLocationImage';
 import { FadeIn } from '@/components/ui/fade-in';
+import { Dialog } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { getGooglePlacePhotoUrl } from '@/lib/getPlacePhoto';
 
 interface Place {
   id: string;
@@ -68,11 +71,17 @@ interface DayItinerary {
 interface Flight {
   id: string;
   airline: string;
+  iata_code?: string;
   departure: string;
   arrival: string;
   duration: string;
   price: string;
   stops: string;
+  flight_type: string;
+  departure_airport?: string;
+  arrival_airport?: string;
+  departure_date?: string;
+  arrival_date?: string;
 }
 
 interface Hotel {
@@ -146,6 +155,11 @@ export default function TravelPlanPage() {
   const toastId = useRef(0);
   const [showRegenTooltip, setShowRegenTooltip] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showRegenModal, setShowRegenModal] = useState(false);
+  const [regenFeedback, setRegenFeedback] = useState('');
+  const [submittingRegen, setSubmittingRegen] = useState(false);
+  const [regenError, setRegenError] = useState('');
+  const [airlineLogos, setAirlineLogos] = useState<{ [airline: string]: string }>({});
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileSettingsRef = useRef<HTMLDivElement>(null);
@@ -166,7 +180,7 @@ export default function TravelPlanPage() {
 
         const { data: groupData, error: groupError } = await supabase
           .from('travel_groups')
-          .select('itinerary, destination_display, trip_name, destination')
+          .select('itinerary, destination_display, trip_name, destination, selected_flight')
           .eq('group_id', groupId)
           .single();
 
@@ -191,6 +205,72 @@ export default function TravelPlanPage() {
           finalItineraryData = result.data;
         }
         
+        // If selected_flight exists, parse it into flights array (backend logic)
+        if (groupData.selected_flight && finalItineraryData) {
+          const selectedFlight = groupData.selected_flight;
+          let flights = [];
+          if (selectedFlight.parsed_details) {
+            const parsed = selectedFlight.parsed_details;
+            const iataCode = selectedFlight.iata_code;
+            // Going flight
+            if (parsed.going_flight) {
+              flights.push({
+                id: "going",
+                flight_type: "Going",
+                airline: parsed.airlines_used?.[0] || "Unknown Airline",
+                iata_code: iataCode,
+                departure: parsed.going_flight.departure_time,
+                departure_date: parsed.going_flight.departure_date,
+                arrival: parsed.going_flight.arrival_time,
+                arrival_date: parsed.going_flight.arrival_date,
+                duration: parsed.going_flight.duration,
+                stops: parsed.going_flight.stops,
+                price: "",
+                departure_airport: parsed.going_flight.departure_airport,
+                arrival_airport: parsed.going_flight.arrival_airport
+              });
+            }
+            // Return flight
+            if (parsed.return_flight) {
+              flights.push({
+                id: "return",
+                flight_type: "Return",
+                airline: parsed.airlines_used?.[1] || parsed.airlines_used?.[0] || "Unknown Airline",
+                iata_code: iataCode,
+                departure: parsed.return_flight.departure_time,
+                departure_date: parsed.return_flight.departure_date,
+                arrival: parsed.return_flight.arrival_time,
+                arrival_date: parsed.return_flight.arrival_date,
+                duration: parsed.return_flight.duration,
+                stops: parsed.return_flight.stops,
+                price: `${parsed.total_price}`,
+                departure_airport: parsed.return_flight.departure_airport,
+                arrival_airport: parsed.return_flight.arrival_airport
+              });
+            }
+          } else {
+            // Fallback to basic parsing
+            flights = [
+              {
+                id: "1",
+                airline: selectedFlight.text_content?.split(' ')[0] || "Unknown Airline",
+                iata_code: selectedFlight.iata_code,
+                price: selectedFlight.text_content?.match(/\$\d+/)?.[0] || "",
+                departure: "See flight details",
+                arrival: "See flight details",
+                duration: "See flight details",
+                stops: "See flight details",
+                flight_type: "Going",
+                departure_airport: "",
+                arrival_airport: "",
+                departure_date: "",
+                arrival_date: ""
+              }
+            ];
+          }
+          finalItineraryData.flights = flights;
+        }
+
         setItineraryData(finalItineraryData);
         setTripTitle(groupData.trip_name || groupData.destination_display || 'Trip Plan');
         setDestination(groupData.destination_display || groupData.destination || 'Paris');
@@ -383,97 +463,42 @@ export default function TravelPlanPage() {
     }
   };
 
-  const handleVote = (dayIndex: number, placeId: string, voteType: 'accept' | 'deny') => {
-    if (!itineraryData) return;
-    const newItinerary = [...itineraryData.itinerary];
-    const placeIndex = newItinerary[dayIndex].places.findIndex(p => p.id === placeId);
-    if (placeIndex !== -1) {
-      newItinerary[dayIndex].places[placeIndex].voted = voteType;
-      setItineraryData({ ...itineraryData, itinerary: newItinerary });
-    }
-  };
-
-  const handlePlaceVote = async (placeId: string, vote: 'accept' | 'reject') => {
-    const groupId = searchParams.get('groupId');
-    const { data } = await supabase.auth.getUser();
-    if (!data.user?.id || !groupId) return;
-    
-    try {
-      const response = await fetch('/api/vote-place', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          groupId,
-          userId: data.user.id,
-          placeId,
-          vote
-        })
-      });
-      
-      const result = await response.json();
-      if (result.success) {
-        setRegenerateVotes(result.regenerateVotes);
-      }
-    } catch (error) {
-      console.error('Error voting on place:', error);
-    }
-  };
-
   const handleRegenerateVote = async () => {
     if (hasVotedRegenerate || regenerating) return;
-    
-    setRegenerating(true);
+    setShowRegenModal(true);
+  };
+
+  const submitRegenerateFeedback = async () => {
+    setSubmittingRegen(true);
+    setRegenError('');
     try {
       const { data } = await supabase.auth.getUser();
-      if (!data.user) return;
-      
+      if (!data.user) throw new Error('Not authenticated');
       const groupId = searchParams.get('groupId');
-      if (!groupId) return;
-
-      // Collect place votes from itinerary
-      const placeVotes: Record<string, 'accept' | 'deny'> = {};
-      itineraryData?.itinerary.forEach(day => {
-        day.places.forEach(place => {
-          if (place.voted) {
-            placeVotes[place.id] = place.voted;
-          }
-        });
-      });
-      
+      if (!groupId) throw new Error('No group ID');
+      const payload = { groupId, userId: data.user.id, feedback: regenFeedback };
+      console.log('Submitting regenerate feedback:', payload);
       const response = await fetch('/api/regenerate-itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, userId: data.user.id, placeVotes }),
+        body: JSON.stringify(payload),
       });
-      
       const result = await response.json();
-      
-      if (result.success) {
-        setHasVotedRegenerate(true);
-        setRegenerateVotes(result.regenerateVotes);
-        
-        if (result.regenerated) {
-          // If all members voted and itinerary was regenerated, fetch the new itinerary
-          const { data: groupData, error: groupError } = await supabase
-            .from('travel_groups')
-            .select('itinerary')
-            .eq('group_id', groupId)
-            .single();
-
-          if (!groupError && groupData?.itinerary) {
-            setItineraryData(groupData.itinerary);
-            setHasVotedRegenerate(false);
-            setRegenerateVotes(0);
-          } else {
-            // If there was an error fetching the new itinerary, reload the page
-          window.location.reload();
-          }
-        }
+      if (!response.ok || result.error) {
+        throw new Error(result.error || 'Failed to submit feedback');
       }
-    } catch (error) {
-      console.error('Error voting for regeneration:', error);
+      setHasVotedRegenerate(true);
+      setShowRegenModal(false);
+      setRegenFeedback('');
+      // If regeneration happened, refetch group data and reset vote state
+      if (result.regenerated) {
+        await fetchOrGenerateItinerary();
+        setHasVotedRegenerate(false);
+      }
+    } catch (err: any) {
+      setRegenError(err.message || 'Failed to submit feedback');
     } finally {
-      setRegenerating(false);
+      setSubmittingRegen(false);
     }
   };
 
@@ -630,6 +655,25 @@ export default function TravelPlanPage() {
     });
   };
 
+  useEffect(() => {
+    // Fetch airline logos for all flights
+    const fetchLogos = async () => {
+      if (!itineraryData?.flights) return;
+      const logoMap: { [airline: string]: string } = {};
+      await Promise.all(
+        itineraryData.flights.map(async (flight) => {
+          if (flight.airline && !airlineLogos[flight.airline]) {
+            const logoUrl = await getGooglePlacePhotoUrl(flight.airline + ' airline logo');
+            logoMap[flight.airline] = logoUrl || '';
+          }
+        })
+      );
+      setAirlineLogos((prev) => ({ ...prev, ...logoMap }));
+    };
+    fetchLogos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itineraryData?.flights]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -729,7 +773,7 @@ export default function TravelPlanPage() {
     <FadeIn>
       <div className="space-y-8">
         {/* Trip Image */}
-        <div className="w-full h-64 md:h-80 rounded-2xl overflow-hidden bg-gray-200">
+        <div className="w-full h-[28rem] md:h-[36rem] rounded-2xl overflow-hidden bg-gray-200">
           <img
             src={tripImage}
             alt={destination}
@@ -870,16 +914,39 @@ export default function TravelPlanPage() {
           <div className="flex-1 max-w-[500px]">
             <div className="bg-white rounded-2xl py-2 px-6">
               {(flights || []).map((flight, index) => (
-                <div key={flight.id}>
-                  <div className="flex items-center justify-between">
+                <>
+                  {index > 0 && (
+                    <div className="my-4 flex items-center">
+                      <div className="flex-1 h-px bg-gray-200"></div>
+                      <span className="mx-4 text-xs text-gray-400 font-semibold">Return Flight</span>
+                      <div className="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                  )}
+                  <div key={flight.id} className="flex items-center">
+                    {/* Airline logo using IATA code if available */}
+                    {flight.iata_code ? (
+                      <img
+                        src={`https://content.airhex.com/content/logos/airlines_${flight.iata_code}_60_60_s.png`}
+                        alt={flight.airline + ' logo'}
+                        className="w-10 h-10 rounded-full object-contain mr-4 border border-gray-200 bg-white"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gray-100 mr-4 flex items-center justify-center">
+                        <Plane className="w-5 h-5 text-gray-400" />
+                      </div>
+                    )}
                     <div className="flex-1">
                       <div className="flex items-center space-x-4 mb-1">
-                        <h3 className="text-lg font-semibold text-gray-900">{flight.airline}</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {flight.flight_type === 'Going' && <span className="text-blue-600 mr-2">Going</span>}
+                          {flight.flight_type === 'Return' && <span className="text-green-600 mr-2">Return</span>}
+                          {flight.airline}
+                        </h3>
                       </div>
                       <div className="flex items-center space-x-6 text-gray-600 text-sm">
                         <div>
-                          <p className="font-medium">{flight.departure}</p>
-                          <p className="text-xs">Departure</p>
+                          <p className="font-medium">{flight.departure} <span className="ml-1 text-xs text-gray-400">{flight.departure_date}</span></p>
+                          <p className="text-xs">{flight.departure_airport ? `${flight.departure_airport} Departure` : 'Departure'}</p>
                         </div>
                         <div className="flex items-center space-x-2">
                           <div className="w-6 h-px bg-gray-300"></div>
@@ -887,8 +954,8 @@ export default function TravelPlanPage() {
                           <div className="w-6 h-px bg-gray-300"></div>
                         </div>
                         <div>
-                          <p className="font-medium">{flight.arrival}</p>
-                          <p className="text-xs">Arrival</p>
+                          <p className="font-medium">{flight.arrival} <span className="ml-1 text-xs text-gray-400">{flight.arrival_date}</span></p>
+                          <p className="text-xs">{flight.arrival_airport ? `${flight.arrival_airport} Arrival` : 'Arrival'}</p>
                         </div>
                         <div className="text-xs">
                           <p>{flight.duration}</p>
@@ -897,8 +964,7 @@ export default function TravelPlanPage() {
                       </div>
                     </div>
                   </div>
-                  {index === 0 && <div className="border-t my-1.5" />}
-                </div>
+                </>
               ))}
             </div>
           </div>
@@ -932,14 +998,14 @@ export default function TravelPlanPage() {
                 className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
               >
                 <div className="flex flex-col md:flex-row">
-                  <div className="w-full md:w-1/3">
+                  <div className="w-full md:w-1/3 flex items-center justify-center py-3">
                     <img
                       src={hotel.image}
                       alt={hotel.name}
-                      className="w-full h-48 md:h-full object-cover"
+                      className="w-[260px] h-[260px] object-cover rounded-lg"
                     />
                   </div>
-                  <div className="p-6 flex-1">
+                  <div className="p-6 flex-1 flex flex-col justify-between">
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-xl font-semibold text-gray-900">
@@ -971,17 +1037,11 @@ export default function TravelPlanPage() {
                     <div className="mt-6 flex justify-between items-center">
                       <Button
                         onClick={() => setSelectedHotel(hotel.id)}
-                        variant={selectedHotel === hotel.id ? "default" : "outline"}
-                        className="w-full"
+                        variant={selectedHotel === hotel.id ? "default" : "secondary"}
+                        className={`w-full ${selectedHotel === hotel.id ? 'bg-[#2563eb] hover:bg-[#1d4ed8] text-white border-none' : ''}`}
                       >
                         {selectedHotel === hotel.id ? "Selected" : "Select Hotel"}
                       </Button>
-                      {selectedHotel === hotel.id && (
-                        <div className="flex items-center text-green-600 text-sm font-medium">
-                          <Check className="w-4 h-4 mr-1" />
-                          Selected
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -1049,26 +1109,6 @@ export default function TravelPlanPage() {
                                     {place.visitTime && <span>Visit at {place.visitTime}</span>}
                                   </div>
                                 </div>
-                              </div>
-                                <div className="flex space-x-2">
-                                  <button
-                                  onClick={() => handleVote(dayIndex, place.id, 'accept')}
-                                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${place.voted === 'accept' ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-gray-300 text-green-600 hover:bg-green-50'}`}
-                                  onMouseEnter={(e) => handleMouseEnter(`accept-${place.id}`, e)}
-                                  onMouseLeave={handleMouseLeave}
-                                    title="Vote to Accept"
-                                >
-                                    <Check className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                  onClick={() => handleVote(dayIndex, place.id, 'deny')}
-                                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${place.voted === 'deny' ? 'bg-red-600 border-red-600 text-white' : 'bg-white border-gray-300 text-red-600 hover:bg-red-50'}`}
-                                  onMouseEnter={(e) => handleMouseEnter(`deny-${place.id}`, e)}
-                                  onMouseLeave={handleMouseLeave}
-                                    title="Vote to Reject"
-                                >
-                                    <RotateCcw className="w-4 h-4" />
-                                  </button>
                               </div>
                             </div>
                             <p className="text-xs text-gray-600 mb-2">{place.description}</p>
@@ -1253,7 +1293,8 @@ export default function TravelPlanPage() {
             <span className={`font-medium text-sm whitespace-nowrap transition-opacity duration-300 ${
               sidebarFullyOpen ? 'opacity-100' : 'opacity-0'
             }`}>
-              Regenerate {regenerateVotes > 0 && `(${regenerateVotes}/${totalMembers})`}
+              {hasVotedRegenerate ? 'Waiting for others...' : 'Regenerate'}
+              {regenerateVotes > 0 && !hasVotedRegenerate && ` (${regenerateVotes}/${totalMembers})`}
             </span>
           )}
         </button>
@@ -1314,9 +1355,10 @@ export default function TravelPlanPage() {
                     </button>
                     <button
                       onClick={handleRegenerateVote}
-                      disabled={hasVotedRegenerate || regenerating || !allPlacesVoted}
-                      className={`w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors cursor-not-allowed`}
-                      title={!allPlacesVoted ? 'Vote on all places before regenerating' : ''}
+                      disabled={hasVotedRegenerate || regenerating}
+                      className={`w-full flex items-center space-x-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
+                        hasVotedRegenerate ? 'cursor-not-allowed bg-gray-100 text-gray-500' : ''
+                      }`}
                     >
                       <div className="h-8 flex items-center">
                         <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
@@ -1491,6 +1533,41 @@ export default function TravelPlanPage() {
             </div>
           ))}
         </div>
+
+        {/* Regenerate Feedback Modal */}
+        {showRegenModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white rounded-2xl shadow-lg p-6 max-w-md w-full mx-4">
+              <h2 className="text-xl font-bold mb-2">Regenerate Itinerary</h2>
+              <p className="text-gray-600 mb-4">Tell us what you liked about the itinerary and what you would like to see replaced.</p>
+              <Textarea
+                value={regenFeedback}
+                onChange={e => setRegenFeedback(e.target.value)}
+                rows={8}
+                className="w-full mb-2 text-lg p-4 min-h-[180px]"
+                placeholder="Share your feedback..."
+                disabled={submittingRegen}
+              />
+              {regenError && <div className="text-red-600 text-sm mb-2">{regenError}</div>}
+              <div className="flex justify-end space-x-2 mt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { setShowRegenModal(false); setRegenFeedback(''); setRegenError(''); }}
+                  disabled={submittingRegen}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={submitRegenerateFeedback}
+                  disabled={submittingRegen || !regenFeedback.trim()}
+                  className="bg-[#2049be] hover:bg-[#183a96] text-white border-none"
+                >
+                  {submittingRegen ? 'Submitting...' : 'Done'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

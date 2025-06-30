@@ -357,8 +357,8 @@ ${availableFlights ? `
 Flight Selection:
 - CRITICAL: Choose the BEST flight option from the available flights list above
 - Consider: price, timing, convenience, minimal layovers
-- Return the selected flight's index and text_content in the "selectedFlight" field
-- CRITICAL: Plan activities considering the selected flight's arrival time
+- Return the selected flight's index, text_content, and the airline's IATA code (e.g., "AI" for Air India) in the "selectedFlight" field as "iata_code"
+- CRITICAL: Plan activities considering the selected flight's arrival time. give the user around 2 hours of buffer time after the arrival time. to checkin and freshen up
 - CRITICAL: On departure day, ensure all activities end at least 4 hours before flight departure time
 - Do not schedule any activities after the time needed to reach airport 3 hours before departure
 - Consider the departure date (${groupData.departure_date}) and return date (${groupData.return_date}) when planning
@@ -522,8 +522,8 @@ General:
       // Check if we have parsed flight details
       if (itineraryData.selectedFlight.parsed_details) {
         const parsed = itineraryData.selectedFlight.parsed_details;
+        const iataCode = itineraryData.selectedFlight.iata_code;
         const flights = [];
-        
         // Going flight
         if (parsed.going_flight) {
           flights.push({
@@ -532,6 +532,7 @@ General:
             index: itineraryData.selectedFlight.index,
             text_content: itineraryData.selectedFlight.text_content,
             airline: parsed.airlines_used?.[0] || "Unknown Airline",
+            iata_code: iataCode,
             departure: parsed.going_flight.departure_time,
             departure_date: parsed.going_flight.departure_date,
             arrival: parsed.going_flight.arrival_time,
@@ -543,7 +544,6 @@ General:
             arrival_airport: parsed.going_flight.arrival_airport
           });
         }
-        
         // Return flight
         if (parsed.return_flight) {
           flights.push({
@@ -552,6 +552,7 @@ General:
             index: itineraryData.selectedFlight.index,
             text_content: itineraryData.selectedFlight.text_content,
             airline: parsed.airlines_used?.[1] || parsed.airlines_used?.[0] || "Unknown Airline",
+            iata_code: iataCode,
             departure: parsed.return_flight.departure_time,
             departure_date: parsed.return_flight.departure_date,
             arrival: parsed.return_flight.arrival_time,
@@ -563,7 +564,6 @@ General:
             arrival_airport: parsed.return_flight.arrival_airport
           });
         }
-        
         itineraryData.flights = flights;
         itineraryData.flights_used_text = parsed.flights_used_text;
       } else {
@@ -574,6 +574,7 @@ General:
             index: itineraryData.selectedFlight.index,
             text_content: itineraryData.selectedFlight.text_content,
             airline: extractAirline(itineraryData.selectedFlight.text_content),
+            iata_code: itineraryData.selectedFlight.iata_code,
             price: extractPrice(itineraryData.selectedFlight.text_content),
             departure: "See flight details",
             arrival: "See flight details", 
@@ -584,35 +585,35 @@ General:
       }
     } else {
       // Fallback flights
-      itineraryData.flights = [
-        {
-          id: "1",
-          airline: "Air India",
-          departure: "10:30 AM",
-          arrival: "2:45 PM",
-          duration: "8h 15m",
-          price: "$650",
-          stops: "Direct"
-        },
-        {
-          id: "2",
-          airline: "Emirates",
-          departure: "11:45 PM",
-          arrival: "6:30 AM+1",
-          duration: "9h 45m",
-          price: "$720",
-          stops: "1 stop"
-        },
-        {
-          id: "3",
-          airline: "Qatar Airways",
-          departure: "2:15 AM",
-          arrival: "8:00 AM",
-          duration: "10h 45m",
-          price: "$680",
-          stops: "1 stop"
-        }
-      ];
+    itineraryData.flights = [
+      {
+        id: "1",
+        airline: "Air India",
+        departure: "10:30 AM",
+        arrival: "2:45 PM",
+        duration: "8h 15m",
+        price: "$650",
+        stops: "Direct"
+      },
+      {
+        id: "2",
+        airline: "Emirates",
+        departure: "11:45 PM",
+        arrival: "6:30 AM+1",
+        duration: "9h 45m",
+        price: "$720",
+        stops: "1 stop"
+      },
+      {
+        id: "3",
+        airline: "Qatar Airways",
+        departure: "2:15 AM",
+        arrival: "8:00 AM",
+        duration: "10h 45m",
+        price: "$680",
+        stops: "1 stop"
+      }
+    ];
     }
 
     // Save the final itinerary to the database

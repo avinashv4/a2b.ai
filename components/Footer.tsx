@@ -95,7 +95,7 @@ export default function Footer() {
               <img 
                 src="/logotext_poweredby_360w.png" 
                 alt="Powered by Bolt.new" 
-                className="h-6 w-auto"
+                className="h-20 w-auto"
               />
             </a>
           </div>

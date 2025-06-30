@@ -83,13 +83,13 @@ export async function POST(request: NextRequest) {
       const allFeedback = membersWithFeedback
         .filter(member => member.itinerary_feedback)
         .map(member => ({
-          name: `${member.profiles.first_name} ${member.profiles.last_name}`,
+          name: `${(member.profiles as any).first_name} ${(member.profiles as any).last_name}`,
           feedback: member.itinerary_feedback
         }));
 
       // Format member preferences for Gemini
-      const memberPreferences = membersWithFeedback.map((member: any) => ({
-        name: `${member.profiles.first_name} ${member.profiles.last_name}`,
+      const memberPreferences = membersWithFeedback.map(member => ({
+        name: `${(member.profiles as any).first_name} ${(member.profiles as any).last_name}`,
         dealBreakers: member.deal_breakers_and_strong_preferences,
         interests: member.interests_and_activities,
         niceToHaves: member.nice_to_haves_and_openness,
@@ -226,10 +226,10 @@ Return the updated itinerary in the EXACT same JSON format as the original respo
         }))
       );
 
-      // Update the database with new itinerary and API response
+      // Save the new itinerary and API call
       const { error: updateError } = await supabase
         .from('travel_groups')
-        .update({ 
+        .update({
           itinerary: updatedItineraryData,
           most_recent_api_call: newApiResponse
         })

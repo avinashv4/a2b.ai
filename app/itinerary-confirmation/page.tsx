@@ -601,7 +601,7 @@ export default function ItineraryConfirmationPage() {
       console.log('Booking request:', bookingData);
 
       // Make booking request
-      const response = await fetch('https://c05b-2406-7400-c2-45a9-00-1004.ngrok-free.app/api/book-flight', {
+      const response = await fetch('https://ea2f-2406-7400-c2-45a9-00-1004.ngrok-free.app/api/book-flight', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

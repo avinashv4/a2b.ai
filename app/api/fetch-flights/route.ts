@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use the provided ngrok URL for flight scraping
-    const flightScrapingUrl = 'https://c05b-2406-7400-c2-45a9-00-1004.ngrok-free.app/api/get-flights';
+    const flightScrapingUrl = 'https://ea2f-2406-7400-c2-45a9-00-1004.ngrok-free.app/api/get-flights';
     
 
     console.log('Fetching flights from:', flightScrapingUrl);

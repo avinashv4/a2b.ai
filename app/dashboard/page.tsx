@@ -247,42 +247,6 @@ export default function DashboardPage() {
             </Link>
             
             <div className="flex items-center space-x-4">
-              {/* Notifications */}
-              <div className="relative" ref={notificationRef}>
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <div className="relative">
-                    <Bell className="w-6 h-6" />
-                    {notifications.some(n => n.unread) && (
-                      <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white"></span>
-                    )}
-                  </div>
-                </button>
-                
-                {showNotifications && (
-                  <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-10">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <h3 className="font-semibold text-gray-900">Notifications</h3>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className={`px-4 py-3 hover:bg-gray-50 ${
-                            notification.unread ? 'bg-blue-50' : ''
-                          }`}
-                        >
-                          <p className="text-sm text-gray-900 mb-1">{notification.message}</p>
-                          <p className="text-xs text-gray-500">{notification.time}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* Settings */}
               <Link href="/settings">
                 <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
