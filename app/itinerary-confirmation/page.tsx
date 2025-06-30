@@ -1052,7 +1052,21 @@ export default function ItineraryConfirmationPage() {
             )}
           </Button>
         </div>
+        {/* Subtle redirect info below booking button */}
+        <div className="text-center text-gray-500 text-sm mb-8">
+          You will be redirected to the payment page of the booking.
+        </div>
       </div>
+      {/* Overlay loading screen during booking */}
+      {bookingInProgress && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-95">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Sit back and relax</h2>
+            <p className="text-lg text-gray-600">We are handling the annoying part of the booking process.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
