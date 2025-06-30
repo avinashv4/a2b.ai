@@ -10,11 +10,8 @@ export default function Navigation() {
       <div className="bg-white/95 backdrop-blur-sm rounded-2xl nav-shadow px-8 py-5">
         <div className="flex items-center justify-between">
           {/* Logo and Brand */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-              <Plane className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-gray-900">a2b.ai</span>
+          <div className="flex items-center">
+            <img src="/logo_blue.png" alt="a2b.ai logo" className="h-12 w-auto" />
           </div>
 
           {/* Navigation Links */}

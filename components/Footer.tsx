@@ -16,11 +16,8 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Section */}
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center">
-                <Plane className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold">a2b.ai</span>
+            <div className="mb-6 flex items-center">
+              <img src="/logo_yellow.png" alt="a2b.ai logo" className="h-12 w-auto mx-auto" />
             </div>
             <p className="text-gray-300 text-lg mb-6 max-w-md">
               Making travel planning collaborative, intelligent, and effortless. 

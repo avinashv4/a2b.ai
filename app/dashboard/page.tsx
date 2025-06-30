@@ -239,11 +239,8 @@ export default function DashboardPage() {
         <div className="bg-white rounded-2xl nav-shadow px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo and Brand */}
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-                <Plane className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">a2b.ai</span>
+            <Link href="/" className="flex items-center">
+              <img src="/logo_blue.png" alt="a2b.ai logo" className="h-10 w-auto" />
             </Link>
             
             <div className="flex items-center space-x-4">
@@ -303,7 +300,7 @@ export default function DashboardPage() {
       </nav>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8 pt-32">
+      <div className="max-w-7xl mx-auto px-6 py-8 pt-36">
         <div className="mb-12">
           {profileLoading ? (
             <div className="text-2xl text-gray-700 mb-4">Loading...</div>

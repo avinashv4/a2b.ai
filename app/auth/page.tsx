@@ -78,11 +78,8 @@ export default function AuthPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-              <Plane className="w-7 h-7 text-white" />
-            </div>
-            <span className="text-3xl font-bold text-gray-900">a2b.ai</span>
+          <div className="flex items-center justify-center mb-8">
+            <img src="/logo.png" alt="a2b.ai logo" className="h-16 w-auto" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
             {isLogin ? 'Welcome back' : 'Create your account'}

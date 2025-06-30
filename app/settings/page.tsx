@@ -11,11 +11,8 @@ export default function SettingsPage() {
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl nav-shadow px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo and Brand */}
-            <Link href="/dashboard" className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-                <Plane className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">a2b.ai</span>
+            <Link href="/dashboard" className="flex items-center">
+              <img src="/logo_blue.png" alt="a2b.ai logo" className="h-10 w-auto" />
             </Link>
             
             <Link href="/dashboard">
