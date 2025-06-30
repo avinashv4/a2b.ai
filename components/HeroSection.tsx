@@ -85,17 +85,49 @@ export default function HeroSection() {
               discover hidden gems and optimize your itinerary for the best experience.
             </p>
           </div>
-          
-          {/* Placeholder for Feature Video/Image */}
-          <div className="bg-gray-100 rounded-2xl h-[32rem] md:h-[42rem] flex items-center justify-center border-2 border-dashed border-gray-300 w-full px-4">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gray-300 rounded-full mx-auto mb-6 flex items-center justify-center">
-                <svg className="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M19 10a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <p className="text-gray-500 font-semibold text-lg">Feature Demo Placeholder</p>
-              <p className="text-gray-400 text-sm mt-2">Video or image will be added here</p>
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
+            {/* Feature 1 */}
+            <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center">
+              <svg className="w-10 h-10 text-blue-500 mb-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m13-3.13V7a4 4 0 00-3-3.87M6 4.13A4 4 0 003 7v6m0 0a4 4 0 003 3.87m0 0h12m0 0a4 4 0 003-3.87" /></svg>
+              <h4 className="font-semibold text-lg mb-2">Collaborative Trip Planning</h4>
+              <p className="text-gray-600">Plan trips together with friends and family in real-time.</p>
+            </div>
+            {/* Feature 2 */}
+            <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center">
+              <svg className="w-10 h-10 text-purple-500 mb-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 20h9" /><path d="M12 4v16m0 0H3" /></svg>
+              <h4 className="font-semibold text-lg mb-2">AI-Powered Itinerary Generation</h4>
+              <p className="text-gray-600">Instantly generate personalized itineraries based on group preferences.</p>
+            </div>
+            {/* Feature 3 */}
+            <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center">
+              <svg className="w-10 h-10 text-green-500 mb-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+              <h4 className="font-semibold text-lg mb-2">Dynamic Map Interface</h4>
+              <p className="text-gray-600">Visualize destinations, hotels, and activities on an interactive map.</p>
+            </div>
+            {/* Feature 4 */}
+            <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center">
+              <svg className="w-10 h-10 text-yellow-500 mb-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /></svg>
+              <h4 className="font-semibold text-lg mb-2">Flight & Hotel Selection</h4>
+              <p className="text-gray-600">Compare and select the best flights and hotels for your group.</p>
+            </div>
+            {/* Feature 5 */}
+            <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center">
+              <svg className="w-10 h-10 text-pink-500 mb-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 8h2a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8a2 2 0 012-2h2" /><path d="M12 12v.01" /><path d="M12 16v.01" /></svg>
+              <h4 className="font-semibold text-lg mb-2">Group Voting & Feedback</h4>
+              <p className="text-gray-600">Collect feedback and votes from all group members for key decisions.</p>
+            </div>
+            {/* Feature 6 */}
+            <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center">
+              <svg className="w-10 h-10 text-indigo-500 mb-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 0V4m0 16v-4" /></svg>
+              <h4 className="font-semibold text-lg mb-2">Budget Optimization</h4>
+              <p className="text-gray-600">Get suggestions that fit your group's budget.</p>
+            </div>
+            {/* Feature 7 */}
+            <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center">
+              <svg className="w-10 h-10 text-teal-500 mb-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 17v-2a4 4 0 014-4h6" /><path d="M9 7v2a4 4 0 004 4h6" /></svg>
+              <h4 className="font-semibold text-lg mb-2">Easy Booking Integration</h4>
+              <p className="text-gray-600">Seamlessly proceed to booking flights and hotels.</p>
             </div>
           </div>
         </div>
