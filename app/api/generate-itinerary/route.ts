@@ -230,10 +230,8 @@ export async function POST(request: NextRequest) {
       console.log('Fetching flights from booking URL:', bookingUrl);
       
       // Fetch flight data using the booking URL
-      const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
-        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-        : process.env.NEXTAUTH_URL 
-        ? process.env.NEXTAUTH_URL
+      const baseUrl = process.env.URL // Netlify's primary URL environment variable
+        ? `https://${process.env.URL}`
         : 'http://localhost:3000';
       
       const flightResponse = await fetch(`${baseUrl}/api/fetch-flights`, {
