@@ -591,17 +591,18 @@ export default function ItineraryConfirmationPage() {
         flight_url: groupData.booking_url,
         passengers: passengers,
         flight_option: flightOption,
-        headless: false,
+        headless: true,
         timeout: 45000,
         email: hostProfile.email,
         phone_country_code: phoneCountryCode,
         phone_number: phoneNumber.slice(-10) // Last 10 digits
       };
 
-      console.log('Booking request:', bookingData);
+      console.log('Booking request object:', bookingData);
+      console.log('Booking request body:', JSON.stringify(bookingData));
 
       // Make booking request
-      const response = await fetch('https://web-production-45560.up.railway.app/api/book-flight', {
+      const response = await fetch('https://2098-2406-7400-c2-45a9-00-1004.ngrok-free.app/api/book-flight', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
