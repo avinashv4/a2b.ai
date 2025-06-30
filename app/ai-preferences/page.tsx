@@ -283,6 +283,7 @@ export default function AIPreferencesPage() {
                         <li>• Recommends restaurants matching your dietary preferences</li>
                         <li>• Plans activities around your preferred pace</li>
                         <li>• Balances tourist spots with hidden gems</li>
+                        <li>• Crafts your dream trip without breaking the bank</li>
                       </ul>
                     </div>
                   </div>
