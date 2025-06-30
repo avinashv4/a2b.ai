@@ -392,7 +392,7 @@ Parse this into structured JSON within the selectedFlight object as "parsed_deta
     "duration": "15h 55m"
   },
   "airlines_used": ["Air India"],
-  "total_price": "INR86,414.00",
+  "total_price": "INR 86,414.00",
   "flights_used_text": "Air India"
 }
 
