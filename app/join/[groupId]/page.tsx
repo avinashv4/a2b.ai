@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 interface TravelGroup {
   group_id: string;
   destination: string;
+  destination_display: string;
   created_at: string;
   host: {
     first_name: string;
@@ -50,20 +51,37 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
 
         setIsAuthenticated(true);
 
-        // Load travel group details
+        // First, try to load travel group details using service role or public access
+        // We'll use a direct query without RLS restrictions for public group info
         const { data: groupData, error: groupError } = await supabase
           .from('travel_groups')
-          .select(`
-            group_id,
-            destination,
-            created_at,
-            host:profiles!travel_groups_host_id_fkey(first_name, last_name)
-          `)
+          .select('group_id, destination, destination_display, created_at, host_id')
           .eq('group_id', params.groupId)
           .single();
 
         if (groupError) {
+          console.error('Group query error:', groupError);
           setError('Travel group not found');
+          setLoading(false);
+          return;
+        }
+
+        if (!groupData) {
+          setError('Travel group not found');
+          setLoading(false);
+          return;
+        }
+
+        // Get host profile information
+        const { data: hostData, error: hostError } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', groupData.host_id)
+          .single();
+
+        if (hostError) {
+          console.error('Host query error:', hostError);
+          setError('Failed to load group host information');
           setLoading(false);
           return;
         }
@@ -78,14 +96,15 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
           .eq('group_id', params.groupId);
 
         if (membersError) {
-          console.error('Error loading members:', membersError);
+          console.error('Members query error:', membersError);
+          // Don't fail completely if we can't load members, just show empty list
         }
 
         const formattedMembers = membersData?.map(member => ({
           user_id: member.user_id,
-          first_name: member.profiles[0].first_name,
-          last_name: member.profiles[0].last_name,
-          profile_picture: member.profiles[0].profile_picture
+          first_name: (member.profiles as any)?.first_name || 'Unknown',
+          last_name: (member.profiles as any)?.last_name || 'User',
+          profile_picture: (member.profiles as any)?.profile_picture
         })) || [];
 
         // Check if current user is already a member
@@ -93,14 +112,20 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
         setIsAlreadyMember(isCurrentUserMember);
 
         setTravelGroup({
-          ...groupData,
-          host: groupData.host[0],
+          group_id: groupData.group_id,
+          destination: groupData.destination,
+          destination_display: groupData.destination_display,
+          created_at: groupData.created_at,
+          host: {
+            first_name: hostData.first_name,
+            last_name: hostData.last_name
+          },
           member_count: formattedMembers.length
         });
         setMembers(formattedMembers);
       } catch (err) {
+        console.error('Unexpected error:', err);
         setError('An error occurred while loading the trip details');
-        console.error('Error:', err);
       } finally {
         setLoading(false);
       }
@@ -129,13 +154,17 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
         .from('group_members')
         .insert({
           group_id: params.groupId,
-          user_id: user.id
+          user_id: user.id,
+          regenerate_vote: false,
+          place_votes: {},
+          confirm_itinerary_vote: false
         });
 
       if (joinError) {
         if (joinError.code === '23505') { // Unique constraint violation
           setError('You are already a member of this trip');
         } else {
+          console.error('Join error:', joinError);
           throw new Error('Failed to join trip: ' + joinError.message);
         }
         return;
@@ -152,6 +181,7 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
       }, 2000);
 
     } catch (err) {
+      console.error('Join trip error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setJoining(false);
@@ -241,7 +271,7 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to the Trip!</h1>
             <p className="text-gray-600 mb-6">
-              You&apos;ve successfully joined the {travelGroup?.destination} trip. 
+              You&apos;ve successfully joined the {travelGroup?.destination_display} trip. 
               Redirecting you to share your preferences...
             </p>
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -279,7 +309,7 @@ export default function JoinTripPage({ params }: { params: { groupId: string } }
           <div className="bg-gray-50 rounded-2xl p-6 mb-6">
             <div className="flex items-center justify-center space-x-3 mb-4">
               <MapPin className="w-6 h-6 text-blue-600" />
-              <h2 className="text-2xl font-bold text-gray-900">{travelGroup?.destination}</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{travelGroup?.destination_display}</h2>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
