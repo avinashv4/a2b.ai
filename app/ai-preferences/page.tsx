@@ -210,11 +210,8 @@ export default function AIPreferencesPage() {
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl nav-shadow px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo and Brand */}
-            <Link href="/dashboard" className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-                <Plane className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">a2b.ai</span>
+            <Link href="/dashboard" className="flex items-center">
+              <img src="/logo_blue.png" alt="a2b.ai logo" className="h-10 w-auto" />
             </Link>
             
             <Link href="/dashboard">
@@ -232,7 +229,7 @@ export default function AIPreferencesPage() {
         <div className="flex-1 relative">
           <FadeIn>
             {/* Left Content Container */}
-            <div className="h-full flex flex-col pl-24 pr-8">
+            <div className="h-full flex flex-col pl-24 pr-8 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
               <div className="mb-8 mt-12">
                 <div className="flex items-center justify-between gap-8">
                   <div className="text-left flex-1">
@@ -321,37 +318,6 @@ export default function AIPreferencesPage() {
                             </p>
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl px-8 py-8 text-white shadow-[0_8px_32px_rgba(16,185,129,0.3)]">
-                        <div className="flex items-center gap-3 mb-6">
-                          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                            <span className="text-xl">🎯</span>
-                          </div>
-                          <h3 className="text-2xl font-bold">How Maya Personalizes Your Trip</h3>
-                        </div>
-                        <div className="grid grid-cols-1 gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                            <p className="text-lg">Suggests experiences based on your interests</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                            <p className="text-lg">Recommends restaurants matching your dietary needs</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                            <p className="text-lg">Plans activities around your preferred pace</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                            <p className="text-lg">Balances popular spots with hidden gems</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                            <p className="text-lg">Creates your dream trip within your budget</p>
-                          </div>
-                        </p>
                       </div>
                     </div>
 
